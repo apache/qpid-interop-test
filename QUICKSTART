@@ -1,0 +1,59 @@
+QUICKSTART GUIDE
+================
+
+0. Prerequisites
+----------------
+* qpid-proton built and installed
+* For JMS testing, qpid-jms built and installed
+
+1. Get the source
+-----------------
+git clone https://git-wip-us.apache.org/repos/asf/qpid-interop-test.git
+
+2. Patch Proton and build
+-------------------------
+Proton needs to be patched with a change that adds support for the missing AMQP types in the current
+python implementation. This patch will be proposed as a patch to Proton itself, and if accepted,
+this part of the procedure will go away. Until then, the patch is located in the etc directory as
+proton-python-amqp-types.patch. Copy this to the qpid-proton directory, then:
+
+cd <path/to/>qpid-proton
+patch -p1 proton-python-amqp-types.patch
+cd build/
+make
+sudo make install
+cd ..
+mvn -DskipTests package
+mvn -DskipTests install
+
+3. Build Qpid JMS
+-----------------
+cd <path/to/>qpid-jms
+mvn -DskipTests package
+mvn -DskipTests install
+
+
+3 Prepare the tests
+-------------------
+(ONLY IF NEEDED): Edit src/py/qpid_interop/types/simple_type_tests.py as
+needed, particularly AmqpPrimitiveTypes.TYPE_MAP which controls the AMQP types
+and test values for each type.
+
+4. Run the tests (uninstalled)
+------------------------------
+Note that installation is still to be completed, this section will change to
+reflect installation details when complete.
+
+Assuming proton's make install has been run, from top level qpid-interop-test directory:
+export PYTHONPATH=/usr/local/lib64/proton/bindings/python:src/py/qpid-interop-test
+export LD_LIBRARY_PATH=/usr/local/lib64
+export QPID_INTEROP_TEST_HOME=<abs path to top level qpid-interop-test directory>
+
+Start a broker. If using qpidd:
+qpidd --load-module amqp.so -m yes --auth no --queue-pattern qpid-interop.simple_type_tests --default-flow-stop-threshold 0 --default-flow-resume-threshold 0 --default-queue-limit 0 --log-enable info+
+
+NOTE: YOU MUST USE THE --queue-pattern qpid-interop.simple_type_tests parameter with the Qpid broker!
+
+From top level directory:
+./src/py/qpid-interop-test/types/simple_type_tests.py
+

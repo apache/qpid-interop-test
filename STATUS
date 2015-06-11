@@ -1,0 +1,48 @@
+1. AMQP type tests:
+-------------------
+Main test launcher:
+Python program src/py/qpid-interop-test/types/simple_type_tests.py
+
+The launcher uses "shims", each of which is a simple pair of test programs
+which receive their instructions through the command-line. These are written
+using the target test client API. One program is a sender and is responsible
+for sending test messages, while the other is a receiver and is responsible
+for recieving the test messages and returning them to the launcher.
+
+1.1 Qpid-proton-python shim
+---------------------------
+Status: Working.
+        AMQP types:
+            null - implemented
+            boolean - implemented
+            ubyte - implemented with Proton patch support for this type
+            ushort - implemented with Proton patch support for this type
+            uint - implemented with Proton patch support for this type
+            ulong - implemented
+            byte - implemented with Proton patch support for this type - fails in swig interface
+            short - implemented with Proton patch support for this type
+            int - implemented with Proton patch support for this type
+            long - implemented
+            float - implemented with Proton patch support for this type
+            double - implemented
+            decimal32 - implemented with Proton patch support for this type - fails in swig interface
+            decimal64 - implemented with Proton patch support for this type - fails in swig interface
+            decimal128 - implemented with Proton patch support for this type - not working, commented out
+            char - implemented - not working, commented out
+            timestamp - implemented
+            uuid - implemented
+            binary - implemented
+            string - implemented
+            symbol - implemented
+            list - implemented
+            map - implemented - test broken
+            array - not yet implemented - TODO
+
+1.2 Qpid-JMS shim
+-----------------
+Status: In progress, AMQP string type works with Qpid-proton-python.
+
+
+2. AMQP functionality tests:
+----------------------------
+Not yet implemented
