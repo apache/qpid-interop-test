@@ -88,7 +88,7 @@ class Sender(MessagingHandler):
         elif self.amqp_type == 'decimal64':
             return Message(id=(self.sent+1), body=decimal64(literal_eval(test_value)))
         elif self.amqp_type == 'decimal128':
-            return Message(id=(self.sent+1), body=decimal128(test_value.decode('hex')))
+            return Message(id=(self.sent+1), body=decimal128(literal_eval(test_value)))
         elif self.amqp_type == 'char':
             return Message(id=(self.sent+1), body=char(test_value))
         elif self.amqp_type == 'timestamp':

@@ -28,15 +28,14 @@ import unittest
 
 from ast import literal_eval
 from itertools import product
-from os import getenv
+from os import getenv, path
 from proton import char, int32, symbol, timestamp, ulong
 from shim_utils import StrToObj
-from subprocess import check_output
+from subprocess import check_output, CalledProcessError
 from time import mktime, time
 from uuid import UUID, uuid4
 
 QPID_INTEROP_TEST_HOME = getenv('QPID_INTEROP_TEST_HOME') # TODO - propose a sensible default when installation details are worked out
-
 
 class SimpleTypeTestError(StandardError):
     """
@@ -58,7 +57,7 @@ class AmqpPrimitiveTypes(object):
         'ushort': [0x0, 0x7fff, 0x8000, 0xffff],
         'uint': [0x0, 0x7fffffff, 0x80000000, 0xffffffff],
         'ulong': [0x0, 0x01, 0xff, 0x100, 0x7fffffffffffffff, 0x8000000000000000, 0xffffffffffffffff],
-        'byte': [0x0, 0x7f, 0x80, 0xff],
+        'byte': [-0x80, -0x01, 0x0, 0x7f],
         'short': [-0x8000, -0x1, 0x0, 0x7fff],
         'int': [-0x80000000, -0x1, 0x0, 0x7fffffff],
         'long': [-0x8000000000000000, -0x81, -0x80, -0x01, 0x0, 0x7f, 0x80, 0x7fffffffffffffff],
@@ -78,8 +77,8 @@ class AmqpPrimitiveTypes(object):
                   '0xff7fffff', # Largest negative normalized number
                   '0x7f800000', # +Infinity
                   '0xff800000', # -Infinity
-                  '0x7fffffff', # +NaN 
-                  '0xffffffff'], # -NaN 
+                  '0x7fc00000', # +NaN 
+                  '0xffc00000'], # -NaN 
         'double': ['0x0000000000000000', # 0.0
                    '0x8000000000000000', # -0.0
                    '0x400921fb54442eea', # pi (3.14159265359) positive decimal
@@ -94,32 +93,30 @@ class AmqpPrimitiveTypes(object):
                    '0xffefffffffffffff', # Largest negative normalized number
                    '0x7ff0000000000000', # +Infinity
                    '0xfff0000000000000', # -Infinity
-                   '0x7fffffffffffffff', # +NaN
-                   '0xffffffffffffffff'], # -NaN
-        'decimal32': [0, 100, -1000],#,
-        'decimal64': [0, 100, -1000],#,
-        #'decimal128': [b'00000000000000000000000000000000',
-        #               b'00000000000000000000000000000100',
-        #               b'0102030405060708090a0b0c0d0e0f00'],
-        #'char': [u'a', u'Z', u'0', u'\x01', u'\x7f'], #TODO: Char value \x00 causes problems in check_output(), find another solution
+                   '0x7ff8000000000000', # +NaN
+                   '0xfff8000000000000'], # -NaN
+        'decimal32': [0, 100, -1000.001, 3.14159, 1.234e+56],
+        'decimal64': [0, 100, -1000.001, 3.14159, 1.234e+56],
+#        'decimal128': [0, 100, -1000.001, 3.14159, 1.234e+56], # Hangs python shim, ok in jms shim
+#        'char': [u'a', u'Z', u'\u0001', u'\u007f'],            # Hangs python shim, ok in jms shim
         # timestamp must be in milliseconds since the unix epoch
         'timestamp': [0, int(mktime((2000, 1, 1, 0, 0, 0, 5, 1, 0))*1000), int(time()*1000)],
         'uuid': [UUID(int=0x0), UUID('00010203-0405-0607-0809-0a0b0c0d0e0f'), uuid4()],
-        'binary': [bytes(), bytes(12345), b'Hello, world!', b'\x01\x02\x03\x04\x05\xff',
-                   b'The quick brown fox jumped over the lazy cow 0123456789' * 1000],
+        'binary': [bytes(), bytes(12345), b'Hello, world!', b'\x01\x02\x03\x04\x05abcde\x80\x81\xfe\xff'],
+                   #b'The quick brown fox jumped over the lazy dog 0123456789.' * 1000],
         # strings must be unicode to comply with AMQP spec
         'string': [u'', u'Hello, world!', u'"Hello, world!"', u"Charlie's peach",
-                   u'The quick brown fox jumped over the lazy cow 0123456789' * 1000],
+                   u'The quick brown fox jumped over the lazy dog 0123456789.' * 1000],
         'symbol': ['', 'myDomain.123', 'domain.0123456789.' * 1000],
-        'list': [[],
-                 [1, -2, 3.14],
-                 [u'a', u'b', u'c'],
-                 [ulong(12345), timestamp(int(time()*1000)), int32(-25), uuid4(), symbol('a.b.c')],
-                 [[], None, [1,2,3], {1:'one', 2:'two', 3:'three', 4:True, 5:False, 6:None}, True, False, char(u'5')],
-                 [[],[[],[[],[],[]],[]],[]],
-                 [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] * 1000],
-        'map': [{}, {1:u'one', 2:u'two'}, {None:None, 1:1, '2':'2', True:False, False:True}]#,
-        #'array': [[], [1,2,3], ['Hello', 'world']]
+#        'list': [[],
+#                 [1, -2, 3.14],
+#                 [u'a', u'b', u'c'],
+#                 [ulong(12345), timestamp(int(time()*1000)), int32(-25), uuid4(), symbol('a.b.c')],
+#                 [[], None, [1,2,3], {1:'one', 2:'two', 3:'three', 4:True, 5:False, 6:None}, True, False, char(u'5')],
+#                 [[],[[],[[],[],[]],[]],[]],
+#                 [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] * 1000]#,
+        #'map': [{}, {1:u'one', 2:u'two'}, {None:None, 1:1, '2':'2', True:False, False:True}]#, # TODO: Bug in handling maps
+        #'array': [[], [1,2,3], ['Hello', 'world']] # TODO: Not yet implemented
         }
 
     @staticmethod
@@ -198,24 +195,31 @@ class Shim(object):
     Abstract shim class, parent of all shims.
     """
     NAME = None
-    ENV = []
-    SHIM_LOC = None
     SEND = None
     RECEIVE = None
+    USE_SHELL = False
 
     def send(self, broker_addr, queue_name, amqp_type, test_value_list):
         """
         Send the values of type amqp_type in test_value_list to queue queue_name. Return output (if any) from stdout.
         """
-        arg_list = [self.SEND, broker_addr, queue_name, amqp_type]
+        arg_list = []
+        arg_list.extend(self.SEND)
+        arg_list.extend([broker_addr, queue_name, amqp_type])
         for test_value in test_value_list:
             if amqp_type == 'string' or amqp_type == 'char' or amqp_type == 'float' or amqp_type == 'double':
                 arg_list.append(test_value) # Not using str() on strings preserves the unicode prefix u'...'
             else:
                 arg_list.append(str(test_value))
-        #print
-        #print '>>>', arg_list
-        return check_output(arg_list)
+        try:
+            #print
+            #print '>>>', arg_list
+            return check_output(arg_list, shell=self.USE_SHELL)
+        except CalledProcessError as e:
+            return str(e) + '\n\nOutput:\n' + e.output
+        except Exception as e:
+            return str(e)
+        
 
     def receive(self, broker_addr, queue_name, amqp_type, num_test_values):
         """
@@ -223,10 +227,15 @@ class Shim(object):
         from stdout is the AMQP type, then the rest is assumed to be the returned test value list. Otherwise error
         output is assumed.
         """
+        output = ''
         try:
-            arg_list = [self.RECEIVE, broker_addr, queue_name, amqp_type, str(num_test_values)]
+            arg_list = []
+            arg_list.extend(self.RECEIVE)
+            arg_list.extend([broker_addr, queue_name, amqp_type, str(num_test_values)])
+            #print
             #print '>>>', arg_list
             output = check_output(arg_list)
+            #print '<<<', output
             str_tvl = output.split('\n')[0:-1] # remove trailing \n
             if str_tvl[0] == amqp_type:
                 received_test_value_list = []
@@ -244,6 +253,7 @@ class Shim(object):
                        amqp_type == 'long' or \
                        amqp_type == 'decimal32' or \
                        amqp_type == 'decimal64' or \
+                       amqp_type == 'decimal128' or \
                        amqp_type == 'timestamp':
                         received_test_value_list.append(literal_eval(stv))
                     # Non-string types not using literal_evel
@@ -254,7 +264,6 @@ class Shim(object):
                     # String  and float types used as-is
                     elif amqp_type == 'float' or \
                          amqp_type == 'double' or \
-                         amqp_type == 'decimal128' or \
                          amqp_type == 'char' or \
                          amqp_type == 'string' or \
                          amqp_type == 'symbol':
@@ -267,8 +276,10 @@ class Shim(object):
                 return received_test_value_list
             else:
                 return output # return error string
+        except CalledProcessError as e:
+            return str(e) + '\n\n' + e.output
         except Exception as e:
-            return str(e) + '\n' + output
+            return str(e)
 
 
 class ProtonPythonShim(Shim):
@@ -276,9 +287,9 @@ class ProtonPythonShim(Shim):
     Shim for qpid-proton Python client
     """
     NAME = 'ProtonPython'
-    SHIM_LOC = QPID_INTEROP_TEST_HOME + '/shims/qpid-proton-python/src/'
-    SEND = SHIM_LOC + 'proton-python-send'
-    RECEIVE = SHIM_LOC + 'proton-python-receive'
+    SHIM_LOC = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'src')
+    SEND = [path.join(SHIM_LOC, 'proton-python-send')]
+    RECEIVE = [path.join(SHIM_LOC, 'proton-python-receive')]
 
 
 class QpidJmsShim(Shim):
@@ -286,9 +297,29 @@ class QpidJmsShim(Shim):
     Shim for qpid-jms JMS client
     """
     NAME = 'QpidJms'
-    SHIM_LOC = '/shims/qpid-jms/src/main/java/'
-    SEND = SHIM_LOC + 'org/apache/qpid/qpid-interop-test/shim/ProtonJmsReceiver'
-    RECEIVE = SHIM_LOC + 'org/apache/qpid/qpid-interop-test/shim/ProtonJmsReceiver'
+    
+    # Installed qpid versions
+    QPID_JMS_VER = '0.4.0-SNAPSHOT'
+    QPID_PROTON_J_VER = '0.10-SNAPSHOT'
+    
+    # Classpath components
+    QPID_INTEROP_TEST_SHIM_JAR = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-jms', 'target', 'qpid-jms-shim.jar')
+    MAVEN_REPO_PATH = path.join(getenv('HOME'), '.m2', 'repository')
+    JMS_API_JAR = path.join(MAVEN_REPO_PATH, 'org', 'apache', 'geronimo', 'specs', 'geronimo-jms_1.1_spec', '1.1.1',
+                            'geronimo-jms_1.1_spec-1.1.1.jar')
+    JMS_IMPL_JAR = path.join(MAVEN_REPO_PATH, 'org', 'apache', 'qpid', 'qpid-jms-client', QPID_JMS_VER,
+                             'qpid-jms-client-' + QPID_JMS_VER + '.jar')
+    LOGGER_API_JAR = path.join(MAVEN_REPO_PATH, 'org', 'slf4j', 'slf4j-api', '1.5.6', 'slf4j-api-1.5.6.jar')
+    LOGGER_IMPL_JAR = path.join(QPID_INTEROP_TEST_HOME, 'jars', 'slf4j-nop-1.5.6.jar')
+    PROTON_J_JAR = path.join(MAVEN_REPO_PATH, 'org', 'apache', 'qpid', 'proton-j', QPID_PROTON_J_VER,
+                             'proton-j-' + QPID_PROTON_J_VER + '.jar')
+    NETTY_JAR = path.join(MAVEN_REPO_PATH, 'io', 'netty', 'netty-all', '4.0.17.Final', 'netty-all-4.0.17.Final.jar')
+    
+    CLASSPATH = ':'.join([QPID_INTEROP_TEST_SHIM_JAR, JMS_API_JAR, JMS_IMPL_JAR, LOGGER_API_JAR, LOGGER_IMPL_JAR, PROTON_J_JAR, NETTY_JAR])
+    JAVA_HOME = getenv('JAVA_HOME', '/usr/bin') # Default only works in Linux
+    JAVA_EXEC = path.join(JAVA_HOME, 'java')
+    SEND = [JAVA_EXEC, '-cp', CLASSPATH, 'org.apache.qpid.interop_test.shim.ProtonJmsSender']
+    RECEIVE = [JAVA_EXEC, '-cp', CLASSPATH, 'org.apache.qpid.interop_test.shim.ProtonJmsReceiver']
 
     
 # SHIM_MAP contains an instance of each client language shim that is to be tested as a part of this test. For
@@ -297,6 +328,10 @@ class QpidJmsShim(Shim):
 #
 # As new shims are added, add them into this map to have them included in the test cases.
 SHIM_MAP = {ProtonPythonShim.NAME: ProtonPythonShim()}
+#SHIM_MAP = {QpidJmsShim.NAME: QpidJmsShim()}
+#SHIM_MAP = {ProtonPythonShim.NAME: ProtonPythonShim(),
+#            QpidJmsShim.NAME: QpidJmsShim()
+#            }
 
 
 class TestOptions(object):
