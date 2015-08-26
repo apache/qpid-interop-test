@@ -27,6 +27,7 @@ import argparse
 import unittest
 
 from ast import literal_eval
+from interop_test_errors import InteropTestError
 from itertools import product
 from os import getenv, path
 from proton import char, int32, symbol, timestamp, ulong
@@ -36,14 +37,6 @@ from time import mktime, time
 from uuid import UUID, uuid4
 
 QPID_INTEROP_TEST_HOME = getenv('QPID_INTEROP_TEST_HOME') # TODO - propose a sensible default when installation details are worked out
-
-class SimpleTypeTestError(StandardError):
-    """
-    Error class for use in simpe AMQP type tests
-    """
-    def __init__(self, error_message):
-        super(SimpleTypeTestError, self).__init__(error_message)
-
 
 class AmqpPrimitiveTypes(object):
     """
@@ -88,7 +81,7 @@ class AmqpPrimitiveTypes(object):
                    '0x000fffffffffffff', # Largest positive denormalized number
                    '0x800fffffffffffff', # Largest negative denormalized number
                    '0x0010000000000000', # Smallest positive normalized number
-                   '0x8010000000000000', # Smallest positive normalized number
+                   '0x8010000000000000', # Smallest negative normalized number
                    '0x7fefffffffffffff', # Largest positive normalized number
                    '0xffefffffffffffff', # Largest negative normalized number
                    '0x7ff0000000000000', # +Infinity
@@ -97,8 +90,8 @@ class AmqpPrimitiveTypes(object):
                    '0xfff8000000000000'], # -NaN
         'decimal32': [0, 100, -1000.001, 3.14159, 1.234e+56],
         'decimal64': [0, 100, -1000.001, 3.14159, 1.234e+56],
-#        'decimal128': [0, 100, -1000.001, 3.14159, 1.234e+56], # Hangs python shim, ok in jms shim
-#        'char': [u'a', u'Z', u'\u0001', u'\u007f'],            # Hangs python shim, ok in jms shim
+        'decimal128': [0, 100, -1000.001, 3.14159, 1.234e+56], # Hangs python shim, ok in jms shim
+        'char': [u'a', u'Z', u'\u0001', u'\u007f'],            # Hangs python shim, ok in jms shim
         # timestamp must be in milliseconds since the unix epoch
         'timestamp': [0, int(mktime((2000, 1, 1, 0, 0, 0, 5, 1, 0))*1000), int(time()*1000)],
         'uuid': [UUID(int=0x0), UUID('00010203-0405-0607-0809-0a0b0c0d0e0f'), uuid4()],
@@ -108,13 +101,13 @@ class AmqpPrimitiveTypes(object):
         'string': [u'', u'Hello, world!', u'"Hello, world!"', u"Charlie's peach",
                    u'The quick brown fox jumped over the lazy dog 0123456789.' * 1000],
         'symbol': ['', 'myDomain.123', 'domain.0123456789.' * 1000],
-#        'list': [[],
-#                 [1, -2, 3.14],
-#                 [u'a', u'b', u'c'],
-#                 [ulong(12345), timestamp(int(time()*1000)), int32(-25), uuid4(), symbol('a.b.c')],
-#                 [[], None, [1,2,3], {1:'one', 2:'two', 3:'three', 4:True, 5:False, 6:None}, True, False, char(u'5')],
-#                 [[],[[],[[],[],[]],[]],[]],
-#                 [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] * 1000]#,
+        'list': [[],
+                 [1, -2, 3.14],
+                 [u'a', u'b', u'c'],
+                 [ulong(12345), timestamp(int(time()*1000)), int32(-25), uuid4(), symbol('a.b.c')],
+                 [[], None, [1,2,3], {1:'one', 2:'two', 3:'three', 4:True, 5:False, 6:None}, True, False, char(u'5')],
+                 [[],[[],[[],[],[]],[]],[]],
+                 [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] * 1000],
         #'map': [{}, {1:u'one', 2:u'two'}, {None:None, 1:1, '2':'2', True:False, False:True}]#, # TODO: Bug in handling maps
         #'array': [[], [1,2,3], ['Hello', 'world']] # TODO: Not yet implemented
         }
@@ -272,7 +265,8 @@ class Shim(object):
                          amqp_type == 'map':
                         received_test_value_list.append(StrToObj(list(stv).__iter__()).run())
                     else:
-                        raise SimpleTypeTestError('ERROR: Shim.receive(): AMQP type \'%s\' not implemented' % amqp_type)
+#                        raise SimpleTypeTestError('ERROR: Shim.receive(): AMQP type \'%s\' not implemented' % amqp_type)
+                        raise InteropTestError('ERROR: Shim.receive(): AMQP type \'%s\' not implemented' % amqp_type)
                 return received_test_value_list
             else:
                 return output # return error string
@@ -288,8 +282,8 @@ class ProtonPythonShim(Shim):
     """
     NAME = 'ProtonPython'
     SHIM_LOC = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'src')
-    SEND = [path.join(SHIM_LOC, 'proton-python-send')]
-    RECEIVE = [path.join(SHIM_LOC, 'proton-python-receive')]
+    SEND = [path.join(SHIM_LOC, 'amqp-send')]
+    RECEIVE = [path.join(SHIM_LOC, 'amqp-receive')]
 
 
 class QpidJmsShim(Shim):
@@ -318,8 +312,8 @@ class QpidJmsShim(Shim):
     CLASSPATH = ':'.join([QPID_INTEROP_TEST_SHIM_JAR, JMS_API_JAR, JMS_IMPL_JAR, LOGGER_API_JAR, LOGGER_IMPL_JAR, PROTON_J_JAR, NETTY_JAR])
     JAVA_HOME = getenv('JAVA_HOME', '/usr/bin') # Default only works in Linux
     JAVA_EXEC = path.join(JAVA_HOME, 'java')
-    SEND = [JAVA_EXEC, '-cp', CLASSPATH, 'org.apache.qpid.interop_test.shim.ProtonJmsSender']
-    RECEIVE = [JAVA_EXEC, '-cp', CLASSPATH, 'org.apache.qpid.interop_test.shim.ProtonJmsReceiver']
+    SEND = [JAVA_EXEC, '-cp', CLASSPATH, 'org.apache.qpid.interop_test.shim.AmqpSender']
+    RECEIVE = [JAVA_EXEC, '-cp', CLASSPATH, 'org.apache.qpid.interop_test.shim.AmqpReceiver']
 
     
 # SHIM_MAP contains an instance of each client language shim that is to be tested as a part of this test. For
@@ -336,7 +330,7 @@ SHIM_MAP = {ProtonPythonShim.NAME: ProtonPythonShim()}
 
 class TestOptions(object):
     def __init__(self):
-        parser = argparse.ArgumentParser(description='Qpid-interop AMQP client interoparability test suite')
+        parser = argparse.ArgumentParser(description='Qpid-interop AMQP client interoparability test suite for AMQP simple types')
         parser.add_argument('--broker', action='store', default='localhost:5672', metavar='BROKER:PORT',
                             help='Broker against which to run test suite.')
 #        test_group = parser.add_mutually_exclusive_group()

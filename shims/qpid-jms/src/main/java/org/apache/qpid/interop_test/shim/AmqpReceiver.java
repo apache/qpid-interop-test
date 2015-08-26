@@ -24,17 +24,19 @@ import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
 import javax.jms.ExceptionListener;
 import javax.jms.JMSException;
+import javax.jms.MapMessage;
 import javax.jms.Message;
 import javax.jms.MessageConsumer;
 import javax.jms.ObjectMessage;
 import javax.jms.Queue;
 import javax.jms.Session;
+import javax.jms.StreamMessage;
 import javax.jms.TextMessage;
 import javax.naming.Context;
 import javax.naming.InitialContext;
 import org.apache.qpid.jms.JmsConnectionFactory;
 
-public class ProtonJmsReceiver {
+public class AmqpReceiver {
     private static final String USER = "guest";
     private static final String PASSWORD = "guest";
     private static final int TIMEOUT = 1000;
@@ -65,8 +67,8 @@ public class ProtonJmsReceiver {
 
     public static void main(String[] args) throws Exception {
     	if (args.length < 4) {
-    		System.out.println("ProtonJmsReceiver: Insufficient number of arguments");
-    		System.out.println("ProtonJmsReceiver: Expected arguments: broker_address, queue_name, amqp_type, num_test_values");
+    		System.out.println("AmqpReceiver: Insufficient number of arguments");
+    		System.out.println("AmqpReceiver: Expected arguments: broker_address, queue_name, amqp_type, num_test_values");
     		System.exit(1);
     	}
     	String brokerAddress = "amqp://" + args[0];
@@ -103,7 +105,7 @@ public class ProtonJmsReceiver {
             			if (bodyLength == 0L) {
             				outList.add("None");
             			} else {
-            				throw new Exception("ProtonJmsReceiver: JMS BytesMessage size error: Expected 0 bytes, read " + bodyLength);
+            				throw new Exception("AmqpReceiver: JMS BytesMessage size error: Expected 0 bytes, read " + bodyLength);
             			}
             			break;
             		case "boolean":
@@ -121,7 +123,7 @@ public class ProtonJmsReceiver {
             			int numBytes = ((BytesMessage)message).readBytes(byteArray);
             			if (numBytes != 2) {
             				// TODO: numBytes == -1 means no more bytes in stream - add error message for this case?
-            				throw new Exception("ProtonJmsReceiver: JMS BytesMessage size error: Exptected 2 bytes, read " + numBytes);
+            				throw new Exception("AmqpReceiver: JMS BytesMessage size error: Exptected 2 bytes, read " + numBytes);
             			}
             			int ushortValue = 0;
             			for (int j=0; j<byteArray.length; j++) {
@@ -136,7 +138,7 @@ public class ProtonJmsReceiver {
             			int numBytes = ((BytesMessage)message).readBytes(byteArray);
             			if (numBytes != 4) {
             				// TODO: numBytes == -1 means no more bytes in stream - add error message for this case?
-            				throw new Exception("ProtonJmsReceiver: JMS BytesMessage size error: Exptected 4 bytes, read " + numBytes);
+            				throw new Exception("AmqpReceiver: JMS BytesMessage size error: Exptected 4 bytes, read " + numBytes);
             			}
             			long uintValue = 0;
             			for (int j=0; j<byteArray.length; j++) {
@@ -153,7 +155,7 @@ public class ProtonJmsReceiver {
             			int numBytes = ((BytesMessage)message).readBytes(byteArray);
             			if (numBytes != 8) {
             				// TODO: numBytes == -1 means no more bytes in stream - add error message for this case?
-            				throw new Exception("ProtonJmsReceiver: JMS BytesMessage size error: Exptected 8 bytes, read " + numBytes);
+            				throw new Exception("AmqpReceiver: JMS BytesMessage size error: Exptected 8 bytes, read " + numBytes);
             			}
             			// TODO: shortcut in use here - this byte array should go through a Java type that can represent this as a number - such as BigInteger.
             			outList.add(String.format("0x%02x%02x%02x%02x%02x%02x%02x%02x", byteArray[0], byteArray[1],
@@ -226,11 +228,11 @@ public class ProtonJmsReceiver {
             		default:
             			// Internal error, should never happen if SUPPORTED_AMQP_TYPES matches this case stmt
             			connection.close();
-            			throw new Exception("ProtonJmsReceiver: Internal error: unsupported AMQP type \"" + amqpType + "\"");
+            			throw new Exception("AmqpReceiver: Internal error: unsupported AMQP type \"" + amqpType + "\"");
             		}
                 }
             } else {
-            	System.out.println("ERROR: ProtonJmsReceiver: AMQP type \"" + amqpType + "\" is not supported");
+            	System.out.println("ERROR: AmqpReceiver: AMQP type \"" + amqpType + "\" is not supported");
             	connection.close();
             	System.exit(1);
             }

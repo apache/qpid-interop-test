@@ -20,7 +20,6 @@
 
 # Issues:
 # * Capturing errors from client or broker
-# * Correct Message body types, use of cproton.Data class?
 
 import sys
 from ast import literal_eval
@@ -106,7 +105,7 @@ class Sender(MessagingHandler):
         elif self.amqp_type == 'map':
             return Message(id=(self.sent+1), body=StrToObj(list(test_value).__iter__()).run())
         else:
-            print 'proton-python-send: Unsupported AMQP type "%s"' % self.amqp_type
+            print 'send: Unsupported AMQP type "%s"' % self.amqp_type
             return None
 
     def on_accepted(self, event):
@@ -125,7 +124,7 @@ class Sender(MessagingHandler):
 # Args: 1: Broker address (ip-addr:port)
 #       2: Queue name
 #       3: AMQP type
-#       4...n: Test values as strings
+#       4...n: Test value(s) as strings
 try:
     Container(Sender('%s/%s' % (sys.argv[1], sys.argv[2]), sys.argv[3], sys.argv[4:])).run()
 except KeyboardInterrupt:

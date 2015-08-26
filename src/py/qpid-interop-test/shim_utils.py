@@ -180,7 +180,7 @@ class StrToStr(StrToObj):
     def _process_char(self, char):
         """
         This function processes a python string type, and continues
-        consuming characters until another valid delimiter character
+        consuming characters until another matching delimiter character
         ('\'' or '"') is encountered. A delimiter character that is
         preceded by an escape character ('\\') is excluded.
 

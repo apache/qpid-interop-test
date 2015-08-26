@@ -20,16 +20,12 @@
 
 # Issues:
 # * Capturing errors from client or broker
-# * Correct Message body types, use of cproton.Data class?
 
 import sys
 from proton.handlers import MessagingHandler
 from proton.reactor import Container
+from traceback import format_exc
 from struct import pack, unpack
-
-class ReceiverError(StandardError):
-    def __init__(self, error_message):
-        super(ReceiverError, self).__init__(error_message)
 
 class Receiver(MessagingHandler):
     def __init__(self, url, amqp_type, expected_num_messages):
@@ -81,7 +77,7 @@ class Receiver(MessagingHandler):
                  self.amqp_type == 'map':
                 self.received_value_list.append(event.message.body)
             else:
-                print 'proton-python-receive: Unsupported AMQP type "%s"' % self.amqp_type
+                print 'receive: Unsupported AMQP type "%s"' % self.amqp_type
                 return
             self.received += 1
             if self.received == self.expected:
@@ -103,4 +99,4 @@ except KeyboardInterrupt:
     pass
 except Exception as e:
     print 'proton-python-receive EXCEPTION:', e
-
+    print format_exc()

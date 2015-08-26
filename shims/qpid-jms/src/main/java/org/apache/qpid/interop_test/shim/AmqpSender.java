@@ -27,17 +27,19 @@ import javax.jms.ConnectionFactory;
 import javax.jms.DeliveryMode;
 import javax.jms.ExceptionListener;
 import javax.jms.JMSException;
+import javax.jms.MapMessage;
 import javax.jms.Message;
 import javax.jms.MessageProducer;
 import javax.jms.ObjectMessage;
 import javax.jms.Queue;
 import javax.jms.Session;
+import javax.jms.StreamMessage;
 import javax.jms.TextMessage;
 import javax.naming.Context;
 import javax.naming.InitialContext;
 import org.apache.qpid.jms.JmsConnectionFactory;
 
-public class ProtonJmsSender {
+public class AmqpSender {
     private static final String USER = "guest";
     private static final String PASSWORD = "guest";
     private static final String[] SUPPORTED_AMQP_TYPES = {"null",
@@ -67,8 +69,8 @@ public class ProtonJmsSender {
 
     public static void main(String[] args) throws Exception {
     	if (args.length < 4) {
-    		System.out.println("ProtonJmsSender: Insufficient number of arguments");
-    		System.out.println("ProtonJmsSender: Expected arguments: broker_address, queue_name, amqp_type, test_val, test_val, ...");
+    		System.out.println("AmqpSender: Insufficient number of arguments");
+    		System.out.println("AmqpSender: Expected arguments: broker_address, queue_name, amqp_type, test_val, test_val, ...");
     		System.exit(1);
     	}
     	String brokerAddress = "amqp://" + args[0];
@@ -221,12 +223,12 @@ public class ProtonJmsSender {
             		default:
             			// Internal error, should never happen if SUPPORTED_AMQP_TYPES matches this case stmt
             			connection.close();
-            			throw new Exception("ProtonJmsSender: Internal error: unsupported AMQP type \"" + amqpType + "\"");
+            			throw new Exception("AmqpSender: Internal error: unsupported AMQP type \"" + amqpType + "\"");
             		}
             		messageProducer.send(message, DeliveryMode.NON_PERSISTENT, Message.DEFAULT_PRIORITY, Message.DEFAULT_TIME_TO_LIVE);
             	}
             } else {
-            	System.out.println("ERROR: ProtonJmsSender: AMQP type \"" + amqpType + "\" is not supported");
+            	System.out.println("ERROR: AmqpSender: AMQP type \"" + amqpType + "\" is not supported");
             	connection.close();
             	System.exit(1);
             }
