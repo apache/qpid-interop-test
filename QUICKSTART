@@ -50,10 +50,11 @@ export LD_LIBRARY_PATH=/usr/local/lib64
 export QPID_INTEROP_TEST_HOME=<abs path to top level qpid-interop-test directory>
 
 Start a broker. If using qpidd:
-qpidd --load-module amqp.so -m yes --auth no --queue-pattern qpid-interop.simple_type_tests --default-flow-stop-threshold 0 --default-flow-resume-threshold 0 --default-queue-limit 0 --log-enable info+
+qpidd --load-module amqp.so -m yes --auth no --queue-pattern qpid-interop --default-flow-stop-threshold 0 --default-flow-resume-threshold 0 --default-queue-limit 0 --log-enable info+
 
-NOTE: YOU MUST USE THE --queue-pattern qpid-interop.simple_type_tests parameter with the Qpid broker!
+NOTE: for qpidd, YOU MUST USE THE --queue-pattern qpid-interop parameter so it will create non-existent queues as needed.
 
 From top level directory:
+./src/py/qpid-interop-test/jms/jms_message_tests.py
 ./src/py/qpid-interop-test/types/simple_type_tests.py
 

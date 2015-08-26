@@ -1,18 +1,8 @@
-From bc720193ab06730e8b69b01b9ada314f62660084 Mon Sep 17 00:00:00 2001
-From: Kim van der Riet <kpvdr@localhost.localdomain>
-Date: Tue, 12 May 2015 11:44:54 -0400
-Subject: [PATCH 1924/1924] Added python classes to represent AMQP types not
- currently supported
-
----
- proton-c/bindings/python/proton/__init__.py | 110 +++++++++++++++++++++++-----
- 1 file changed, 90 insertions(+), 20 deletions(-)
-
 diff --git a/proton-c/bindings/python/proton/__init__.py b/proton-c/bindings/python/proton/__init__.py
-index e3cd9e3..26ad1f3 100644
+index 353c396..e5e0eee 100644
 --- a/proton-c/bindings/python/proton/__init__.py
 +++ b/proton-c/bindings/python/proton/__init__.py
-@@ -1275,6 +1275,56 @@ class char(unicode):
+@@ -1290,6 +1290,56 @@ class char(unicode):
    def __repr__(self):
      return "char(%s)" % unicode.__repr__(self)
  
@@ -69,7 +59,7 @@ index e3cd9e3..26ad1f3 100644
  class Described(object):
  
    def __init__(self, descriptor, value):
-@@ -1887,42 +1937,42 @@ class Data:
+@@ -1902,42 +1952,42 @@ class Data:
      If the current node is an unsigned byte, returns its value,
      returns 0 otherwise.
      """
@@ -113,12 +103,12 @@ index e3cd9e3..26ad1f3 100644
      If the current node is a signed int, returns its value, returns 0
      otherwise.
      """
--    return pn_data_get_int(self._data)
+-    return int(pn_data_get_int(self._data))
 +    return int32(pn_data_get_int(self._data))
  
    def get_char(self):
      """
-@@ -1957,7 +2007,7 @@ class Data:
+@@ -1972,7 +2022,7 @@ class Data:
      If the current node is a float, returns its value, raises 0
      otherwise.
      """
@@ -127,7 +117,7 @@ index e3cd9e3..26ad1f3 100644
  
    def get_double(self):
      """
-@@ -1972,7 +2022,7 @@ class Data:
+@@ -1987,7 +2037,7 @@ class Data:
      If the current node is a decimal32, returns its value, returns 0
      otherwise.
      """
@@ -136,7 +126,7 @@ index e3cd9e3..26ad1f3 100644
  
    # XXX: need to convert
    def get_decimal64(self):
-@@ -1980,7 +2030,7 @@ class Data:
+@@ -1995,7 +2045,7 @@ class Data:
      If the current node is a decimal64, returns its value, returns 0
      otherwise.
      """
@@ -145,7 +135,7 @@ index e3cd9e3..26ad1f3 100644
  
    # XXX: need to convert
    def get_decimal128(self):
-@@ -1988,7 +2038,7 @@ class Data:
+@@ -2003,7 +2053,7 @@ class Data:
      If the current node is a decimal128, returns its value, returns 0
      otherwise.
      """
@@ -154,7 +144,7 @@ index e3cd9e3..26ad1f3 100644
  
    def get_uuid(self):
      """
-@@ -2140,19 +2190,29 @@ class Data:
+@@ -2155,18 +2205,29 @@ class Data:
    put_mappings = {
      None.__class__: lambda s, _: s.put_null(),
      bool: put_bool,
@@ -171,18 +161,17 @@ index e3cd9e3..26ad1f3 100644
 +    byte: put_byte,
 +    short: put_short,
 +    int32: put_int,
-     int: put_long,
--    char: put_char,
++    int: put_long,
      long: put_long,
--    ulong: put_ulong,
--    timestamp: put_timestamp,
 +    float32: put_float,
-     float: put_double,
++    float: put_double,
 +    decimal32: put_decimal32,
 +    decimal64: put_decimal64,
 +    decimal128: put_decimal128,
-+    char: put_char,
-+    timestamp: put_timestamp,
+     char: put_char,
+-    ulong: put_ulong,
+     timestamp: put_timestamp,
+-    float: put_double,
      uuid.UUID: put_uuid,
 +    bytes: put_binary,
 +    unicode: put_string,
@@ -193,7 +182,7 @@ index e3cd9e3..26ad1f3 100644
      Described: put_py_described,
      Array: put_py_array
      }
-@@ -3998,5 +4058,15 @@ __all__ = [
+@@ -4062,5 +4123,15 @@ __all__ = [
             "dispatch",
             "symbol",
             "timestamp",
@@ -210,6 +199,3 @@ index e3cd9e3..26ad1f3 100644
 +           "decimal64",
 +           "decimal128"
             ]
--- 
-1.9.3
-
