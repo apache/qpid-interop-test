@@ -45,14 +45,18 @@ Note that installation is still to be completed, this section will change to
 reflect installation details when complete.
 
 Assuming proton's make install has been run, from top level qpid-interop-test directory:
-export PYTHONPATH=/usr/local/lib64/proton/bindings/python:src/py/qpid-interop-test
+export PYTHONPATH=/usr/lib64/python2.7/site-packages:src/py/qpid-interop-test
 export LD_LIBRARY_PATH=/usr/local/lib64
 export QPID_INTEROP_TEST_HOME=<abs path to top level qpid-interop-test directory>
 
-Start a broker. If using qpidd:
-qpidd --load-module amqp.so -m yes --auth no --queue-pattern qpid-interop --default-flow-stop-threshold 0 --default-flow-resume-threshold 0 --default-queue-limit 0 --log-enable info+
-
-NOTE: for qpidd, YOU MUST USE THE --queue-pattern qpid-interop parameter so it will create non-existent queues as needed.
+Start a broker (Active-MQ or Qpid).
+NOTE: For qpidd, YOU MUST USE THE --queue-pattern qpid-interop parameter so it will create non-existent queues as needed.
+NOTE: For qpidd, there are some bugs in the broker which will cause the simple type tests for the following types to fail:
+      * char
+      * decimal32
+      * decimal64
+      * deciaml128 
+      See https://issues.apache.org/jira/browse/QPID-6328 for more info on this.
 
 From top level directory:
 ./src/py/qpid-interop-test/jms/jms_message_tests.py

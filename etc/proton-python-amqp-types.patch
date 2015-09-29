@@ -1,5 +1,5 @@
 diff --git a/proton-c/bindings/python/proton/__init__.py b/proton-c/bindings/python/proton/__init__.py
-index 353c396..e5e0eee 100644
+index 0567095..9bf2ce0 100644
 --- a/proton-c/bindings/python/proton/__init__.py
 +++ b/proton-c/bindings/python/proton/__init__.py
 @@ -1290,6 +1290,56 @@ class char(unicode):
@@ -46,10 +46,10 @@ index 353c396..e5e0eee 100644
 +  def __repr__(self):
 +    return "decimal32(%s)" % int.__repr__(self)
 +
-+class decimal64(int):
++class decimal64(long):
 +
 +  def __repr__(self):
-+    return "decimal64(%s)" % int.__repr__(self)
++    return "decimal64(%s)" % long.__repr__(self)
 +
 +class decimal128(bytes):
 +
@@ -182,7 +182,7 @@ index 353c396..e5e0eee 100644
      Described: put_py_described,
      Array: put_py_array
      }
-@@ -4062,5 +4123,15 @@ __all__ = [
+@@ -4123,5 +4184,15 @@ __all__ = [
             "dispatch",
             "symbol",
             "timestamp",

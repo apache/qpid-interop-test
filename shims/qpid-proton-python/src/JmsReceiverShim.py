@@ -21,11 +21,16 @@
 import sys
 from interop_test_errors import InteropTestError
 from json import dumps, loads
+from proton import byte, symbol
 from proton.handlers import MessagingHandler
 from proton.reactor import Container
 from struct import pack, unpack
 from subprocess import check_output
 from traceback import format_exc
+
+# These values must tie in with the Qpid-JMS client values found in
+# org.apache.qpid.jms.provider.amqp.message.AmqpMessageSupport
+QPID_JMS_TYPE_ANNOTATION_NAME = symbol(u'x-opt-jms-msg-type')
 
 class JmsReceiverShim(MessagingHandler):
     def __init__(self, url, jms_msg_type, expected_msg_map):
@@ -85,6 +90,7 @@ class JmsReceiverShim(MessagingHandler):
 
     def _receive_jms_bytesmessage(self, message):
         assert self.jms_msg_type == 'JMS_BYTESMESSAGE_TYPE'
+        assert message.annotations[QPID_JMS_TYPE_ANNOTATION_NAME] == byte(3)
         if self.current_subtype == 'boolean':
             if message.body == b'\x00':
                 return 'False'
@@ -127,6 +133,7 @@ class JmsReceiverShim(MessagingHandler):
 
     def _recieve_jms_mapmessage(self, message):
         assert self.jms_msg_type == 'JMS_MAPMESSAGE_TYPE'
+        assert message.annotations[QPID_JMS_TYPE_ANNOTATION_NAME] == byte(2)
         key, value = message.body.items()[0]
         assert key[:-3] == self.current_subtype
         if self.current_subtype == 'boolean':
@@ -154,6 +161,7 @@ class JmsReceiverShim(MessagingHandler):
 
     def _recieve_jms_objectmessage(self, message):
         assert self.jms_msg_type == 'JMS_OBJECTMESSAGE_TYPE'
+        assert message.annotations[QPID_JMS_TYPE_ANNOTATION_NAME] == byte(1)
         return self._get_java_obj(message.body)
 
     def _get_java_obj(self, java_obj_bytes):
@@ -185,6 +193,7 @@ class JmsReceiverShim(MessagingHandler):
 
     def _receive_jms_streammessage(self, message):
         assert self.jms_msg_type == 'JMS_STREAMMESSAGE_TYPE'
+        assert message.annotations[QPID_JMS_TYPE_ANNOTATION_NAME] == byte(4)
         # Every message is a list with one item [value]
         assert len(message.body) == 1
         value = message.body[0]
@@ -213,6 +222,7 @@ class JmsReceiverShim(MessagingHandler):
 
     def _receive_jms_textmessage(self, message):
         assert self.jms_msg_type == 'JMS_TEXTMESSAGE_TYPE'
+        assert message.annotations[QPID_JMS_TYPE_ANNOTATION_NAME] == byte(5)
         return message.body
 
 

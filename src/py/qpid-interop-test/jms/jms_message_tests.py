@@ -43,11 +43,21 @@ class JmsMessageTypes(object):
     # types defined here are understood to be *Java* types and the stringified values are to be interpreted
     # as the appropriate Java type by the send shim.
     TYPE_SUBMAP = {
-        'boolean': ['True', 'False'],
-        'byte': ['-0x80', '-0x1', '0x0', '0x7f'],
-        'bytes': [b'', b'12345', b'Hello, world', b'\\x01\\x02\\x03\\x04\\x05abcde\\x80\\x81\\xfe\\xff'],
-        #b'The quick brown fox jumped over the lazy dog 0123456789.' * 100],
-        'char': ['a', 'Z', '\x01', '\x7f'],
+        'boolean': ['True',
+                    'False'],
+        'byte': ['-0x80',
+                 '-0x1',
+                 '0x0',
+                 '0x7f'],
+        'bytes': [b'',
+                  b'12345',
+                  b'Hello, world',
+                  b'\\x01\\x02\\x03\\x04\\x05abcde\\x80\\x81\\xfe\\xff',
+                  b'The quick brown fox jumped over the lazy dog 0123456789.' * 100],
+        'char': ['a',
+                 'Z',
+                 '\x01',
+                 '\x7f'],
         'double': ['0x0000000000000000', # 0.0
                    '0x8000000000000000', # -0.0
                    '0x400921fb54442eea', # pi (3.14159265359) positive decimal
@@ -76,28 +86,74 @@ class JmsMessageTypes(object):
                   '0x7f800000', # +Infinity
                   '0xff800000', # -Infinity
                   '0x7fc00000'], # +NaN
-        'int': ['-0x80000000', '-0x81', '-0x80', '-0x1', '0x0', '0x7f', '0x80', '0x7fffffff'],
-        'long': ['-0x8000000000000000', '-0x81', '-0x80', '-0x1', '0x0', '0x7f', '0x80', '0x7fffffffffffffff'],
-        'short': ['-0x8000', '-0x1', '0x0', '0x7fff'],
+        'int': ['-0x80000000',
+                '-0x81',
+                '-0x80',
+                '-0x1',
+                '0x0',
+                '0x7f',
+                '0x80',
+                '0x7fffffff'],
+        'long': ['-0x8000000000000000',
+                 '-0x81',
+                 '-0x80',
+                 '-0x1',
+                 '0x0',
+                 '0x7f',
+                 '0x80',
+                 '0x7fffffffffffffff'],
+        'short': ['-0x8000',
+                  '-0x1',
+                  '0x0',
+                  '0x7fff'],
         'string': ['',
                    'Hello, world',
                    '"Hello, world"',
                    "Charlie's \"peach\"",
-                   'Charlie\'s "peach"'],
-        #'The quick brown fox jumped over the lazy dog 0123456789.' * 100]
+                   'Charlie\'s "peach"',
+                   'The quick brown fox jumped over the lazy dog 0123456789.' * 100]
         }
     TYPE_MAP = {
         'JMS_BYTESMESSAGE_TYPE': TYPE_SUBMAP,
         'JMS_MAPMESSAGE_TYPE': TYPE_SUBMAP,
         'JMS_OBJECTMESSAGE_TYPE': {
-            'java.lang.Boolean': ['true', 'false'],
-            'java.lang.Byte': ['-128', '0', '127'],
-            'java.lang.Character': [u'a', u'Z'],
-            'java.lang.Double': ['0.0', '3.141592654', '-2.71828182846'],
-            'java.lang.Float': ['0.0', '3.14159', '-2.71828'],
-            'java.lang.Integer': ['-2147483648', '-129', '-128', '-1', '0', '127', '128', '2147483647'],
-            'java.lang.Long' : ['-9223372036854775808', '-129', '-128', '-1', '0', '127', '128', '9223372036854775807'],
-            'java.lang.Short': ['-32768', '-129', '-128', '-1', '0', '127', '128', '32767'],
+            'java.lang.Boolean': ['true',
+                                  'false'],
+            'java.lang.Byte': ['-128',
+                               '0',
+                               '127'],
+            'java.lang.Character': [u'a',
+                                    u'Z'],
+            'java.lang.Double': ['0.0',
+                                 '3.141592654',
+                                 '-2.71828182846'],
+            'java.lang.Float': ['0.0',
+                                '3.14159',
+                                '-2.71828'],
+            'java.lang.Integer': ['-2147483648',
+                                  '-129',
+                                  '-128',
+                                  '-1',
+                                  '0',
+                                  '127',
+                                  '128',
+                                  '2147483647'],
+            'java.lang.Long' : ['-9223372036854775808',
+                                '-129',
+                                '-128',
+                                '-1',
+                                '0',
+                                '127',
+                                '128',
+                                '9223372036854775807'],
+            'java.lang.Short': ['-32768',
+                                '-129',
+                                '-128',
+                                '-1',
+                                '0',
+                                '127',
+                                '128',
+                                '32767'],
             'java.lang.String': [u'',
                                  u'Hello, world',
                                  u'"Hello, world"',
@@ -109,8 +165,8 @@ class JmsMessageTypes(object):
                                           'Hello, world',
                                           '"Hello, world"',
                                           "Charlie's \"peach\"",
-                                          'Charlie\'s "peach"'],}
-                                #'The quick brown fox jumped over the lazy dog 0123456789.' * 100]}
+                                          'Charlie\'s "peach"',
+                                          'The quick brown fox jumped over the lazy dog 0123456789.' * 100]}
         }
 
     @staticmethod
@@ -139,15 +195,13 @@ class JmsMessageTypeTestCase(unittest.TestCase):
         if len(test_values) > 0:
             queue_name = 'qpid-interop.jms_message_type_tests.%s.%s.%s' % (jms_message_type, send_shim.NAME,
                                                                            receive_shim.NAME)
-            json_test_values_str = dumps(test_values)
-            send_error_text = send_shim.send(broker_addr, queue_name, jms_message_type, json_test_values_str)
+            send_error_text = send_shim.send(broker_addr, queue_name, jms_message_type, dumps(test_values))
             if len(send_error_text) > 0:
                 self.fail('Send shim \'%s\':\n%s' % (send_shim.NAME, send_error_text))
             num_test_values = {}
             for index in test_values.keys():
                 num_test_values[index] = len(test_values[index])
-            json_test_num_values_str = dumps(num_test_values)
-            receive_text = receive_shim.receive(broker_addr, queue_name, jms_message_type, json_test_num_values_str)
+            receive_text = receive_shim.receive(broker_addr, queue_name, jms_message_type, dumps(num_test_values))
             if isinstance(receive_text, str):
                 self.fail(receive_text)
             else:
@@ -173,8 +227,8 @@ def create_testcase_class(broker_addr, jms_message_type, test_values, shim_produ
             self.run_test(self.broker_addr, self.jms_message_type, self.test_values, send_shim, receive_shim)
 
         inner_test_method.__name__ = 'test_%s_%s->%s' % (jms_message_type[4:-5], send_shim.NAME, receive_shim.NAME)
-        #inner_test_method.__doc__ = 'JMS message type \'%s\' interop test: %s -> %s' % \
-        #                            (jms_message_type, send_shim.NAME, receive_shim.NAME)
+        inner_test_method.__doc__ = 'JMS message type \'%s\' interop test: %s -> %s' % \
+                                    (jms_message_type, send_shim.NAME, receive_shim.NAME)
         setattr(cls, inner_test_method.__name__, inner_test_method)
 
     class_name = jms_message_type[4:-5].title() + 'TestCase'
@@ -227,8 +281,7 @@ class Shim(object):
         try:
             arg_list = []
             arg_list.extend(self.RECEIVE)
-            arg_list.extend([broker_addr, queue_name, jms_message_type])
-            arg_list.append(json_test_num_values_str)
+            arg_list.extend([broker_addr, queue_name, jms_message_type, json_test_num_values_str])
             #print '\n>>>', arg_list # DEBUG - useful to see command-line sent to shim
             output = check_output(arg_list)
             #print '<<<', output # DEBUG- useful to see text received from shim
@@ -249,8 +302,8 @@ class ProtonPythonShim(Shim):
     """
     NAME = 'ProtonPython'
     SHIM_LOC = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'src')
-    SEND = [path.join(SHIM_LOC, 'jms-sender-shim.py')]
-    RECEIVE = [path.join(SHIM_LOC, 'jms-receiver-shim.py')]
+    SEND = [path.join(SHIM_LOC, 'JmsSenderShim.py')]
+    RECEIVE = [path.join(SHIM_LOC, 'JmsReceiverShim.py')]
 
 
 class QpidJmsShim(Shim):

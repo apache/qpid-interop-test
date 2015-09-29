@@ -26,17 +26,15 @@ Module to test AMQP primitive types across different APIs
 import argparse
 import unittest
 
-from ast import literal_eval
-from interop_test_errors import InteropTestError
 from itertools import product
+from json import dumps, loads
 from os import getenv, path
-from proton import char, int32, symbol, timestamp, ulong
-from shim_utils import StrToObj
 from subprocess import check_output, CalledProcessError
 from time import mktime, time
 from uuid import UUID, uuid4
 
-QPID_INTEROP_TEST_HOME = getenv('QPID_INTEROP_TEST_HOME') # TODO - propose a sensible default when installation details are worked out
+# TODO - propose a sensible default when installation details are worked out
+QPID_INTEROP_TEST_HOME = getenv('QPID_INTEROP_TEST_HOME')
 
 class AmqpPrimitiveTypes(object):
     """
@@ -44,18 +42,50 @@ class AmqpPrimitiveTypes(object):
     """
 
     TYPE_MAP = {
-        'null': [None],
-        'boolean': [True, False],
-        'ubyte': [0x0, 0x7f, 0x80, 0xff],
-        'ushort': [0x0, 0x7fff, 0x8000, 0xffff],
-        'uint': [0x0, 0x7fffffff, 0x80000000, 0xffffffff],
-        'ulong': [0x0, 0x01, 0xff, 0x100, 0x7fffffffffffffff, 0x8000000000000000, 0xffffffffffffffff],
-        'byte': [-0x80, -0x01, 0x0, 0x7f],
-        'short': [-0x8000, -0x1, 0x0, 0x7fff],
-        'int': [-0x80000000, -0x1, 0x0, 0x7fffffff],
-        'long': [-0x8000000000000000, -0x81, -0x80, -0x01, 0x0, 0x7f, 0x80, 0x7fffffffffffffff],
-        # Because of difficulty with rounding of floating point numbers, we use the binary representation instead
-        # which should be exact when comparing.
+        'null': ['None'],
+        'boolean': ['True',
+                    'False'],
+        'ubyte': ['0x0',
+                  '0x7f',
+                  '0x80',
+                  '0xff'],
+        'ushort': ['0x0',
+                   '0x7fff',
+                   '0x8000',
+                   '0xffff'],
+        'uint': ['0x0',
+                 '0x7fffffff',
+                 '0x80000000',
+                 '0xffffffff'],
+        'ulong': ['0x0',
+                  '0x1',
+                  '0xff',
+                  '0x100',
+                  '0x7fffffffffffffff',
+                  '0x8000000000000000',
+                  '0xffffffffffffffff'],
+        'byte': ['-0x80',
+                 '-0x1',
+                 '0x0',
+                 '0x7f'],
+        'short': ['-0x8000',
+                  '-0x1',
+                  '0x0',
+                  '0x7fff'],
+        'int': ['-0x80000000',
+                '-0x1',
+                '0x0',
+                '0x7fffffff'],
+        'long': ['-0x8000000000000000',
+                 '-0x81',
+                 '-0x80',
+                 '-0x1',
+                 '0x0',
+                 '0x7f',
+                 '0x80',
+                 '0x7fffffffffffffff'],
+        # float and double: Because of difficulty with rounding of floating point numbers, we use the binary
+        # representation instead which should be exact when comparing sent and received values.
         'float': ['0x00000000', # 0.0
                   '0x80000000', # -0.0
                   '0x40490fdb', # pi (3.14159265359) positive decimal
@@ -70,8 +100,8 @@ class AmqpPrimitiveTypes(object):
                   '0xff7fffff', # Largest negative normalized number
                   '0x7f800000', # +Infinity
                   '0xff800000', # -Infinity
-                  '0x7fc00000', # +NaN 
-                  '0xffc00000'], # -NaN 
+                  '0x7fc00000', # +NaN
+                  '0xffc00000'], # -NaN
         'double': ['0x0000000000000000', # 0.0
                    '0x8000000000000000', # -0.0
                    '0x400921fb54442eea', # pi (3.14159265359) positive decimal
@@ -88,27 +118,68 @@ class AmqpPrimitiveTypes(object):
                    '0xfff0000000000000', # -Infinity
                    '0x7ff8000000000000', # +NaN
                    '0xfff8000000000000'], # -NaN
-        #'decimal32': [0, 100, -1000.001, 3.14159, 1.234e+56],
-        #'decimal64': [0, 100, -1000.001, 3.14159, 1.234e+56],
-        #'decimal128': [0, 100, -1000.001, 3.14159, 1.234e+56], # Hangs python shim, ok in jms shim
-        #'char': [u'a', u'Z', u'\u0001', u'\u007f'],            # Hangs python shim, ok in jms shim
-        # timestamp must be in milliseconds since the unix epoch
-        'timestamp': [0, int(mktime((2000, 1, 1, 0, 0, 0, 5, 1, 0))*1000), int(time()*1000)],
-        'uuid': [UUID(int=0x0), UUID('00010203-0405-0607-0809-0a0b0c0d0e0f'), uuid4()],
-        'binary': [bytes(), bytes(12345), b'Hello, world!', b'\x01\x02\x03\x04\x05abcde\x80\x81\xfe\xff'],
-                   #b'The quick brown fox jumped over the lazy dog 0123456789.' * 1000],
+        # decimal32, decimal64, decimal128:
+        # Until more formal support for decimal32, decimal64 and decimal128 are included in Python, we use
+        # a hex format for basic tests, and treat the data as a binary blob.
+        # Note that IEE-754 allows for two binary encodings of these numbers without any way to determine which
+        # of them is in use. Thus the encoding used must be by convention or agreed upon in advance by the clients.
+        'decimal32': ['0x00000000',
+                      '0x40490fdb',
+                      '0xc02df854',
+                      '0xff7fffff'],
+        'decimal64': ['0x0000000000000000',
+                      '0x400921fb54442eea',
+                      '0xc005bf0a8b145fcf',
+                      '0xffefffffffffffff'],
+        'decimal128': ['0x00000000000000000000000000000000',
+                       '0xff0102030405060708090a0b0c0d0e0f'],
+        'char': ['a',
+                 'Z',
+                 '\x01',
+                 '\x7f'],
+        # timestamp
+        # Must be in milliseconds since the unix epoch
+        'timestamp': ['0',
+                      '%d' % int(mktime((2000, 1, 1, 0, 0, 0, 5, 1, 0))*1000),
+                      '%d' % int(time()*1000)],
+        'uuid': [str(UUID(int=0x0)),
+                 str(UUID('00010203-0405-0607-0809-0a0b0c0d0e0f')),
+                 str(uuid4())],
+        'binary': [bytes(),
+                   bytes(12345),
+                   b'Hello, world!',
+                   b'\\x01\\x02\\x03\\x04\\x05abcde\\x80\\x81\\xfe\\xff',
+                   b'The quick brown fox jumped over the lazy dog 0123456789.' * 1000],
         # strings must be unicode to comply with AMQP spec
-        'string': [u'', u'Hello, world!', u'"Hello, world!"', u"Charlie's peach",
-                   u'The quick brown fox jumped over the lazy dog 0123456789.' * 100],
-        'symbol': ['', 'myDomain.123', 'domain.0123456789.' * 100],
-        #'list': [[],
-        #         [1, -2, 3.14],
-        #         [u'a', u'b', u'c'],
-        #         [ulong(12345), timestamp(int(time()*1000)), int32(-25), uuid4(), symbol('a.b.c')],
-        #         [[], None, [1,2,3], {1:'one', 2:'two', 3:'three', 4:True, 5:False, 6:None}, True, False, char(u'5')],
-        #         [[],[[],[[],[],[]],[]],[]],
-        #         [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] * 1000],
-        #'map': [{}, {1:u'one', 2:u'two'}, {None:None, 1:1, '2':'2', True:False, False:True}]#, # TODO: Bug in handling maps
+        'string': [u'',
+                   u'Hello, world!',
+                   u'"Hello, world!"',
+                   u"Charlie's peach",
+                   u'The quick brown fox jumped over the lazy dog 0123456789.' * 1000],
+        'symbol': ['',
+                   'myDomain.123',
+                   'domain.0123456789.' * 100],
+        'list': [[],
+                 [1, -2, 3.14],
+                 [u'a', u'b', u'c'],
+                 #[ulong(12345), timestamp(int(time()*1000)), int32(-25), uuid4(), symbol('a.b.c')],
+                 [[], None, [1, 2, 3], True, False],
+                 [[], [[], [[], [], []], []], []],
+                 [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] * 1000
+                ],
+        # TODO: Maps translate into object descriptions in JSON, so only string keys are allowed. Come up with
+        #       a method to represent a Python map in JSON.
+        'map': [{},
+                {u'one': 1,
+                 u'two': 2},
+                {u'None': None,
+                 u'One': 1,
+                 u'2': '2',
+                 u'True': True,
+                 u'False': False,
+                 u'map': {u'A': 1,
+                          u'B': 2}}
+               ],
         #'array': [[], [1,2,3], ['Hello', 'world']] # TODO: Not yet implemented
         }
 
@@ -137,11 +208,11 @@ class AmqpTypeTestCase(unittest.TestCase):
         """
         if len(test_value_list) > 0:
             queue_name = 'qpid-interop.simple_type_tests.%s.%s.%s' % (amqp_type, send_shim.NAME, receive_shim.NAME)
-            send_error_text = send_shim.send(broker_addr, queue_name, amqp_type, test_value_list)
+            send_error_text = send_shim.send(broker_addr, queue_name, amqp_type, dumps(test_value_list))
             if len(send_error_text) > 0:
                 self.fail('Send shim \'%s\':\n%s' % (send_shim.NAME, send_error_text))
             receive_text = receive_shim.receive(broker_addr, queue_name, amqp_type, len(test_value_list))
-            if type(receive_text) is list:
+            if isinstance(receive_text, list):
                 self.assertEqual(receive_text, test_value_list, msg='\n    sent:%s\nreceived:%s' % \
                                  (test_value_list, receive_text))
             else:
@@ -159,7 +230,7 @@ def create_testcase_class(broker_addr, amqp_type, test_value_list, shim_product)
         """Print the class name"""
         return self.__class__.__name__
 
-    def add_test_method(cls, broker_addr, send_shim, receive_shim):
+    def add_test_method(cls, send_shim, receive_shim):
         """Function which creates a new test method in class cls"""
 
         def inner_test_method(self):
@@ -179,7 +250,7 @@ def create_testcase_class(broker_addr, amqp_type, test_value_list, shim_product)
                   'test_value_list': test_value_list}
     new_class = type(class_name, (AmqpTypeTestCase,), class_dict)
     for send_shim, receive_shim in shim_product:
-        add_test_method(new_class, broker_addr, send_shim, receive_shim)
+        add_test_method(new_class, send_shim, receive_shim)
     return new_class
 
 
@@ -192,27 +263,23 @@ class Shim(object):
     RECEIVE = None
     USE_SHELL = False
 
-    def send(self, broker_addr, queue_name, amqp_type, test_value_list):
+    def send(self, broker_addr, queue_name, amqp_type, json_test_values_str):
         """
         Send the values of type amqp_type in test_value_list to queue queue_name. Return output (if any) from stdout.
         """
         arg_list = []
         arg_list.extend(self.SEND)
         arg_list.extend([broker_addr, queue_name, amqp_type])
-        for test_value in test_value_list:
-            if amqp_type == 'string' or amqp_type == 'char' or amqp_type == 'float' or amqp_type == 'double':
-                arg_list.append(test_value) # Not using str() on strings preserves the unicode prefix u'...'
-            else:
-                arg_list.append(str(test_value))
+        arg_list.append(json_test_values_str)
+
         try:
-            #print
-            #print '>>>', arg_list
+            #print '\n>>>', arg_list # DEBUG - useful to see command-line sent to shim
             return check_output(arg_list, shell=self.USE_SHELL)
-        except CalledProcessError as e:
-            return str(e) + '\n\nOutput:\n' + e.output
-        except Exception as e:
-            return str(e)
-        
+        except CalledProcessError as exc:
+            return str(exc) + '\n\nOutput:\n' + exc.output
+        except Exception as exc:
+            return str(exc)
+
 
     def receive(self, broker_addr, queue_name, amqp_type, num_test_values):
         """
@@ -225,54 +292,15 @@ class Shim(object):
             arg_list = []
             arg_list.extend(self.RECEIVE)
             arg_list.extend([broker_addr, queue_name, amqp_type, str(num_test_values)])
-            #print
-            #print '>>>', arg_list
+            #print '\n>>>', arg_list # DEBUG - useful to see command-line sent to shim
             output = check_output(arg_list)
-            #print '<<<', output
+            #print '<<<', output # DEBUG - useful to see text received from shim
             str_tvl = output.split('\n')[0:-1] # remove trailing \n
-            if str_tvl[0] == amqp_type:
-                received_test_value_list = []
-                for stv in str_tvl[1:]:
-                    # Non-string types using literal_eval
-                    if amqp_type == 'null' or \
-                       amqp_type == 'boolean' or \
-                       amqp_type == 'ubyte' or \
-                       amqp_type == 'ushort' or \
-                       amqp_type == 'uint' or \
-                       amqp_type == 'ulong' or \
-                       amqp_type == 'byte' or \
-                       amqp_type == 'short' or \
-                       amqp_type == 'int' or \
-                       amqp_type == 'long' or \
-                       amqp_type == 'decimal32' or \
-                       amqp_type == 'decimal64' or \
-                       amqp_type == 'decimal128' or \
-                       amqp_type == 'timestamp':
-                        received_test_value_list.append(literal_eval(stv))
-                    # Non-string types not using literal_evel
-                    elif amqp_type == 'uuid':
-                        received_test_value_list.append(UUID(stv))
-                    elif amqp_type == 'binary':
-                        received_test_value_list.append(bytes(stv))
-                    # String  and float types used as-is
-                    elif amqp_type == 'float' or \
-                         amqp_type == 'double' or \
-                         amqp_type == 'char' or \
-                         amqp_type == 'string' or \
-                         amqp_type == 'symbol':
-                        received_test_value_list.append(stv)
-                    elif amqp_type == 'list' or \
-                         amqp_type == 'map':
-                        received_test_value_list.append(StrToObj(list(stv).__iter__()).run())
-                    else:
-                        raise InteropTestError('ERROR: Shim.receive(): AMQP type \'%s\' not implemented' % amqp_type)
-                return received_test_value_list
-            else:
-                return output # return error string
-        except CalledProcessError as e:
-            return str(e) + '\n\n' + e.output
-        except Exception as e:
-            return str(e)
+            return loads(str_tvl[1])
+        except CalledProcessError as exc:
+            return str(exc) + '\n\n' + exc.output
+        except Exception as exc:
+            return str(exc)
 
 
 class ProtonPythonShim(Shim):
@@ -281,8 +309,8 @@ class ProtonPythonShim(Shim):
     """
     NAME = 'ProtonPython'
     SHIM_LOC = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'src')
-    SEND = [path.join(SHIM_LOC, 'amqp-send')]
-    RECEIVE = [path.join(SHIM_LOC, 'amqp-receive')]
+    SEND = [path.join(SHIM_LOC, 'TypesSenderShim.py')]
+    RECEIVE = [path.join(SHIM_LOC, 'TypesReceiverShim.py')]
 
 
 class QpidJmsShim(Shim):
@@ -290,11 +318,11 @@ class QpidJmsShim(Shim):
     Shim for qpid-jms JMS client
     """
     NAME = 'QpidJms'
-    
+
     # Installed qpid versions
     QPID_JMS_VER = '0.4.0-SNAPSHOT'
     QPID_PROTON_J_VER = '0.10-SNAPSHOT'
-    
+
     # Classpath components
     QPID_INTEROP_TEST_SHIM_JAR = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-jms', 'target', 'qpid-jms-shim.jar')
     MAVEN_REPO_PATH = path.join(getenv('HOME'), '.m2', 'repository')
@@ -307,14 +335,20 @@ class QpidJmsShim(Shim):
     PROTON_J_JAR = path.join(MAVEN_REPO_PATH, 'org', 'apache', 'qpid', 'proton-j', QPID_PROTON_J_VER,
                              'proton-j-' + QPID_PROTON_J_VER + '.jar')
     NETTY_JAR = path.join(MAVEN_REPO_PATH, 'io', 'netty', 'netty-all', '4.0.17.Final', 'netty-all-4.0.17.Final.jar')
-    
-    CLASSPATH = ':'.join([QPID_INTEROP_TEST_SHIM_JAR, JMS_API_JAR, JMS_IMPL_JAR, LOGGER_API_JAR, LOGGER_IMPL_JAR, PROTON_J_JAR, NETTY_JAR])
+
+    CLASSPATH = ':'.join([QPID_INTEROP_TEST_SHIM_JAR,
+                          JMS_API_JAR,
+                          JMS_IMPL_JAR,
+                          LOGGER_API_JAR,
+                          LOGGER_IMPL_JAR,
+                          PROTON_J_JAR,
+                          NETTY_JAR])
     JAVA_HOME = getenv('JAVA_HOME', '/usr/bin') # Default only works in Linux
     JAVA_EXEC = path.join(JAVA_HOME, 'java')
     SEND = [JAVA_EXEC, '-cp', CLASSPATH, 'org.apache.qpid.interop_test.shim.AmqpSender']
     RECEIVE = [JAVA_EXEC, '-cp', CLASSPATH, 'org.apache.qpid.interop_test.shim.AmqpReceiver']
 
-    
+
 # SHIM_MAP contains an instance of each client language shim that is to be tested as a part of this test. For
 # every shim in this list, a test is dynamically constructed which tests it against itself as well as every
 # other shim in the list.
@@ -328,8 +362,12 @@ SHIM_MAP = {ProtonPythonShim.NAME: ProtonPythonShim()}
 
 
 class TestOptions(object):
+    """
+    Class controlling command-line arguments used to control the test.
+    """
     def __init__(self):
-        parser = argparse.ArgumentParser(description='Qpid-interop AMQP client interoparability test suite for AMQP simple types')
+        parser = argparse.ArgumentParser(description='Qpid-interop AMQP client interoparability test suite '
+                                         'for AMQP simple types')
         parser.add_argument('--broker', action='store', default='localhost:5672', metavar='BROKER:PORT',
                             help='Broker against which to run test suite.')
 #        test_group = parser.add_mutually_exclusive_group()
@@ -348,16 +386,16 @@ class TestOptions(object):
 #        shim_group.add_argument('--include-shim', action='append', metavar='SHIM-NAME',
 #                                help='Name of shim to include. Supported shims:\n%s' % SHIM_NAMES)
         parser.add_argument('--exclude-shim', action='append', metavar='SHIM-NAME',
-                             help='Name of shim to exclude. Supported shims:\n%s' % sorted(SHIM_MAP.keys()))
+                            help='Name of shim to exclude. Supported shims:\n%s' % sorted(SHIM_MAP.keys()))
         self.args = parser.parse_args()
-        
+
 
 #--- Main program start ---
 
 if __name__ == '__main__':
 
-    args = TestOptions().args
-    #print 'args:', args
+    ARGS = TestOptions().args
+    #print 'ARGS:', ARGS
 
     # TEST_CASE_CLASSES is a list that collects all the test classes that are constructed. One class is constructed
     # per AMQP type used as the key in map AmqpPrimitiveTypes.TYPE_MAP.
@@ -366,15 +404,15 @@ if __name__ == '__main__':
     # TEST_SUITE is the final suite of tests that will be run and which contains all the dynamically created
     # type classes, each of which contains a test for the combinations of client shims
     TEST_SUITE = unittest.TestSuite()
-    
+
     # Remove shims excluded from the command-line
-    if args.exclude_shim is not None:
-        for shim in args.exclude_shim:
-            SHIM_MAP.pop(shim)          
+    if ARGS.exclude_shim is not None:
+        for shim in ARGS.exclude_shim:
+            SHIM_MAP.pop(shim)
     # Create test classes dynamically
     for at in sorted(AmqpPrimitiveTypes.get_type_list()):
-        if args.exclude_type is None or at not in args.exclude_type:
-            test_case_class = create_testcase_class(args.broker,
+        if ARGS.exclude_type is None or at not in ARGS.exclude_type:
+            test_case_class = create_testcase_class(ARGS.broker,
                                                     at,
                                                     AmqpPrimitiveTypes.get_test_value_list(at),
                                                     product(SHIM_MAP.values(), repeat=2))
@@ -383,3 +421,4 @@ if __name__ == '__main__':
 
     # Finally, run all the dynamically created tests
     unittest.TextTestRunner(verbosity=2).run(TEST_SUITE)
+

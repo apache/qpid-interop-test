@@ -22,11 +22,11 @@
 # * Capturing errors from client or broker
 
 import sys
-from ast import literal_eval
-from proton import byte, char, decimal32, decimal64, decimal128, float32, int32, Message, short, symbol, timestamp, ubyte, uint, ulong, ushort
+from json import loads
+from proton import byte, char, decimal32, decimal64, decimal128, float32, int32, Message, short, symbol, timestamp, \
+                   ubyte, uint, ulong, ushort
 from proton.handlers import MessagingHandler
 from proton.reactor import Container
-from shim_utils import StrToObj
 from struct import unpack
 from traceback import format_exc
 from uuid import UUID
@@ -57,41 +57,41 @@ class Sender(MessagingHandler):
                         return
 
     def create_message(self, test_value):
-        # Non-string types using literal_eval
         if self.amqp_type == 'null':
             return Message(id=(self.sent+1), body=None)
         elif self.amqp_type == 'boolean':
             return Message(id=(self.sent+1), body=True if test_value == 'True' else False)
         elif self.amqp_type == 'ubyte':
-            return Message(id=(self.sent+1), body=ubyte(literal_eval(test_value)))
+            return Message(id=(self.sent+1), body=ubyte(int(test_value, 16)))
         elif self.amqp_type == 'ushort':
-            return Message(id=(self.sent+1), body=ushort(literal_eval(test_value)))
+            return Message(id=(self.sent+1), body=ushort(int(test_value, 16)))
         elif self.amqp_type == 'uint':
-            return Message(id=(self.sent+1), body=uint(literal_eval(test_value)))
+            return Message(id=(self.sent+1), body=uint(int(test_value, 16)))
         elif self.amqp_type == 'ulong':
-            return Message(id=(self.sent+1), body=ulong(literal_eval(test_value)))
+            return Message(id=(self.sent+1), body=ulong(int(test_value, 16)))
         elif self.amqp_type == 'byte':
-            return Message(id=(self.sent+1), body=byte(literal_eval(test_value)))
+            return Message(id=(self.sent+1), body=byte(int(test_value, 16)))
         elif self.amqp_type == 'short':
-            return Message(id=(self.sent+1), body=short(literal_eval(test_value)))
+            return Message(id=(self.sent+1), body=short(int(test_value, 16)))
         elif self.amqp_type == 'int':
-            return Message(id=(self.sent+1), body=int32(literal_eval(test_value)))
+            return Message(id=(self.sent+1), body=int32(int(test_value, 16)))
         elif self.amqp_type == 'long':
-            return Message(id=(self.sent+1), body=long(literal_eval(test_value)))
+            return Message(id=(self.sent+1), body=long(int(test_value, 16)))
         elif self.amqp_type == 'float':
             return Message(id=(self.sent+1), body=float32(unpack('!f', test_value[2:].decode('hex'))[0]))
         elif self.amqp_type == 'double':
             return Message(id=(self.sent+1), body=unpack('!d', test_value[2:].decode('hex'))[0])
         elif self.amqp_type == 'decimal32':
-            return Message(id=(self.sent+1), body=decimal32(literal_eval(test_value)))
+            return Message(id=(self.sent+1), body=decimal32(int(test_value[2:], 16)))
         elif self.amqp_type == 'decimal64':
-            return Message(id=(self.sent+1), body=decimal64(literal_eval(test_value)))
+            l64 = long(test_value[2:], 16)
+            return Message(id=(self.sent+1), body=decimal64(l64))
         elif self.amqp_type == 'decimal128':
-            return Message(id=(self.sent+1), body=decimal128(literal_eval(test_value)))
+            return Message(id=(self.sent+1), body=decimal128(test_value[2:].decode('hex')))
         elif self.amqp_type == 'char':
             return Message(id=(self.sent+1), body=char(test_value))
         elif self.amqp_type == 'timestamp':
-            return Message(id=(self.sent+1), body=timestamp(literal_eval(test_value)))
+            return Message(id=(self.sent+1), body=timestamp(int(test_value)))
         elif self.amqp_type == 'uuid':
             return Message(id=(self.sent+1), body=UUID(test_value))
         elif self.amqp_type == 'binary':
@@ -101,9 +101,9 @@ class Sender(MessagingHandler):
         elif self.amqp_type == 'symbol':
             return Message(id=(self.sent+1), body=symbol(test_value))
         elif self.amqp_type == 'list':
-            return Message(id=(self.sent+1), body=StrToObj(list(test_value).__iter__()).run())
+            return Message(id=(self.sent+1), body=test_value)
         elif self.amqp_type == 'map':
-            return Message(id=(self.sent+1), body=StrToObj(list(test_value).__iter__()).run())
+            return Message(id=(self.sent+1), body=test_value)
         else:
             print 'send: Unsupported AMQP type "%s"' % self.amqp_type
             return None
@@ -116,9 +116,6 @@ class Sender(MessagingHandler):
     def on_disconnected(self, event):
         self.sent = self.confirmed
 
-    @staticmethod
-    def _map_string_to_map(str_list):
-        return {}
 
 # --- main ---
 # Args: 1: Broker address (ip-addr:port)
@@ -126,10 +123,10 @@ class Sender(MessagingHandler):
 #       3: AMQP type
 #       4...n: Test value(s) as strings
 try:
-    Container(Sender('%s/%s' % (sys.argv[1], sys.argv[2]), sys.argv[3], sys.argv[4:])).run()
+    Container(Sender('%s/%s' % (sys.argv[1], sys.argv[2]), sys.argv[3], loads(sys.argv[4]))).run()
 except KeyboardInterrupt:
     pass
-except Exception as e:
-    print 'proton-python-send EXCEPTION:', e
+except Exception as exc:
+    print 'proton-python-send EXCEPTION:', exc
     print format_exc()
         

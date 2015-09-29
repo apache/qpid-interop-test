@@ -221,10 +221,6 @@ class JmsSenderShim(MessagingHandler):
     def on_disconnected(self, event):
         self.sent = self.confirmed
 
-#    @staticmethod
-#    def _map_string_to_map(str_list):
-#        return {}
-
 # --- main ---
 # Args: 1: Broker address (ip-addr:port)
 #       2: Queue name
