@@ -17,7 +17,9 @@
 # under the License.
 #
 
-import shim_utils
+import broker_properties
+import interop_test_errors
+import test_type_map
 import types
 import jms
 

@@ -31,10 +31,15 @@ from json import dumps, loads
 from os import getenv, path
 from subprocess import check_output, CalledProcessError
 
+from proton import symbol
+from test_type_map import TestTypeMap
+import broker_properties
+
+
 # TODO - propose a sensible default when installation details are worked out
 QPID_INTEROP_TEST_HOME = getenv('QPID_INTEROP_TEST_HOME')
 
-class JmsMessageTypes(object):
+class JmsMessageTypes(TestTypeMap):
     """
     Class which contains all the described JMS message types and the test values to be used in testing.
     """
@@ -113,6 +118,7 @@ class JmsMessageTypes(object):
                    'Charlie\'s "peach"',
                    'The quick brown fox jumped over the lazy dog 0123456789.' * 100]
         }
+
     TYPE_MAP = {
         'JMS_BYTESMESSAGE_TYPE': TYPE_SUBMAP,
         'JMS_MAPMESSAGE_TYPE': TYPE_SUBMAP,
@@ -169,17 +175,7 @@ class JmsMessageTypes(object):
                                           'The quick brown fox jumped over the lazy dog 0123456789.' * 100]}
         }
 
-    @staticmethod
-    def get_type_list():
-        """Return a list of JMS message types which this test suite supports"""
-        return JmsMessageTypes.TYPE_MAP.keys()
-
-    @staticmethod
-    def get_test_value_map(jms_messagae_type):
-        """Return a list of test values to use when testing the supplied JMS message type."""
-        if jms_messagae_type not in JmsMessageTypes.TYPE_MAP.keys():
-            return None
-        return JmsMessageTypes.TYPE_MAP[jms_messagae_type]
+    BROKER_SKIP = {}
 
 
 class JmsMessageTypeTestCase(unittest.TestCase):
@@ -211,7 +207,7 @@ class JmsMessageTypeTestCase(unittest.TestCase):
             self.fail('Type %s has no test values' % jms_message_type)
 
 
-def create_testcase_class(broker_addr, jms_message_type, test_values, shim_product):
+def create_testcase_class(broker_name, types, broker_addr, jms_message_type, shim_product):
     """
     Class factory function which creates new subclasses to JmsMessageTypeTestCase.
     """
@@ -223,6 +219,8 @@ def create_testcase_class(broker_addr, jms_message_type, test_values, shim_produ
     def add_test_method(cls, send_shim, receive_shim):
         """Function which creates a new test method in class cls"""
 
+        @unittest.skipIf(types.skip_test(jms_message_type, broker_name),
+                         types.skip_test_message(jms_message_type, broker_name))
         def inner_test_method(self):
             self.run_test(self.broker_addr, self.jms_message_type, self.test_values, send_shim, receive_shim)
 
@@ -237,7 +235,7 @@ def create_testcase_class(broker_addr, jms_message_type, test_values, shim_produ
                   '__doc__': 'Test case for JMS message type \'%s\'' % jms_message_type,
                   'jms_message_type': jms_message_type,
                   'broker_addr': broker_addr,
-                  'test_values': test_values}
+                  'test_values': types.get_test_values(jms_message_type)}
     new_class = type(class_name, (JmsMessageTypeTestCase,), class_dict)
     for send_shim, receive_shim in shim_product:
         add_test_method(new_class, send_shim, receive_shim)
@@ -391,7 +389,17 @@ class TestOptions(object):
 if __name__ == '__main__':
 
     ARGS = TestOptions().args
-    #print 'ARGS:', ARGS # DEBUG
+    #print 'ARGS:', ARGS # debug
+
+    # Connect to broker to find broker type
+    CONNECTION_PROPS = broker_properties.getBrokerProperties(ARGS.broker)
+    print 'Test Broker: %s v.%s on %s' % (CONNECTION_PROPS[symbol(u'product')],
+                                          CONNECTION_PROPS[symbol(u'version')],
+                                          CONNECTION_PROPS[symbol(u'platform')])
+    print
+    BROKER = CONNECTION_PROPS[symbol(u'product')]
+
+    TYPES = JmsMessageTypes()
 
     # TEST_CASE_CLASSES is a list that collects all the test classes that are constructed. One class is constructed
     # per AMQP type used as the key in map JmsMessageTypes.TYPE_MAP.
@@ -406,11 +414,12 @@ if __name__ == '__main__':
         for shim in ARGS.exclude_shim:
             SHIM_MAP.pop(shim)
     # Create test classes dynamically
-    for at in sorted(JmsMessageTypes.get_type_list()):
-        if ARGS.exclude_type is None or at not in ARGS.exclude_type:
-            test_case_class = create_testcase_class(ARGS.broker,
-                                                    at,
-                                                    JmsMessageTypes.get_test_value_map(at),
+    for jmt in sorted(TYPES.get_type_list()):
+        if ARGS.exclude_type is None or jmt not in ARGS.exclude_type:
+            test_case_class = create_testcase_class(BROKER,
+                                                    TYPES,
+                                                    ARGS.broker,
+                                                    jmt,
                                                     product(SHIM_MAP.values(), repeat=2))
             TEST_CASE_CLASSES.append(test_case_class)
             TEST_SUITE.addTest(unittest.makeSuite(test_case_class))

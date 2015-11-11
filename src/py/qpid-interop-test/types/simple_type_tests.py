@@ -33,10 +33,16 @@ from subprocess import check_output, CalledProcessError
 from time import mktime, time
 from uuid import UUID, uuid4
 
+from proton import symbol
+from test_type_map import TestTypeMap
+import broker_properties
+
+
 # TODO - propose a sensible default when installation details are worked out
 QPID_INTEROP_TEST_HOME = getenv('QPID_INTEROP_TEST_HOME')
 
-class AmqpPrimitiveTypes(object):
+
+class AmqpPrimitiveTypes(TestTypeMap):
     """
     Class which contains all the described AMQP primitive types and the test values to be used in testing.
     """
@@ -121,8 +127,6 @@ class AmqpPrimitiveTypes(object):
         # decimal32, decimal64, decimal128:
         # Until more formal support for decimal32, decimal64 and decimal128 are included in Python, we use
         # a hex format for basic tests, and treat the data as a binary blob.
-        # Note that IEE-754 allows for two binary encodings of these numbers without any way to determine which
-        # of them is in use. Thus the encoding used must be by convention or agreed upon in advance by the clients.
         'decimal32': ['0x00000000',
                       '0x40490fdb',
                       '0xc02df854',
@@ -137,8 +141,7 @@ class AmqpPrimitiveTypes(object):
                  'Z',
                  '\x01',
                  '\x7f'],
-        # timestamp
-        # Must be in milliseconds since the unix epoch
+        # timestamp: Must be in milliseconds since the Unix epoch
         'timestamp': ['0',
                       '%d' % int(mktime((2000, 1, 1, 0, 0, 0, 5, 1, 0))*1000),
                       '%d' % int(time()*1000)],
@@ -183,17 +186,12 @@ class AmqpPrimitiveTypes(object):
         #'array': [[], [1,2,3], ['Hello', 'world']] # TODO: Not yet implemented
         }
 
-    @staticmethod
-    def get_type_list():
-        """Return a list of simple AMQP types which this test suite supports"""
-        return AmqpPrimitiveTypes.TYPE_MAP.keys()
+    BROKER_SKIP = {'decimal32': {'qpid-cpp': 'decimal32 not supported on qpid-cpp broker: QPIDIT-5, QPID-6328',},
+                   'decimal64': {'qpid-cpp': 'decimal64 not supported on qpid-cpp broker: QPIDIT-6, QPID-6328',},
+                   'decimal128': {'qpid-cpp': 'decimal128 not supported on qpid-cpp broker: QPIDIT-3, QPID-6328',},
+                   'char': {'qpid-cpp': 'char not supported on qpid-cpp broker: QPIDIT-4, QPID-6328',},
+                  }
 
-    @staticmethod
-    def get_test_value_list(amqp_type):
-        """Return a list of test values to use when testing the supplied AMQP type."""
-        if amqp_type not in AmqpPrimitiveTypes.TYPE_MAP.keys():
-            return None
-        return AmqpPrimitiveTypes.TYPE_MAP[amqp_type]
 
 
 class AmqpTypeTestCase(unittest.TestCase):
@@ -221,7 +219,7 @@ class AmqpTypeTestCase(unittest.TestCase):
             self.fail('Type %s has no test values' % amqp_type)
 
 
-def create_testcase_class(broker_addr, amqp_type, test_value_list, shim_product):
+def create_testcase_class(broker_name, types, broker_addr, amqp_type, shim_product):
     """
     Class factory function which creates new subclasses to AmqpTypeTestCase.
     """
@@ -233,6 +231,8 @@ def create_testcase_class(broker_addr, amqp_type, test_value_list, shim_product)
     def add_test_method(cls, send_shim, receive_shim):
         """Function which creates a new test method in class cls"""
 
+        @unittest.skipIf(types.skip_test(amqp_type, broker_name),
+                         types.skip_test_message(amqp_type, broker_name))
         def inner_test_method(self):
             self.run_test(self.broker_addr, self.amqp_type, self.test_value_list, send_shim, receive_shim)
 
@@ -247,7 +247,7 @@ def create_testcase_class(broker_addr, amqp_type, test_value_list, shim_product)
                   '__doc__': 'Test case for AMQP 1.0 simple type \'%s\'' % amqp_type,
                   'amqp_type': amqp_type,
                   'broker_addr': broker_addr,
-                  'test_value_list': test_value_list}
+                  'test_value_list': types.get_test_values(amqp_type)}
     new_class = type(class_name, (AmqpTypeTestCase,), class_dict)
     for send_shim, receive_shim in shim_product:
         add_test_method(new_class, send_shim, receive_shim)
@@ -395,7 +395,17 @@ class TestOptions(object):
 if __name__ == '__main__':
 
     ARGS = TestOptions().args
-    #print 'ARGS:', ARGS
+    #print 'ARGS:', ARGS # debug
+
+    # Connect to broker to find broker type
+    CONNECTION_PROPS = broker_properties.getBrokerProperties(ARGS.broker)
+    print 'Test Broker: %s v.%s on %s' % (CONNECTION_PROPS[symbol(u'product')],
+                                          CONNECTION_PROPS[symbol(u'version')],
+                                          CONNECTION_PROPS[symbol(u'platform')])
+    print
+    BROKER = CONNECTION_PROPS[symbol(u'product')]
+
+    TYPES = AmqpPrimitiveTypes()
 
     # TEST_CASE_CLASSES is a list that collects all the test classes that are constructed. One class is constructed
     # per AMQP type used as the key in map AmqpPrimitiveTypes.TYPE_MAP.
@@ -410,11 +420,12 @@ if __name__ == '__main__':
         for shim in ARGS.exclude_shim:
             SHIM_MAP.pop(shim)
     # Create test classes dynamically
-    for at in sorted(AmqpPrimitiveTypes.get_type_list()):
+    for at in sorted(TYPES.get_type_list()):
         if ARGS.exclude_type is None or at not in ARGS.exclude_type:
-            test_case_class = create_testcase_class(ARGS.broker,
+            test_case_class = create_testcase_class(BROKER,
+                                                    TYPES,
+                                                    ARGS.broker,
                                                     at,
-                                                    AmqpPrimitiveTypes.get_test_value_list(at),
                                                     product(SHIM_MAP.values(), repeat=2))
             TEST_CASE_CLASSES.append(test_case_class)
             TEST_SUITE.addTest(unittest.makeSuite(test_case_class))
