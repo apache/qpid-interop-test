@@ -61,6 +61,14 @@ class JmsSenderShim(MessagingHandler):
                 if self._send_test_values(event, sub_type, self.test_value_map[sub_type]):
                     return
 
+    def on_accepted(self, event):
+        self.confirmed += 1
+        if self.confirmed == self.total:
+            event.connection.close()
+
+    def on_disconnected(self, event):
+        self.sent = self.confirmed
+
     def _get_total_num_msgs(self):
         total = 0
         for key in self.test_value_map.keys():
@@ -213,13 +221,6 @@ class JmsSenderShim(MessagingHandler):
                        body=unicode(test_value_text),
                        annotations=create_annotation('JMS_TEXTMESSAGE_TYPE'))
 
-    def on_accepted(self, event):
-        self.confirmed += 1
-        if self.confirmed == self.total:
-            event.connection.close()
-
-    def on_disconnected(self, event):
-        self.sent = self.confirmed
 
 # --- main ---
 # Args: 1: Broker address (ip-addr:port)

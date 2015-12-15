@@ -122,50 +122,50 @@ class JmsMessageTypes(TestTypeMap):
     TYPE_MAP = {
         'JMS_BYTESMESSAGE_TYPE': TYPE_SUBMAP,
         'JMS_MAPMESSAGE_TYPE': TYPE_SUBMAP,
-        'JMS_OBJECTMESSAGE_TYPE': {
-            'java.lang.Boolean': ['true',
-                                  'false'],
-            'java.lang.Byte': ['-128',
-                               '0',
-                               '127'],
-            'java.lang.Character': [u'a',
-                                    u'Z'],
-            'java.lang.Double': ['0.0',
-                                 '3.141592654',
-                                 '-2.71828182846'],
-            'java.lang.Float': ['0.0',
-                                '3.14159',
-                                '-2.71828'],
-            'java.lang.Integer': ['-2147483648',
-                                  '-129',
-                                  '-128',
-                                  '-1',
-                                  '0',
-                                  '127',
-                                  '128',
-                                  '2147483647'],
-            'java.lang.Long' : ['-9223372036854775808',
-                                '-129',
-                                '-128',
-                                '-1',
-                                '0',
-                                '127',
-                                '128',
-                                '9223372036854775807'],
-            'java.lang.Short': ['-32768',
-                                '-129',
-                                '-128',
-                                '-1',
-                                '0',
-                                '127',
-                                '128',
-                                '32767'],
-            'java.lang.String': [u'',
-                                 u'Hello, world',
-                                 u'"Hello, world"',
-                                 u"Charlie's \"peach\"",
-                                 u'Charlie\'s "peach"']
-            },
+#        'JMS_OBJECTMESSAGE_TYPE': {
+#            'java.lang.Boolean': ['true',
+#                                  'false'],
+#            'java.lang.Byte': ['-128',
+#                               '0',
+#                               '127'],
+#            'java.lang.Character': [u'a',
+#                                    u'Z'],
+#            'java.lang.Double': ['0.0',
+#                                 '3.141592654',
+#                                 '-2.71828182846'],
+#            'java.lang.Float': ['0.0',
+#                                '3.14159',
+#                                '-2.71828'],
+#            'java.lang.Integer': ['-2147483648',
+#                                  '-129',
+#                                  '-128',
+#                                  '-1',
+#                                  '0',
+#                                  '127',
+#                                  '128',
+#                                  '2147483647'],
+#            'java.lang.Long' : ['-9223372036854775808',
+#                                '-129',
+#                                '-128',
+#                                '-1',
+#                                '0',
+#                                '127',
+#                                '128',
+#                                '9223372036854775807'],
+#            'java.lang.Short': ['-32768',
+#                                '-129',
+#                                '-128',
+#                                '-1',
+#                                '0',
+#                                '127',
+#                                '128',
+#                                '32767'],
+#            'java.lang.String': [u'',
+#                                 u'Hello, world',
+#                                 u'"Hello, world"',
+#                                 u"Charlie's \"peach\"",
+#                                 u'Charlie\'s "peach"']
+#            },
         'JMS_STREAMMESSAGE_TYPE': TYPE_SUBMAP,
         'JMS_TEXTMESSAGE_TYPE': {'text': ['',
                                           'Hello, world',
@@ -284,10 +284,12 @@ class Shim(object):
             output = check_output(arg_list)
             #print '<<<', output # DEBUG- useful to see text received from shim
             str_tvl = output.split('\n')[:-1] # remove trailing \n
-            if str_tvl[0] == jms_message_type:
+            if len(str_tvl) == 1:
+                return output
+            if len(str_tvl) == 2:
                 return loads(str_tvl[1])
             else:
-                return output # return error string
+                return loads("".join(str_tvl[1:]))
         except CalledProcessError as exc:
             return str(exc) + '\n\n' + exc.output
         except Exception as exc:
@@ -302,6 +304,16 @@ class ProtonPythonShim(Shim):
     SHIM_LOC = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'src')
     SEND = [path.join(SHIM_LOC, 'JmsSenderShim.py')]
     RECEIVE = [path.join(SHIM_LOC, 'JmsReceiverShim.py')]
+
+
+class ProtonCppShim(Shim):
+    """
+    Shim for qpid-proton Python client
+    """
+    NAME = 'ProtonCpp'
+    SHIM_LOC = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'build', 'src')
+    SEND = [path.join(SHIM_LOC, 'JmsSender')]
+    RECEIVE = [path.join(SHIM_LOC, 'JmsReceiver')]
 
 
 class QpidJmsShim(Shim):
@@ -351,7 +363,11 @@ class QpidJmsShim(Shim):
 # As new shims are added, add them into this map to have them included in the test cases.
 #SHIM_MAP = {ProtonPythonShim.NAME: ProtonPythonShim()}
 #SHIM_MAP = {QpidJmsShim.NAME: QpidJmsShim()}
-SHIM_MAP = {ProtonPythonShim.NAME: ProtonPythonShim(), QpidJmsShim.NAME: QpidJmsShim()}
+#SHIM_MAP = {ProtonPythonShim.NAME: ProtonPythonShim(), QpidJmsShim.NAME: QpidJmsShim()}
+SHIM_MAP = {ProtonCppShim.NAME: ProtonCppShim(),
+            QpidJmsShim.NAME: QpidJmsShim(),
+            ProtonPythonShim.NAME: ProtonPythonShim()}
+#SHIM_MAP = {ProtonCppShim.NAME: ProtonCppShim()}
 
 
 # TODO: Complete the test options to give fine control over running tests

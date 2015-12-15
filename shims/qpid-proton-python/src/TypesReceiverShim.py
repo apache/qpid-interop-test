@@ -26,6 +26,7 @@ from json import dumps
 from proton.handlers import MessagingHandler
 from proton.reactor import Container
 from traceback import format_exc
+from string import digits, letters, punctuation
 from struct import pack, unpack
 
 class Receiver(MessagingHandler):
@@ -49,7 +50,6 @@ class Receiver(MessagingHandler):
         if self.expected == 0 or self.received < self.expected:
             if self.amqp_type == 'null' or \
                self.amqp_type == 'boolean' or \
-               self.amqp_type == 'timestamp' or \
                self.amqp_type == 'uuid':
                 self.received_value_list.append(str(event.message.body))
             elif self.amqp_type == 'ubyte' or \
@@ -60,7 +60,8 @@ class Receiver(MessagingHandler):
                self.amqp_type == 'int':
                 self.received_value_list.append(hex(event.message.body))
             elif self.amqp_type == 'ulong' or \
-               self.amqp_type == 'long':
+               self.amqp_type == 'long' or \
+               self.amqp_type == 'timestamp':
                 hex_str = hex(int(event.message.body))
                 if len(hex_str) == 19 and hex_str[-1] == 'L':
                     self.received_value_list.append(hex_str[:-1]) # strip trailing 'L' if present on some ulongs
@@ -76,8 +77,12 @@ class Receiver(MessagingHandler):
                 self.received_value_list.append('0x%016x' % event.message.body)
             elif self.amqp_type == 'decimal128':
                 self.received_value_list.append('0x' + ''.join(['%02x' % ord(c) for c in event.message.body]).strip())
-            elif self.amqp_type == 'char' or \
-                 self.amqp_type == 'binary' or \
+            elif self.amqp_type == 'char':
+                if ord(event.message.body) < 0x80 and event.message.body in digits + letters + punctuation:
+                    self.received_value_list.append(event.message.body)
+                else:
+                    self.received_value_list.append(hex(ord(event.message.body)))
+            elif self.amqp_type == 'binary' or \
                  self.amqp_type == 'string' or \
                  self.amqp_type == 'symbol':
                 self.received_value_list.append(event.message.body)

@@ -45,7 +45,7 @@ Note that installation is still to be completed, this section will change to
 reflect installation details when complete.
 
 Assuming proton's make install has been run, from top level qpid-interop-test directory:
-export PYTHONPATH=/usr/lib64/python2.7/site-packages:src/py/qpid-interop-test
+export PYTHONPATH=/usr/local/lib64/proton/bindings/python:src/py/qpid-interop-test
 export LD_LIBRARY_PATH=/usr/local/lib64
 export QPID_INTEROP_TEST_HOME=<abs path to top level qpid-interop-test directory>
 

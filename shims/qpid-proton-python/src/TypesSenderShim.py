@@ -22,6 +22,7 @@
 # * Capturing errors from client or broker
 
 import sys
+import os.path
 from json import loads
 from proton import byte, char, decimal32, decimal64, decimal128, float32, int32, Message, short, symbol, timestamp, \
                    ubyte, uint, ulong, ushort
@@ -89,9 +90,13 @@ class Sender(MessagingHandler):
         elif self.amqp_type == 'decimal128':
             return Message(id=(self.sent+1), body=decimal128(test_value[2:].decode('hex')))
         elif self.amqp_type == 'char':
-            return Message(id=(self.sent+1), body=char(test_value))
+            if len(test_value) == 1: # Format 'a'
+                return Message(id=(self.sent+1), body=char(test_value))
+            else:
+                val = int(test_value, 16)
+                return Message(id=(self.sent+1), body=char(unichr(val)))
         elif self.amqp_type == 'timestamp':
-            return Message(id=(self.sent+1), body=timestamp(int(test_value)))
+            return Message(id=(self.sent+1), body=timestamp(int(test_value, 16)))
         elif self.amqp_type == 'uuid':
             return Message(id=(self.sent+1), body=UUID(test_value))
         elif self.amqp_type == 'binary':
@@ -127,6 +132,6 @@ try:
 except KeyboardInterrupt:
     pass
 except Exception as exc:
-    print 'proton-python-send EXCEPTION:', exc
+    print os.path.basename(sys.argv[0]), 'EXCEPTION:', exc
     print format_exc()
         

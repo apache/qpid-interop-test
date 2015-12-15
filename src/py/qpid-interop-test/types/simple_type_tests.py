@@ -30,10 +30,11 @@ from itertools import product
 from json import dumps, loads
 from os import getenv, path
 from subprocess import check_output, CalledProcessError
+from sys import exit
 from time import mktime, time
 from uuid import UUID, uuid4
 
-from proton import symbol
+from proton import int32, symbol, timestamp, ulong
 from test_type_map import TestTypeMap
 import broker_properties
 
@@ -137,14 +138,17 @@ class AmqpPrimitiveTypes(TestTypeMap):
                       '0xffefffffffffffff'],
         'decimal128': ['0x00000000000000000000000000000000',
                        '0xff0102030405060708090a0b0c0d0e0f'],
-        'char': ['a',
-                 'Z',
-                 '\x01',
-                 '\x7f'],
+        'char': [u'a',
+                 u'Z',
+                 u'0x1',
+                 u'0x7f',
+                 u'0x16b5', # Rune 'G'
+                 u'0x10ffff'],
         # timestamp: Must be in milliseconds since the Unix epoch
-        'timestamp': ['0',
-                      '%d' % int(mktime((2000, 1, 1, 0, 0, 0, 5, 1, 0))*1000),
-                      '%d' % int(time()*1000)],
+        'timestamp': ['0x0',
+                      '0x%x' % int(mktime((2000, 1, 1, 0, 0, 0, 5, 1, 0))*1000),
+                      '0x%x' % int(time()*1000)
+                     ],
         'uuid': [str(UUID(int=0x0)),
                  str(UUID('00010203-0405-0607-0809-0a0b0c0d0e0f')),
                  str(uuid4())],
@@ -152,38 +156,51 @@ class AmqpPrimitiveTypes(TestTypeMap):
                    bytes(12345),
                    b'Hello, world!',
                    b'\\x01\\x02\\x03\\x04\\x05abcde\\x80\\x81\\xfe\\xff',
-                   b'The quick brown fox jumped over the lazy dog 0123456789.' * 1000],
+                   b'The quick brown fox jumped over the lazy dog 0123456789.' * 1000
+                  ],
         # strings must be unicode to comply with AMQP spec
         'string': [u'',
                    u'Hello, world!',
                    u'"Hello, world!"',
                    u"Charlie's peach",
-                   u'The quick brown fox jumped over the lazy dog 0123456789.' * 1000],
+                   u'The quick brown fox jumped over the lazy dog 0123456789.' * 1000
+                  ],
         'symbol': ['',
                    'myDomain.123',
                    'domain.0123456789.' * 100],
         'list': [[],
-                 [1, -2, 3.14],
-                 [u'a', u'b', u'c'],
-                 #[ulong(12345), timestamp(int(time()*1000)), int32(-25), uuid4(), symbol('a.b.c')],
-                 [[], None, [1, 2, 3], True, False],
+                 ['ubyte:1', 'int:-2', 'float:3.14'],
+                 ['string:a', 'string:b', 'string:c'],
+                 ['ulong:12345', 'timestamp:%d' % (time()*1000), 'short:-2500', 'uuid:%s' % uuid4(), 'symbol:a.b.c', 'none:', 'decimal64:0x400921fb54442eea'],
+                 [[], 'none', ['ubyte:1', 'ubyte:2', 'ubyte:3'], 'boolean:True', 'boolean:False', {'string:hello': 'long:1234', 'string:goodbye': 'boolean:True'}],
                  [[], [[], [[], [], []], []], []],
-                 [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] * 1000
+                 ['short:0', 'short:1', 'short:2', 'short:3', 'short:4', 'short:5', 'short:6', 'short:7', 'short:8', 'short:9'] * 1000
                 ],
-        # TODO: Maps translate into object descriptions in JSON, so only string keys are allowed. Come up with
-        #       a method to represent a Python map in JSON.
         'map': [{},
-                {u'one': 1,
-                 u'two': 2},
-                {u'None': None,
-                 u'One': 1,
-                 u'2': '2',
-                 u'True': True,
-                 u'False': False,
-                 u'map': {u'A': 1,
-                          u'B': 2}}
+                {'string:one': 'ubyte:1',
+                 'string:two': 'ushort:2'},
+                {'none:': 'string:None',
+                 'string:None': 'none:',
+                 'string:One': 'long:-1234567890',
+                 'short:2': 'int:2',
+                 'boolean:True': 'string:True',
+                 'string:False': 'boolean:False',
+                 #['string:AAA', 'ushort:5951']: 'string:list value',
+                 #{'byte:-55': 'ubyte:200',
+                 # 'boolean:True': 'string:Hello, world!'}: 'symbol:map.value',
+                 #'string:list': [],
+                 'string:map': {'char:A': 'int:1',
+                                'char:B': 'int:2'}}
                ],
-        #'array': [[], [1,2,3], ['Hello', 'world']] # TODO: Not yet implemented
+        # TODO: Support all AMQP types in array (including keys)
+#        'array': [[],
+#                  [1, 2, 3],
+#                  ['Hello', 'world'],
+#                  [[1, 2, 3],
+#                   ['a', 'b', 'c'],
+#                   [2.3, 3.4, 4,5],
+#                   [True, False, True, True]]
+#                  ]
         }
 
     BROKER_SKIP = {'decimal32': {'qpid-cpp': 'decimal32 not supported on qpid-cpp broker: QPIDIT-5, QPID-6328',},
@@ -191,7 +208,7 @@ class AmqpPrimitiveTypes(TestTypeMap):
                    'decimal128': {'qpid-cpp': 'decimal128 not supported on qpid-cpp broker: QPIDIT-3, QPID-6328',},
                    'char': {'qpid-cpp': 'char not supported on qpid-cpp broker: QPIDIT-4, QPID-6328',},
                   }
-
+#    BROKER_SKIP = {}
 
 
 class AmqpTypeTestCase(unittest.TestCase):
@@ -236,9 +253,7 @@ def create_testcase_class(broker_name, types, broker_addr, amqp_type, shim_produ
         def inner_test_method(self):
             self.run_test(self.broker_addr, self.amqp_type, self.test_value_list, send_shim, receive_shim)
 
-        inner_test_method.__name__ = 'test_%s_%s' % (send_shim.NAME, receive_shim.NAME)
-        inner_test_method.__doc__ = 'AMQP type \'%s\' interop test: %s -> %s' % \
-                                    (amqp_type, send_shim.NAME, receive_shim.NAME)
+        inner_test_method.__name__ = 'test_%s_%s->%s' % (amqp_type, send_shim.NAME, receive_shim.NAME)
         setattr(cls, inner_test_method.__name__, inner_test_method)
 
     class_name = amqp_type.title() + 'TestCase'
@@ -296,7 +311,12 @@ class Shim(object):
             output = check_output(arg_list)
             #print '<<<', output # DEBUG - useful to see text received from shim
             str_tvl = output.split('\n')[0:-1] # remove trailing \n
-            return loads(str_tvl[1])
+            if len(str_tvl) == 1:
+                return output
+            if len(str_tvl) == 2:
+                return loads(str_tvl[1])
+            else:
+                return loads("".join(str_tvl[1:]))
         except CalledProcessError as exc:
             return str(exc) + '\n\n' + exc.output
         except Exception as exc:
@@ -307,10 +327,20 @@ class ProtonPythonShim(Shim):
     """
     Shim for qpid-proton Python client
     """
-    NAME = 'ProtonPython'
+    NAME = 'Python'
     SHIM_LOC = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'src')
     SEND = [path.join(SHIM_LOC, 'TypesSenderShim.py')]
     RECEIVE = [path.join(SHIM_LOC, 'TypesReceiverShim.py')]
+
+
+class ProtonCppShim(Shim):
+    """
+    Shim for qpid-proton C++ client
+    """
+    NAME = 'C++'
+    SHIM_LOC = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'build', 'src')
+    SEND = [path.join(SHIM_LOC, 'AmqpSender')]
+    RECEIVE = [path.join(SHIM_LOC, 'AmqpReceiver')]
 
 
 class QpidJmsShim(Shim):
@@ -354,11 +384,11 @@ class QpidJmsShim(Shim):
 # other shim in the list.
 #
 # As new shims are added, add them into this map to have them included in the test cases.
-SHIM_MAP = {ProtonPythonShim.NAME: ProtonPythonShim()}
-#SHIM_MAP = {QpidJmsShim.NAME: QpidJmsShim()}
-#SHIM_MAP = {ProtonPythonShim.NAME: ProtonPythonShim(),
-#            QpidJmsShim.NAME: QpidJmsShim()
-#            }
+#SHIM_MAP = {ProtonPythonShim.NAME: ProtonPythonShim()}
+#SHIM_MAP = {ProtonPythonShim.NAME: ProtonCppShim()}
+SHIM_MAP = {ProtonCppShim.NAME: ProtonCppShim(),
+            ProtonPythonShim.NAME: ProtonPythonShim()
+           }
 
 
 class TestOptions(object):
@@ -399,6 +429,9 @@ if __name__ == '__main__':
 
     # Connect to broker to find broker type
     CONNECTION_PROPS = broker_properties.getBrokerProperties(ARGS.broker)
+    if CONNECTION_PROPS is None:
+        print 'ERROR: Unable to get connection properties - terminating'
+        exit(-1)
     print 'Test Broker: %s v.%s on %s' % (CONNECTION_PROPS[symbol(u'product')],
                                           CONNECTION_PROPS[symbol(u'version')],
                                           CONNECTION_PROPS[symbol(u'platform')])
