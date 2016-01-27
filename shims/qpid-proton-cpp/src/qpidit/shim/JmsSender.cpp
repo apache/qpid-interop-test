@@ -21,9 +21,12 @@
 
 #include "qpidit/shim/JmsSender.hpp"
 
+#include <cerrno>
 #include <iostream>
+#include <iomanip>
 #include <json/json.h>
 #include "proton/container.hpp"
+#include "proton/event.hpp"
 #include "qpidit/QpidItErrors.hpp"
 #include <stdio.h>
 
@@ -31,15 +34,10 @@ namespace qpidit
 {
     namespace shim
     {
+        typedef enum {JMS_MESSAGE_TYPE=0, JMS_OBJECTMESSAGE_TYPE, JMS_MAPMESSAGE_TYPE, JMS_BYTESMESSAGE_TYPE, JMS_STREAMMESSAGE_TYPE, JMS_TEXTMESSAGE_TYPE} jmsMessageType_t;
         //static
         proton::amqp_symbol JmsSender::s_jmsMessageTypeAnnotationKey("x-opt-jms-msg-type");
-        std::map<std::string, proton::amqp_byte>JmsSender::s_jmsMessageTypeAnnotationValues = {
-                        {"JMS_MESSAGE_TYPE", 0},
-                        {"JMS_OBJECTMESSAGE_TYPE", 1},
-                        {"JMS_MAPMESSAGE_TYPE", 2},
-                        {"JMS_BYTESMESSAGE_TYPE", 3},
-                        {"JMS_STREAMMESSAGE_TYPE", 4},
-                        {"JMS_TEXTMESSAGE_TYPE", 5}};
+        std::map<std::string, proton::amqp_byte>JmsSender::s_jmsMessageTypeAnnotationValues = initializeJmsMessageTypeAnnotationMap();
 
         JmsSender::JmsSender(const std::string& brokerUrl,
                              const std::string& jmsMessageType,
@@ -74,14 +72,14 @@ namespace qpidit
             }
         }
 
-        void JmsSender::on_accepted(proton::event &e) {
+        void JmsSender::on_delivery_accept(proton::event &e) {
             _msgsConfirmed++;
             if (_msgsConfirmed == _totalMsgs) {
                 e.connection().close();
             }
         }
 
-        void JmsSender::on_disconnected(proton::event &e) {
+        void JmsSender::on_disconnect(proton::event &e) {
             _msgsSent = _msgsConfirmed;
         }
 
@@ -136,13 +134,13 @@ namespace qpidit
             } else if (subType.compare("double") == 0) {
                 uint64_t val;
                 try {
-                    val = htobe64(std::stoul(testValueStr, nullptr, 16));
+                    val = htobe64(std::strtoul(testValueStr.data(), NULL, 16));
                 } catch (const std::exception& e) { throw qpidit::InvalidTestValueError("double", testValueStr); }
                 bin.assign((char*)&val, sizeof(val));
             } else if (subType.compare("float") == 0) {
                 uint32_t val;
                 try {
-                    val = htobe32((uint32_t)std::stoul(testValueStr, nullptr, 16));
+                    val = htobe32((uint32_t)std::strtoul(testValueStr.data(), NULL, 16));
                 } catch (const std::exception& e) { throw qpidit::InvalidTestValueError("float", testValueStr); }
                 bin.assign((char*)&val, sizeof(val));
             } else if (subType.compare("long") == 0) {
@@ -166,7 +164,7 @@ namespace qpidit
             msg.body(bin);
             msg.inferred(true);
             msg.content_type(proton::amqp_symbol("application/octet-stream"));
-            msg.annotation(proton::amqp_symbol("x-opt-jms-msg-type"), s_jmsMessageTypeAnnotationValues["JMS_BYTESMESSAGE_TYPE"]);
+            msg.message_annotations()[proton::amqp_symbol("x-opt-jms-msg-type")] = s_jmsMessageTypeAnnotationValues["JMS_BYTESMESSAGE_TYPE"];
             return msg;
         }
 
@@ -208,7 +206,7 @@ namespace qpidit
             }
             msg.inferred(false);
             msg.body(m);
-            msg.annotation(proton::amqp_symbol("x-opt-jms-msg-type"), s_jmsMessageTypeAnnotationValues["JMS_MAPMESSAGE_TYPE"]);
+            msg.message_annotations()[proton::amqp_symbol("x-opt-jms-msg-type")] = s_jmsMessageTypeAnnotationValues["JMS_MAPMESSAGE_TYPE"];
             return msg;
         }
 
@@ -216,7 +214,7 @@ namespace qpidit
             msg.body(getJavaObjectBinary(subType, testValue.asString()));
             msg.inferred(true);
             msg.content_type(proton::amqp_symbol("application/x-java-serialized-object"));
-            msg.annotation(proton::amqp_symbol("x-opt-jms-msg-type"), s_jmsMessageTypeAnnotationValues["JMS_OBJECTMESSAGE_TYPE"]);
+            msg.message_annotations()[proton::amqp_symbol("x-opt-jms-msg-type")] = s_jmsMessageTypeAnnotationValues["JMS_OBJECTMESSAGE_TYPE"];
             return msg;
         }
 
@@ -255,14 +253,14 @@ namespace qpidit
             }
             msg.body(l);
             msg.inferred(true);
-            msg.annotation(proton::amqp_symbol("x-opt-jms-msg-type"), s_jmsMessageTypeAnnotationValues["JMS_STREAMMESSAGE_TYPE"]);
+            msg.message_annotations()[proton::amqp_symbol("x-opt-jms-msg-type")] = s_jmsMessageTypeAnnotationValues["JMS_STREAMMESSAGE_TYPE"];
             return msg;
        }
 
         proton::message& JmsSender::setTextMessage(proton::message& msg, const Json::Value& testValue) {
             msg.body(testValue.asString());
             msg.inferred(false);
-            msg.annotation(proton::amqp_symbol("x-opt-jms-msg-type"), s_jmsMessageTypeAnnotationValues["JMS_TEXTMESSAGE_TYPE"]);
+            msg.message_annotations()[proton::amqp_symbol("x-opt-jms-msg-type")] = s_jmsMessageTypeAnnotationValues["JMS_TEXTMESSAGE_TYPE"];
             return msg;
         }
 
@@ -272,7 +270,7 @@ namespace qpidit
             char buf[1024];
             int bytesRead;
             FILE* fp = ::popen("java -cp target/JavaObjUtils.jar org.apache.qpid.interop_test.obj_util.JavaObjToBytes javaClassStr", "rb");
-            if (fp == nullptr) { throw qpidit::PopenError(errno); }
+            if (fp == NULL) { throw qpidit::PopenError(errno); }
             do {
                 bytesRead = ::fread(buf, 1, sizeof(buf), fp);
                 javaObjectBinary.append(buf, bytesRead);
@@ -291,6 +289,18 @@ namespace qpidit
                 tot += (*i).size();
             }
             return tot;
+        }
+
+        //static
+        std::map<std::string, proton::amqp_byte> JmsSender::initializeJmsMessageTypeAnnotationMap() {
+            std::map<std::string, proton::amqp_byte> m;
+            m["JMS_MESSAGE_TYPE"] = JMS_MESSAGE_TYPE;
+            m["JMS_OBJECTMESSAGE_TYPE"] = JMS_OBJECTMESSAGE_TYPE;
+            m["JMS_MAPMESSAGE_TYPE"] = JMS_MAPMESSAGE_TYPE;
+            m["JMS_BYTESMESSAGE_TYPE"] = JMS_BYTESMESSAGE_TYPE;
+            m["JMS_STREAMMESSAGE_TYPE"] = JMS_STREAMMESSAGE_TYPE;
+            m["JMS_TEXTMESSAGE_TYPE"] = JMS_TEXTMESSAGE_TYPE;
+            return m;
         }
 
     } /* namespace shim */

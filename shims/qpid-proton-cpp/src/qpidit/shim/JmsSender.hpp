@@ -23,17 +23,20 @@
 #define SRC_QPIDIT_SHIM_JMSSENDER_HPP_
 
 #include "json/value.h"
-#include "proton/messaging_handler.hpp"
+#include "proton/handler.hpp"
 #include "qpidit/QpidItErrors.hpp"
-#include <iostream> // DEBUG ONLY
-#include <iomanip> // DEBUG ONLY
+#include <typeinfo>
+
+namespace proton {
+    class message;
+}
 
 namespace qpidit
 {
     namespace shim
     {
 
-        class JmsSender : public proton::messaging_handler
+        class JmsSender : public proton::handler
         {
         protected:
             static proton::amqp_symbol s_jmsMessageTypeAnnotationKey;
@@ -50,8 +53,8 @@ namespace qpidit
             virtual ~JmsSender();
             void on_start(proton::event &e);
             void on_sendable(proton::event &e);
-            void on_accepted(proton::event &e);
-            void on_disconnected(proton::event &e);
+            void on_delivery_accept(proton::event &e);
+            void on_disconnect(proton::event &e);
         protected:
             void  sendMessages(proton::event &e, const std::string& subType, const Json::Value& testValueMap);
             proton::message& setBytesMessage(proton::message& msg, const std::string& subType, const std::string& testValueStr);
@@ -63,18 +66,20 @@ namespace qpidit
             static proton::amqp_binary getJavaObjectBinary(const std::string& javaClassName, const std::string& valAsString);
             static uint32_t getTotalNumMessages(const Json::Value& testValueMap);
 
+            static std::map<std::string, proton::amqp_byte> initializeJmsMessageTypeAnnotationMap();
+
             // Set message body to floating type T through integral type U
             // Used to convert a hex string representation of a float or double to a float or double
             template<typename T, typename U> T getFloatValue(const std::string& testValueStr) {
                 try {
-                    U ival(std::stoul(testValueStr, nullptr, 16));
+                    U ival(std::strtoul(testValueStr.data(), NULL, 16));
                     return T(*reinterpret_cast<T*>(&ival));
                 } catch (const std::exception& e) { throw qpidit::InvalidTestValueError(typeid(T).name(), testValueStr); }
             }
 
             template<typename T> T getIntegralValue(const std::string& testValueStr) {
                 try {
-                    return T(std::stol(testValueStr, nullptr, 16));
+                    return T(std::strtol(testValueStr.data(), NULL, 16));
                 } catch (const std::exception& e) { throw qpidit::InvalidTestValueError(typeid(T).name(), testValueStr); }
             }
         };

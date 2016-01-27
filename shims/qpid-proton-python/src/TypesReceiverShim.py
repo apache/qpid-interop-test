@@ -54,12 +54,12 @@ class Receiver(MessagingHandler):
                 self.received_value_list.append(str(event.message.body))
             elif self.amqp_type == 'ubyte' or \
                self.amqp_type == 'ushort' or \
-               self.amqp_type == 'uint' or \
                self.amqp_type == 'byte' or \
                self.amqp_type == 'short' or \
                self.amqp_type == 'int':
                 self.received_value_list.append(hex(event.message.body))
-            elif self.amqp_type == 'ulong' or \
+            elif self.amqp_type == 'uint' or \
+               self.amqp_type == 'ulong' or \
                self.amqp_type == 'long' or \
                self.amqp_type == 'timestamp':
                 hex_str = hex(int(event.message.body))

@@ -25,6 +25,7 @@
 #include <json/json.h>
 #include <map>
 #include "proton/container.hpp"
+#include "proton/event.hpp"
 #include "qpidit/QpidItErrors.hpp"
 
 namespace qpidit
@@ -34,13 +35,7 @@ namespace qpidit
         typedef enum {JMS_MESSAGE_TYPE=0, JMS_OBJECTMESSAGE_TYPE, JMS_MAPMESSAGE_TYPE, JMS_BYTESMESSAGE_TYPE, JMS_STREAMMESSAGE_TYPE, JMS_TEXTMESSAGE_TYPE} jmsMessageType_t;
         //static
         proton::amqp_symbol JmsReceiver::s_jmsMessageTypeAnnotationKey("x-opt-jms-msg-type");
-        std::map<std::string, proton::amqp_byte>JmsReceiver::s_jmsMessageTypeAnnotationValues = {
-                        {"JMS_MESSAGE_TYPE", JMS_MESSAGE_TYPE},
-                        {"JMS_OBJECTMESSAGE_TYPE", JMS_OBJECTMESSAGE_TYPE},
-                        {"JMS_MAPMESSAGE_TYPE", JMS_MAPMESSAGE_TYPE},
-                        {"JMS_BYTESMESSAGE_TYPE", JMS_BYTESMESSAGE_TYPE},
-                        {"JMS_STREAMMESSAGE_TYPE", JMS_STREAMMESSAGE_TYPE},
-                        {"JMS_TEXTMESSAGE_TYPE", JMS_TEXTMESSAGE_TYPE}};
+        std::map<std::string, proton::amqp_byte>JmsReceiver::s_jmsMessageTypeAnnotationValues = initializeJmsMessageTypeAnnotationMap();
 
 
         JmsReceiver::JmsReceiver(const std::string& brokerUrl,
@@ -71,7 +66,7 @@ namespace qpidit
         void JmsReceiver::on_message(proton::event &e) {
             proton::message& msg = e.message();
             if (_received < _expected) {
-                switch (msg.annotation(proton::amqp_symbol("x-opt-jms-msg-type")).get<proton::amqp_byte>()) {
+                switch (msg.message_annotations()[proton::amqp_symbol("x-opt-jms-msg-type")].get<proton::amqp_byte>()) {
                 case JMS_MESSAGE_TYPE:
                     receiveJmsMessage(msg);
                     break;
@@ -188,7 +183,7 @@ namespace qpidit
             } else if (subType.compare("bytes") == 0) {
                 _receivedSubTypeList.append(Json::Value(body));
             } else if (subType.compare("char") == 0) {
-                if (body.size() != sizeof(char16_t)) throw IncorrectMessageBodyLengthError(sizeof(char16_t), body.size());
+                if (body.size() != sizeof(uint16_t)) throw IncorrectMessageBodyLengthError(sizeof(uint16_t), body.size());
                 // TODO: This is ugly: ignoring first byte - handle UTF-16 correctly
                 char c = body[1];
                 std::ostringstream oss;
@@ -267,6 +262,19 @@ namespace qpidit
             }
             _receivedSubTypeList.append(Json::Value(msg.body().get<proton::amqp_string>()));
         }
+
+        //static
+        std::map<std::string, proton::amqp_byte> JmsReceiver::initializeJmsMessageTypeAnnotationMap() {
+            std::map<std::string, proton::amqp_byte> m;
+            m["JMS_MESSAGE_TYPE"] = JMS_MESSAGE_TYPE;
+            m["JMS_OBJECTMESSAGE_TYPE"] = JMS_OBJECTMESSAGE_TYPE;
+            m["JMS_MAPMESSAGE_TYPE"] = JMS_MAPMESSAGE_TYPE;
+            m["JMS_BYTESMESSAGE_TYPE"] = JMS_BYTESMESSAGE_TYPE;
+            m["JMS_STREAMMESSAGE_TYPE"] = JMS_STREAMMESSAGE_TYPE;
+            m["JMS_TEXTMESSAGE_TYPE"] = JMS_TEXTMESSAGE_TYPE;
+            return m;
+        }
+
 
     } /* namespace shim */
 } /* namespace qpidit */

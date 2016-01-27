@@ -24,7 +24,9 @@
 
 #include <iomanip>
 #include <json/value.h>
-#include "proton/messaging_handler.hpp"
+#include "proton/handler.hpp"
+#include "proton/receiver.hpp"
+#include "proton/types.hpp"
 #include <sstream>
 
 namespace qpidit
@@ -32,7 +34,7 @@ namespace qpidit
     namespace shim
     {
 
-        class JmsReceiver : public proton::messaging_handler
+        class JmsReceiver : public proton::handler
         {
         protected:
             static proton::amqp_symbol s_jmsMessageTypeAnnotationKey;
@@ -64,6 +66,8 @@ namespace qpidit
             void receiveJmsBytesMessage(const proton::message& msg);
             void receiveJmsStreamMessage(const proton::message& msg);
             void receiveJmsTextMessage(const proton::message& msg);
+
+            static std::map<std::string, proton::amqp_byte> initializeJmsMessageTypeAnnotationMap();
 
             // Format signed numbers in negative hex format if signedFlag is true, ie -0xNNNN, positive numbers in 0xNNNN format
             template<typename T> static std::string toHexStr(T val, bool fillFlag = false, bool signedFlag = true) {

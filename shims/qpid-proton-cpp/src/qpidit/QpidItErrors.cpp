@@ -51,7 +51,7 @@ namespace qpidit
                     std::runtime_error(MSG(funcName << "() returned " << errorNum << " (" << strerror(errorNum) << ")"))
     {}
 
-    ErrnoError::~ErrnoError() {}
+    ErrnoError::~ErrnoError() throw() {}
 
     // --- IncorrectJmsMapKeyPrefixError ---
 
@@ -60,7 +60,7 @@ namespace qpidit
                                     << key.substr(0, key.size()-3) << "\""))
     {}
 
-    IncorrectJmsMapKeyPrefixError::~IncorrectJmsMapKeyPrefixError() {}
+    IncorrectJmsMapKeyPrefixError::~IncorrectJmsMapKeyPrefixError() throw() {}
 
     // --- IncorrectMessageBodyLengthError ---
 
@@ -69,7 +69,7 @@ namespace qpidit
                                     << "; found " << found))
     {}
 
-    IncorrectMessageBodyLengthError::~IncorrectMessageBodyLengthError() {}
+    IncorrectMessageBodyLengthError::~IncorrectMessageBodyLengthError() throw() {}
 
     // --- IncorrectMessageBodyTypeError ---
 
@@ -83,7 +83,7 @@ namespace qpidit
                                                     << "; found: " << found))
     {}
 
-    IncorrectMessageBodyTypeError::~IncorrectMessageBodyTypeError() {}
+    IncorrectMessageBodyTypeError::~IncorrectMessageBodyTypeError() throw() {}
 
 
     // --- IncorrectValueTypeError ---
@@ -93,29 +93,19 @@ namespace qpidit
                 std::runtime_error(MSG("Incorrect value type received: " << val.type()))
     {}
 
-    IncorrectValueTypeError::~IncorrectValueTypeError() {}
+    IncorrectValueTypeError::~IncorrectValueTypeError() throw() {}
 
 
     // --- InvalidJsonRootNodeError ---
 
-    //static
-    std::map<Json::ValueType, std::string> InvalidJsonRootNodeError::s_JsonValueTypeNames = {
-                    {Json::nullValue, "Json::nullValue"},
-                    {Json::intValue, "Json::intValue"},
-                    {Json::uintValue, "Json::uintValue"},
-                    {Json::realValue, "Json::realValue"},
-                    {Json::stringValue, "Json::stringValue"},
-                    {Json::booleanValue, "Json::booleanValue"},
-                    {Json::arrayValue, "Json::arrayValue"},
-                    {Json::objectValue, "Json::objectValue"},
-                    };
+    std::map<Json::ValueType, std::string> InvalidJsonRootNodeError::s_JsonValueTypeNames = initializeStaticMap();
 
     InvalidJsonRootNodeError::InvalidJsonRootNodeError(const Json::ValueType& expected, const Json::ValueType& actual) :
                 std::runtime_error(MSG("Invalid JSON root node: Expected type " << formatJsonValueType(expected)
                                 << ", received type " << formatJsonValueType(actual)))
     {}
 
-    InvalidJsonRootNodeError::~InvalidJsonRootNodeError() {}
+    InvalidJsonRootNodeError::~InvalidJsonRootNodeError() throw() {}
 
     // protected
 
@@ -124,6 +114,20 @@ namespace qpidit
         std::ostringstream oss;
         oss << valueType << " (" << s_JsonValueTypeNames[valueType] << ")";
         return oss.str();
+    }
+
+    //static
+    std::map<Json::ValueType, std::string> InvalidJsonRootNodeError::initializeStaticMap() {
+        std::map<Json::ValueType, std::string> m;
+        m[Json::nullValue] = "Json::nullValue";
+        m[Json::intValue] = "Json::intValue";
+        m[Json::uintValue] = "Json::uintValue";
+        m[Json::realValue] = "Json::realValue";
+        m[Json::stringValue] = "Json::stringValue";
+        m[Json::booleanValue] = "Json::booleanValue";
+        m[Json::arrayValue] = "Json::arrayValue";
+        m[Json::objectValue] = "Json::objectValue";
+        return m;
     }
 
     // --- InvalidTestValueError ---
@@ -148,14 +152,14 @@ namespace qpidit
 
     PcloseError::PcloseError(int errorNum) : ErrnoError("pclose", errorNum) {}
 
-    PcloseError::~PcloseError() {}
+    PcloseError::~PcloseError() throw() {}
 
 
     // --- PopenError ---
 
     PopenError::PopenError(int errorNum) : ErrnoError("popen", errorNum) {}
 
-    PopenError::~PopenError() {}
+    PopenError::~PopenError() throw() {}
 
 
     // --- UnknownAmqpTypeError ---
@@ -173,7 +177,7 @@ namespace qpidit
                     std::runtime_error(MSG("Unknown JMS sub-type \"" << jmsMessageSubType << "\""))
     {}
 
-    UnknownJmsMessageSubTypeError::~UnknownJmsMessageSubTypeError() {}
+    UnknownJmsMessageSubTypeError::~UnknownJmsMessageSubTypeError() throw() {}
 
 
     // --- UnknownJmsMessageTypeError ---
@@ -182,7 +186,7 @@ namespace qpidit
                     std::runtime_error(MSG("Unknown JMS message type \"" << jmsMessageType << "\""))
     {}
 
-    UnknownJmsMessageTypeError::~UnknownJmsMessageTypeError() {}
+    UnknownJmsMessageTypeError::~UnknownJmsMessageTypeError() throw() {}
 
 
     // --- UnsupportedAmqpTypeError ---

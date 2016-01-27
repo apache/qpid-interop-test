@@ -1,7 +1,21 @@
 #!/bin/bash
 
 # JARS
-JMS_API=${HOME}/.m2/repository/org/apache/geronimo/specs/geronimo-jms_1.1_spec/1.1.1/geronimo-jms_1.1_spec-1.1.1.jar:${HOME}/.m2/repository/org/apache/qpid/qpid-jms-client/0.4.0-SNAPSHOT/qpid-jms-client-0.4.0-SNAPSHOT.jar
+MVN_LOCAL_REPOSITORY=${HOME}/.m2/repository
+QPID_JMS_CLIENT_LOCATION=${MVN_LOCAL_REPOSITORY}/org/apache/qpid/qpid-jms-client
+
+echo "Available qpid-jms client versions:"
+for d in ${QPID_JMS_CLIENT_LOCATION}/*; do
+    if [ -d ${d} ]; then
+		echo "  ${d##*/}"
+    fi
+done
+
+# TODO: get this from the above list, which needs sorting to find latest version by default
+JMS_VERSION=0.8.0-SNAPSHOT
+echo "Current qpid-jms client version: ${JMS_VERSION}"
+
+JMS_API=${MVN_LOCAL_REPOSITORY}/org/apache/geronimo/specs/geronimo-jms_1.1_spec/1.1.1/geronimo-jms_1.1_spec-1.1.1.jar:${QPID_JMS_CLIENT_LOCATION}/${JMS_VERSION}/qpid-jms-client-${JMS_VERSION}.jar
 JSON_API=../../jars/javax.json-api-1.0.jar
 CLASSPATH=${JMS_API}:${JSON_API}
 

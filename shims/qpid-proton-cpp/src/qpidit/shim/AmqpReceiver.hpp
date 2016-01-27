@@ -24,7 +24,8 @@
 
 #include <iomanip>
 #include <json/value.h>
-#include "proton/messaging_handler.hpp"
+#include "proton/handler.hpp"
+#include "proton/receiver.hpp"
 #include <sstream>
 
 namespace qpidit
@@ -32,7 +33,7 @@ namespace qpidit
     namespace shim
     {
 
-        class AmqpReceiver : public proton::messaging_handler
+        class AmqpReceiver : public proton::handler
         {
         protected:
             const std::string _brokerUrl;
@@ -49,9 +50,7 @@ namespace qpidit
             void on_message(proton::event &e);
         protected:
             static void checkMessageType(const proton::message& msg, proton::type_id msgType);
-            static Json::Value& getMap(Json::Value& jsonMap, const proton::data& datl);
             static Json::Value& getMap(Json::Value& jsonMap, const proton::value& val);
-            static Json::Value& getSequence(Json::Value& jsonList, const proton::data& dat);
             static Json::Value& getSequence(Json::Value& jsonList, const proton::value& val);
             static std::string stringToHexStr(const std::string& str);
 

@@ -61,21 +61,21 @@ namespace qpidit
     {
     public:
         ErrnoError(const std::string& funcName, int errorNum);
-        virtual ~ErrnoError();
+        virtual ~ErrnoError() throw();
     };
 
     class IncorrectJmsMapKeyPrefixError: public std::runtime_error
     {
     public:
         IncorrectJmsMapKeyPrefixError(const std::string& expected, const std::string& key);
-        virtual ~IncorrectJmsMapKeyPrefixError();
+        virtual ~IncorrectJmsMapKeyPrefixError() throw();
     };
 
     class IncorrectMessageBodyLengthError: public std::runtime_error
     {
     public:
         IncorrectMessageBodyLengthError(int expected, int found);
-        virtual ~IncorrectMessageBodyLengthError();
+        virtual ~IncorrectMessageBodyLengthError() throw();
     };
 
     class IncorrectMessageBodyTypeError: public std::runtime_error
@@ -83,14 +83,14 @@ namespace qpidit
     public:
         IncorrectMessageBodyTypeError(proton::type_id expected, proton::type_id found); // AMQP type errors
         IncorrectMessageBodyTypeError(const std::string& expected, const std::string& found); // JMS message type errors
-        virtual ~IncorrectMessageBodyTypeError();
+        virtual ~IncorrectMessageBodyTypeError() throw();
     };
 
     class IncorrectValueTypeError: public std::runtime_error
     {
     public:
         IncorrectValueTypeError(const proton::value& val);
-        virtual ~IncorrectValueTypeError();
+        virtual ~IncorrectValueTypeError() throw();
     };
 
     class InvalidJsonRootNodeError: public std::runtime_error
@@ -99,9 +99,10 @@ namespace qpidit
         static std::map<Json::ValueType, std::string> s_JsonValueTypeNames;
     public:
         InvalidJsonRootNodeError(const Json::ValueType& expected, const Json::ValueType& actual);
-        virtual ~InvalidJsonRootNodeError();
+        virtual ~InvalidJsonRootNodeError() throw();
     protected:
         static std::string formatJsonValueType(const Json::ValueType& valueType);
+        static std::map<Json::ValueType, std::string> initializeStaticMap();
     };
 
     class InvalidTestValueError: public std::runtime_error
@@ -122,14 +123,14 @@ namespace qpidit
     {
     public:
         PcloseError(int errorNum);
-        virtual ~PcloseError();
+        virtual ~PcloseError() throw();
     };
 
     class PopenError: public ErrnoError
     {
     public:
         PopenError(int errorNum);
-        virtual ~PopenError();
+        virtual ~PopenError() throw();
     };
 
     class UnknownAmqpTypeError: public std::runtime_error
@@ -143,14 +144,14 @@ namespace qpidit
     {
     public:
         explicit UnknownJmsMessageSubTypeError(const std::string& jmsMessageSubType);
-        virtual ~UnknownJmsMessageSubTypeError();
+        virtual ~UnknownJmsMessageSubTypeError() throw();
     };
 
     class UnknownJmsMessageTypeError: public std::runtime_error
     {
     public:
         explicit UnknownJmsMessageTypeError(const std::string& jmsMessageType);
-        virtual ~UnknownJmsMessageTypeError();
+        virtual ~UnknownJmsMessageTypeError() throw();
     };
 
     class UnsupportedAmqpTypeError: public std::runtime_error

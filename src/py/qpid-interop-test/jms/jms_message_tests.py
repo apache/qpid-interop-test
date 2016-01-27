@@ -246,9 +246,13 @@ class Shim(object):
     Abstract shim class, parent of all shims.
     """
     NAME = None
-    SEND = None
-    RECEIVE = None
     USE_SHELL = False
+
+    def __init__(self, args):
+        self.ARGS = args
+        self.SEND = None
+        self.RECEIVE = None
+
 
     def send(self, broker_addr, queue_name, jms_message_type, json_test_values_str):
         """
@@ -302,8 +306,11 @@ class ProtonPythonShim(Shim):
     """
     NAME = 'ProtonPython'
     SHIM_LOC = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'src')
-    SEND = [path.join(SHIM_LOC, 'JmsSenderShim.py')]
-    RECEIVE = [path.join(SHIM_LOC, 'JmsReceiverShim.py')]
+
+    def __init__(self, args):
+        super(ProtonPythonShim, self).__init__(args)
+        self.SEND = [path.join(self.SHIM_LOC, 'JmsSenderShim.py')]
+        self.RECEIVE = [path.join(self.SHIM_LOC, 'JmsReceiverShim.py')]
 
 
 class ProtonCppShim(Shim):
@@ -312,8 +319,11 @@ class ProtonCppShim(Shim):
     """
     NAME = 'ProtonCpp'
     SHIM_LOC = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'build', 'src')
-    SEND = [path.join(SHIM_LOC, 'JmsSender')]
-    RECEIVE = [path.join(SHIM_LOC, 'JmsReceiver')]
+
+    def __init__(self, args):
+        super(ProtonCppShim, self).__init__(args)
+        self.SEND = [path.join(self.SHIM_LOC, 'JmsSender')]
+        self.RECEIVE = [path.join(self.SHIM_LOC, 'JmsReceiver')]
 
 
 class QpidJmsShim(Shim):
@@ -322,52 +332,54 @@ class QpidJmsShim(Shim):
     """
     NAME = 'QpidJms'
 
-    # Installed qpid versions
-    QPID_JMS_VER = '0.4.0-SNAPSHOT'
-    QPID_PROTON_J_VER = '0.10-SNAPSHOT'
-
     # Classpath components
     QPID_INTEROP_TEST_SHIM_JAR = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-jms', 'target', 'qpid-jms-shim.jar')
     MAVEN_REPO_PATH = path.join(getenv('HOME'), '.m2', 'repository')
     JMS_API_JAR = path.join(MAVEN_REPO_PATH, 'org', 'apache', 'geronimo', 'specs', 'geronimo-jms_1.1_spec', '1.1.1',
                             'geronimo-jms_1.1_spec-1.1.1.jar')
-    JMS_IMPL_JAR = path.join(MAVEN_REPO_PATH, 'org', 'apache', 'qpid', 'qpid-jms-client', QPID_JMS_VER,
-                             'qpid-jms-client-' + QPID_JMS_VER + '.jar')
     JSON_API_JAR = path.join(QPID_INTEROP_TEST_HOME, 'jars', 'javax.json-api-1.0.jar')
     JSON_IMPL_JAR = path.join(QPID_INTEROP_TEST_HOME, 'jars', 'javax.json-1.0.4.jar')
     LOGGER_API_JAR = path.join(MAVEN_REPO_PATH, 'org', 'slf4j', 'slf4j-api', '1.5.6', 'slf4j-api-1.5.6.jar')
     LOGGER_IMPL_JAR = path.join(QPID_INTEROP_TEST_HOME, 'jars', 'slf4j-nop-1.5.6.jar')
-    PROTON_J_JAR = path.join(MAVEN_REPO_PATH, 'org', 'apache', 'qpid', 'proton-j', QPID_PROTON_J_VER,
-                             'proton-j-' + QPID_PROTON_J_VER + '.jar')
     NETTY_JAR = path.join(MAVEN_REPO_PATH, 'io', 'netty', 'netty-all', '4.0.17.Final', 'netty-all-4.0.17.Final.jar')
 
-    CLASSPATH = ':'.join([QPID_INTEROP_TEST_SHIM_JAR,
-                          JMS_API_JAR,
-                          JMS_IMPL_JAR,
-                          JSON_API_JAR,
-                          JSON_IMPL_JAR,
-                          LOGGER_API_JAR,
-                          LOGGER_IMPL_JAR,
-                          PROTON_J_JAR,
-                          NETTY_JAR])
     JAVA_HOME = getenv('JAVA_HOME', '/usr/bin') # Default only works in Linux
     JAVA_EXEC = path.join(JAVA_HOME, 'java')
-    SEND = [JAVA_EXEC, '-cp', CLASSPATH, 'org.apache.qpid.interop_test.shim.JmsSenderShim']
-    RECEIVE = [JAVA_EXEC, '-cp', CLASSPATH, 'org.apache.qpid.interop_test.shim.JmsReceiverShim']
 
+    def __init__(self, args):
+        super(QpidJmsShim, self).__init__(args)
+        # Installed qpid versions
+        self.QPID_JMS_VER = self.ARGS.qpid_jms_ver
+        self.QPID_PROTON_J_VER = self.ARGS.qpid_proton_ver
+        self.JMS_IMPL_JAR = path.join(self.MAVEN_REPO_PATH, 'org', 'apache', 'qpid', 'qpid-jms-client',
+                                      self.QPID_JMS_VER, 'qpid-jms-client-' + self.QPID_JMS_VER + '.jar')
+        self.PROTON_J_JAR = path.join(self.MAVEN_REPO_PATH, 'org', 'apache', 'qpid', 'proton-j', self.QPID_PROTON_J_VER,
+                                      'proton-j-' + self.QPID_PROTON_J_VER + '.jar')
+        self.JAR_LIST = [self.QPID_INTEROP_TEST_SHIM_JAR,
+                         self.JMS_API_JAR,
+                         self.JMS_IMPL_JAR,
+                         self.JSON_API_JAR,
+                         self.JSON_IMPL_JAR,
+                         self.LOGGER_API_JAR,
+                         self.LOGGER_IMPL_JAR,
+                         self.PROTON_J_JAR,
+                         self.NETTY_JAR]
+        for jar in self.JAR_LIST:
+            if not self.jarExists(jar):
+                print '*** ERROR: Cannot find jar file "%s"' % jar
+        self.CLASSPATH = ':'.join(self.JAR_LIST)
 
-# SHIM_MAP contains an instance of each client language shim that is to be tested as a part of this test. For
-# every shim in this list, a test is dynamically constructed which tests it against itself as well as every
-# other shim in the list.
-#
-# As new shims are added, add them into this map to have them included in the test cases.
-#SHIM_MAP = {ProtonPythonShim.NAME: ProtonPythonShim()}
-#SHIM_MAP = {QpidJmsShim.NAME: QpidJmsShim()}
-#SHIM_MAP = {ProtonPythonShim.NAME: ProtonPythonShim(), QpidJmsShim.NAME: QpidJmsShim()}
-SHIM_MAP = {ProtonCppShim.NAME: ProtonCppShim(),
-            QpidJmsShim.NAME: QpidJmsShim(),
-            ProtonPythonShim.NAME: ProtonPythonShim()}
-#SHIM_MAP = {ProtonCppShim.NAME: ProtonCppShim()}
+        self.SEND = [self.JAVA_EXEC, '-cp', self.CLASSPATH, 'org.apache.qpid.interop_test.shim.JmsSenderShim']
+        self.RECEIVE = [self.JAVA_EXEC, '-cp', self.CLASSPATH, 'org.apache.qpid.interop_test.shim.JmsReceiverShim']
+
+    def jarExists(self, jarPath):
+        try:
+            f = open(jarPath, 'rb')
+            f.close()
+            return True
+        except IOError as e:
+            pass
+        return False
 
 
 # TODO: Complete the test options to give fine control over running tests
@@ -375,7 +387,7 @@ class TestOptions(object):
     """
     Class controlling command-line arguments used to control the test.
     """
-    def __init__(self):
+    def __init__(self, shims):
         parser = argparse.ArgumentParser(description='Qpid-interop AMQP client interoparability test suite '
                                          'for JMS message types')
         parser.add_argument('--broker', action='store', default='localhost:5672', metavar='BROKER:PORT',
@@ -396,7 +408,11 @@ class TestOptions(object):
 #        shim_group.add_argument('--include-shim', action='append', metavar='SHIM-NAME',
 #                                help='Name of shim to include. Supported shims:\n%s' % SHIM_NAMES)
         parser.add_argument('--exclude-shim', action='append', metavar='SHIM-NAME',
-                            help='Name of shim to exclude. Supported shims:\n%s' % sorted(SHIM_MAP.keys()))
+                            help='Name of shim to exclude. Supported shims:\n%s' % sorted(shims))
+        parser.add_argument('--qpid-jms-ver', action='store', required=True,
+                            help='qpid-jms version in Maven repository to use for test')
+        parser.add_argument('--qpid-proton-ver', action='store',required=True,
+                            help='qpid-proton version in Maven repository to use for test')
         self.args = parser.parse_args()
 
 
@@ -404,8 +420,23 @@ class TestOptions(object):
 
 if __name__ == '__main__':
 
-    ARGS = TestOptions().args
+    SHIMS = [ProtonCppShim.NAME, QpidJmsShim.NAME, ProtonPythonShim.NAME]
+
+    ARGS = TestOptions(SHIMS).args
     #print 'ARGS:', ARGS # debug
+
+    # SHIM_MAP contains an instance of each client language shim that is to be tested as a part of this test. For
+    # every shim in this list, a test is dynamically constructed which tests it against itself as well as every
+    # other shim in the list.
+    #
+    # As new shims are added, add them into this map to have them included in the test cases.
+    #SHIM_MAP = {ProtonPythonShim.NAME: ProtonPythonShim()}
+    #SHIM_MAP = {QpidJmsShim.NAME: QpidJmsShim()}
+    #SHIM_MAP = {ProtonPythonShim.NAME: ProtonPythonShim(), QpidJmsShim.NAME: QpidJmsShim()}
+    SHIM_MAP = {ProtonCppShim.NAME: ProtonCppShim(ARGS),
+                QpidJmsShim.NAME: QpidJmsShim(ARGS),
+                ProtonPythonShim.NAME: ProtonPythonShim(ARGS)}
+    #SHIM_MAP = {ProtonCppShim.NAME: ProtonCppShim()}
 
     # Connect to broker to find broker type
     CONNECTION_PROPS = broker_properties.getBrokerProperties(ARGS.broker)

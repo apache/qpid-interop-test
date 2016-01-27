@@ -23,7 +23,8 @@
 #define SRC_QPIDIT_SHIM_AMQPSENDER_HPP_
 
 #include <json/value.h>
-#include "proton/messaging_handler.hpp"
+#include "proton/handler.hpp"
+#include "proton/message.hpp"
 #include "qpidit/QpidItErrors.hpp"
 
 namespace qpidit
@@ -31,7 +32,7 @@ namespace qpidit
     namespace shim
     {
 
-        class AmqpSender : public proton::messaging_handler
+        class AmqpSender : public proton::handler
         {
         protected:
             const std::string _brokerUrl;
@@ -45,8 +46,8 @@ namespace qpidit
             virtual ~AmqpSender();
             void on_start(proton::event &e);
             void on_sendable(proton::event &e);
-            void on_accepted(proton::event &e);
-            void on_disconnected(proton::event &e);
+            void on_delivery_accept(proton::event &e);
+            void on_disconnect(proton::event &e);
         protected:
             proton::message& setMessage(proton::message& msg, const Json::Value& testValue);
 
@@ -64,14 +65,14 @@ namespace qpidit
             // Used to convert a hex string representation of a float or double to a float or double
             template<typename T, typename U> void setFloatValue(proton::message& msg, const std::string& testValueStr) {
                 try {
-                    U ival(std::stoul(testValueStr, nullptr, 16));
+                    U ival(std::strtoul(testValueStr.data(), NULL, 16));
                     msg.body(T(*reinterpret_cast<T*>(&ival)));
                 } catch (const std::exception& e) { throw qpidit::InvalidTestValueError(_amqpType, testValueStr); }
             }
 
             template<typename T> void setIntegralValue(proton::message& msg, const std::string& testValueStr, bool unsignedVal) {
                 try {
-                    T val(unsignedVal ? std::stoul(testValueStr, nullptr, 16) : std::stol(testValueStr, nullptr, 16));
+                    T val(unsignedVal ? std::strtoul(testValueStr.data(), NULL, 16) : std::strtol(testValueStr.data(), NULL, 16));
                     msg.body(val);
                 } catch (const std::exception& e) { throw qpidit::InvalidTestValueError(_amqpType, testValueStr); }
             }

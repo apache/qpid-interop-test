@@ -24,6 +24,7 @@
 #include <iostream>
 #include <json/json.h>
 #include "proton/container.hpp"
+#include "proton/event.hpp"
 #include "qpidit/QpidItErrors.hpp"
 
 namespace qpidit
@@ -53,10 +54,10 @@ namespace qpidit
 
         void AmqpReceiver::on_message(proton::event &e) {
             proton::message& msg = e.message();
-            if (!msg.id().empty() && msg.id().get<uint64_t>() < _received) return; // ignore duplicate
+            if (msg.id().get<uint64_t>() < _received) return; // ignore duplicate
             if (_received < _expected) {
                 if (_amqpType.compare("null") == 0) {
-                    checkMessageType(msg, proton::NULL_);
+                    checkMessageType(msg, proton::NULL_TYPE);
                     _receivedValueList.append("None");
                 } else if (_amqpType.compare("boolean") == 0) {
                     checkMessageType(msg, proton::BOOLEAN);
@@ -163,15 +164,9 @@ namespace qpidit
         }
 
         //static
-        Json::Value& AmqpReceiver::getMap(Json::Value& jsonMap, const proton::data& dat) {
-            const proton::value v(dat);
-            return getMap(jsonMap, v);
-        }
-
-        //static
         Json::Value& AmqpReceiver::getMap(Json::Value& jsonMap, const proton::value& val) {
             std::map<proton::value, proton::value> msgMap;
-            val.decoder() >> proton::to_map(msgMap);
+            val.decode() >> proton::to_map(msgMap);
             for (std::map<proton::value, proton::value>::const_iterator i = msgMap.begin(); i != msgMap.end(); ++i) {
                 switch (i->second.type()) {
                 case proton::LIST:
@@ -199,15 +194,9 @@ namespace qpidit
         }
 
         //static
-        Json::Value& AmqpReceiver::getSequence(Json::Value& jsonList, const proton::data& dat) {
-            const proton::value v(dat);
-            return getSequence(jsonList, v);
-        }
-
-        //static
         Json::Value& AmqpReceiver::getSequence(Json::Value& jsonList, const proton::value& val) {
             std::vector<proton::value> msgList;
-            val.decoder() >> proton::to_sequence(msgList);
+            val.decode() >> proton::to_sequence(msgList);
             for (std::vector<proton::value>::const_iterator i=msgList.begin(); i!=msgList.end(); ++i) {
                 switch ((*i).type()) {
                 case proton::LIST:
@@ -266,7 +255,7 @@ int main(int argc, char** argv) {
     oss << argv[1] << "/" << argv[2];
 
     try {
-        qpidit::shim::AmqpReceiver receiver(oss.str(), argv[3], std::stoul(argv[4]));
+        qpidit::shim::AmqpReceiver receiver(oss.str(), argv[3], std::strtoul(argv[4], NULL, 0));
         proton::container(receiver).run();
 
         std::cout << argv[3] << std::endl;
