@@ -30,6 +30,7 @@ from itertools import product
 from json import dumps, loads
 from os import getenv, path
 from subprocess import check_output, CalledProcessError
+from sys import exit
 
 from proton import symbol
 from test_type_map import TestTypeMap
@@ -472,5 +473,7 @@ if __name__ == '__main__':
             TEST_SUITE.addTest(unittest.makeSuite(test_case_class))
 
     # Finally, run all the dynamically created tests
-    unittest.TextTestRunner(verbosity=2).run(TEST_SUITE)
+    res = unittest.TextTestRunner(verbosity=2).run(TEST_SUITE)
+    if not res.wasSuccessful():
+        exit(1)
 

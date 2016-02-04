@@ -464,5 +464,7 @@ if __name__ == '__main__':
             TEST_SUITE.addTest(unittest.makeSuite(test_case_class))
 
     # Finally, run all the dynamically created tests
-    unittest.TextTestRunner(verbosity=2).run(TEST_SUITE)
+    res = unittest.TextTestRunner(verbosity=2).run(TEST_SUITE)
+    if not res.wasSuccessful():
+        exit(1) # Errors or failures present
 
