@@ -52,7 +52,7 @@ export QPID_INTEROP_TEST_HOME=<abs path to top level qpid-interop-test directory
 
 qpid-proton built but not installed:
 Assuming proton's "make" has been run from a "build" directory as described in the proton README (but not make install), from top level qpid-interop-test directory:
-export PYTHONPATH=<abs path to top level qpid-proton directory>/proton-c/bindings/py:<abs path to top level qpid-proton directory>/build/proton-c/bindings/py:src/py/qpid-interop-test
+export PYTHONPATH=<abs path to top level qpid-proton directory>/proton-c/bindings/python:<abs path to top level qpid-proton directory>/build/proton-c/bindings/python:src/py/qpid-interop-test
 export LD_LIBRARY_PATH=<abs path to top level qpid-proton directory>/build/proton-c
 export QPID_INTEROP_TEST_HOME=<abs path to top level qpid-interop-test directory>
 

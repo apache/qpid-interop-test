@@ -154,7 +154,7 @@ class JmsSenderShim(MessagingHandler):
         elif test_value_type == 'int':
             value = int32(int(test_value, 16))
         elif test_value_type == 'long':
-            value = int(test_value, 16)
+            value = long(test_value, 16)
         elif test_value_type == 'short':
             value = short(int(test_value, 16))
         elif test_value_type == 'string':
@@ -203,7 +203,7 @@ class JmsSenderShim(MessagingHandler):
         elif test_value_type == 'int':
             body_list = [int32(int(test_value, 16))]
         elif test_value_type == 'long':
-            body_list = [int(test_value, 16)]
+            body_list = [long(test_value, 16)]
         elif test_value_type == 'short':
             body_list = [short(int(test_value, 16))]
         elif test_value_type == 'string':
