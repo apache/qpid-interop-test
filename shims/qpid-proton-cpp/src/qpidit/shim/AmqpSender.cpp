@@ -203,17 +203,18 @@ namespace qpidit
         proton::value AmqpSender::extractProtonValue(const Json::Value& val) {
             switch (val.type()) {
             case Json::nullValue:
-                return proton::amqp_null();
+                proton::amqp_null n;
+                return proton::value(n);
             case Json::intValue:
-                return proton::amqp_int(val.asInt());
+                return proton::value(proton::amqp_int(val.asInt()));
             case Json::uintValue:
-                return proton::amqp_uint(val.asUInt());
+                return proton::value(proton::amqp_uint(val.asUInt()));
             case Json::realValue:
-                return proton::amqp_double(val.asDouble());
+                return proton::value(proton::amqp_double(val.asDouble()));
             case Json::stringValue:
-                return proton::amqp_string(val.asString());
+                return proton::value(proton::amqp_string(val.asString()));
             case Json::booleanValue:
-                return proton::amqp_boolean(val.asBool());
+                return proton::value(proton::amqp_boolean(val.asBool()));
             default:;
             }
         }
@@ -233,11 +234,11 @@ namespace qpidit
                 if ((*i).isArray()) {
                     std::vector<proton::value> subArray;
                     processArray(subArray, *i);
-                    array.push_back(subArray);
+                    array.push_back(proton::value(subArray));
                 } else if ((*i).isObject()) {
                     std::map<std::string, proton::value> subMap;
                     processMap(subMap, *i);
-                    array.push_back(subMap);
+                    array.push_back(proton::value(subMap));
                 } else {
                     proton::value v;
                     if ((*i).isNull())
@@ -265,11 +266,11 @@ namespace qpidit
                 if ((*i).isArray()) {
                     std::vector<proton::value> subList;
                     processList(subList, *i);
-                    list.push_back(subList);
+                    list.push_back(proton::value(subList));
                 } else if ((*i).isObject()) {
                     std::map<std::string, proton::value> subMap;
                     processMap(subMap, *i);
-                    list.push_back(subMap);
+                    list.push_back(proton::value(subMap));
                 } else {
                     list.push_back(extractProtonValue(*i));
                 }

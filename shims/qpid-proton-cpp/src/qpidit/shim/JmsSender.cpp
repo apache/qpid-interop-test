@@ -221,13 +221,13 @@ namespace qpidit
         proton::message& JmsSender::setStreamMessage(proton::message& msg, const std::string& subType, const std::string& testValueStr) {
             std::vector<proton::value> l;
             if (subType.compare("boolean") == 0) {
-                if (testValueStr.compare("False") == 0) l.push_back(proton::amqp_boolean(false));
-                else if (testValueStr.compare("True") == 0) l.push_back(proton::amqp_boolean(true));
+                if (testValueStr.compare("False") == 0) l.push_back(proton::value(proton::amqp_boolean(false)));
+                else if (testValueStr.compare("True") == 0) l.push_back(proton::value(proton::amqp_boolean(true)));
                 else throw InvalidTestValueError(subType, testValueStr);
             } else if (subType.compare("byte") == 0) {
-                l.push_back(proton::amqp_byte(getIntegralValue<int8_t>(testValueStr)));
+                l.push_back(proton::value(proton::amqp_byte(getIntegralValue<int8_t>(testValueStr))));
             } else if (subType.compare("bytes") == 0) {
-                l.push_back(proton::amqp_binary(testValueStr));
+                l.push_back(proton::value(proton::amqp_binary(testValueStr)));
             } else if (subType.compare("char") == 0) {
                 wchar_t val;
                 if (testValueStr[0] == '\\') { // Format: '\xNN'
@@ -235,19 +235,19 @@ namespace qpidit
                 } else { // Format: 'c'
                     val = testValueStr[0];
                 }
-                l.push_back(proton::amqp_char(val));
+                l.push_back(proton::value(proton::amqp_char(val)));
             } else if (subType.compare("double") == 0) {
-                l.push_back(proton::amqp_double(getFloatValue<double, uint64_t>(testValueStr)));
+                l.push_back(proton::value(proton::amqp_double(getFloatValue<double, uint64_t>(testValueStr))));
             } else if (subType.compare("float") == 0) {
-                l.push_back(proton::amqp_float(getFloatValue<float, uint32_t>(testValueStr)));
+                l.push_back(proton::value(proton::amqp_float(getFloatValue<float, uint32_t>(testValueStr))));
             } else if (subType.compare("int") == 0) {
-                l.push_back(proton::amqp_int(getIntegralValue<int32_t>(testValueStr)));
+                l.push_back(proton::value(proton::amqp_int(getIntegralValue<int32_t>(testValueStr))));
             } else if (subType.compare("long") == 0) {
-                l.push_back(proton::amqp_long(getIntegralValue<int64_t>(testValueStr)));
+                l.push_back(proton::value(proton::amqp_long(getIntegralValue<int64_t>(testValueStr))));
             } else if (subType.compare("short") == 0) {
-                l.push_back(proton::amqp_short(getIntegralValue<int16_t>(testValueStr)));
+                l.push_back(proton::value(proton::amqp_short(getIntegralValue<int16_t>(testValueStr))));
             } else if (subType.compare("string") == 0) {
-                l.push_back(proton::amqp_string(testValueStr));
+                l.push_back(proton::value(proton::amqp_string(testValueStr)));
             } else {
                 throw qpidit::UnknownJmsMessageSubTypeError(subType);
             }
