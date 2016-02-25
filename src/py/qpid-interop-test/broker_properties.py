@@ -25,23 +25,22 @@ gets the broker connection properties so as to identify the broker.
 from proton.handlers import MessagingHandler
 from proton.reactor import Container
 
-class BrokerClient(MessagingHandler):
+class Client(MessagingHandler):
     """
     Client to connect to broker and collect connection properties, used to identify the test broker
     """
     def __init__(self, url):
-        super(BrokerClient, self).__init__()
+        super(Client, self).__init__()
         self.url = url
         self.remote_properties = None
 
+    def on_connection_remote_open(self, event):
+        self.remote_properties = event.connection.remote_properties
+        event.connection.close()
+
     def on_start(self, event):
         """Event loop start"""
-        event.container.create_sender(self.url)
-
-    def on_sendable(self, event):
-        """Sender link has credit, can send messages. Get connection properties, then close connection"""
-        self.remote_properties = event.sender.connection.remote_properties
-        event.sender.connection.close()
+        event.container.connect(url=self.url)
 
     def get_connection_properties(self):
         """Return the connection properties"""
@@ -50,6 +49,6 @@ class BrokerClient(MessagingHandler):
 
 def getBrokerProperties(broker_url):
     """Start client, then return its connection properties"""
-    MSG_HANDLER = BrokerClient(broker_url)
+    MSG_HANDLER = Client(broker_url)
     Container(MSG_HANDLER).run()
     return MSG_HANDLER.get_connection_properties()

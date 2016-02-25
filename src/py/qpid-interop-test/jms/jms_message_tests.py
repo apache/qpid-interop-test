@@ -442,13 +442,14 @@ if __name__ == '__main__':
     # Connect to broker to find broker type
     CONNECTION_PROPS = broker_properties.getBrokerProperties(ARGS.broker)
     if CONNECTION_PROPS is None:
-        print 'ERROR: Unable to get connection properties - terminating'
-        exit(-1)
-    print 'Test Broker: %s v.%s on %s' % (CONNECTION_PROPS[symbol(u'product')],
-                                          CONNECTION_PROPS[symbol(u'version')],
-                                          CONNECTION_PROPS[symbol(u'platform')])
-    print
-    BROKER = CONNECTION_PROPS[symbol(u'product')]
+        print 'WARNING: Unable to get connection properties - unknown broker'
+        BROKER = 'unknown'
+    else:
+        print 'Test Broker: %s v.%s on %s' % (CONNECTION_PROPS[symbol(u'product')],
+                                              CONNECTION_PROPS[symbol(u'version')],
+                                              CONNECTION_PROPS[symbol(u'platform')])
+        print
+        BROKER = CONNECTION_PROPS[symbol(u'product')]
 
     TYPES = JmsMessageTypes()
 
