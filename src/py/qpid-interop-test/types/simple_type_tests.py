@@ -203,7 +203,9 @@ class AmqpPrimitiveTypes(TestTypeMap):
 #                  ]
         }
 
-    BROKER_SKIP = {'decimal32': {'qpid-cpp': 'decimal32 not supported on qpid-cpp broker: QPIDIT-5, QPID-6328',},
+    BROKER_SKIP = {'null': {'ActiveMQ': 'Null type not sent in Proton Python binding: PROTON-1091',
+                            'qpid-cpp': 'Null type not sent in Proton Python binding: PROTON-1091',},
+                   'decimal32': {'qpid-cpp': 'decimal32 not supported on qpid-cpp broker: QPIDIT-5, QPID-6328',},
                    'decimal64': {'qpid-cpp': 'decimal64 not supported on qpid-cpp broker: QPIDIT-6, QPID-6328',},
                    'decimal128': {'qpid-cpp': 'decimal128 not supported on qpid-cpp broker: QPIDIT-3, QPID-6328',},
                    'char': {'qpid-cpp': 'char not supported on qpid-cpp broker: QPIDIT-4, QPID-6328',},
