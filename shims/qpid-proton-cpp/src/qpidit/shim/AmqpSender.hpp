@@ -22,6 +22,7 @@
 #ifndef SRC_QPIDIT_SHIM_AMQPSENDER_HPP_
 #define SRC_QPIDIT_SHIM_AMQPSENDER_HPP_
 
+#include <iomanip>
 #include <json/value.h>
 #include "proton/handler.hpp"
 #include "proton/message.hpp"
@@ -60,6 +61,12 @@ namespace qpidit
             static void processArray(std::vector<proton::value>& array, const Json::Value& testValues);
             static void processList(std::vector<proton::value>& list, const Json::Value& testValues);
             static void processMap(std::map<std::string, proton::value>& map, const Json::Value& testValues);
+
+            template<size_t N> static void hexStringToBytearray(proton::byte_array<N>& ba, const std::string s, size_t fromArrayIndex = 0, size_t arrayLen = N) {
+                for (size_t i=0; i<arrayLen; ++i) {
+                    ba[fromArrayIndex + i] = (char)std::strtoul(s.substr(2*i, 2).c_str(), NULL, 16);
+                }
+            }
 
             // Set message body to floating type T through integral type U
             // Used to convert a hex string representation of a float or double to a float or double

@@ -12,7 +12,7 @@ for d in ${QPID_JMS_CLIENT_LOCATION}/*; do
 done
 
 # TODO: get this from the above list, which needs sorting to find latest version by default
-JMS_VERSION=0.8.0-SNAPSHOT
+JMS_VERSION=0.9.0-SNAPSHOT
 echo "Current qpid-jms client version: ${JMS_VERSION}"
 
 JMS_API=${MVN_LOCAL_REPOSITORY}/org/apache/geronimo/specs/geronimo-jms_1.1_spec/1.1.1/geronimo-jms_1.1_spec-1.1.1.jar:${QPID_JMS_CLIENT_LOCATION}/${JMS_VERSION}/qpid-jms-client-${JMS_VERSION}.jar

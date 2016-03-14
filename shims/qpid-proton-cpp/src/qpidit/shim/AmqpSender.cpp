@@ -21,10 +21,10 @@
 
 #include "qpidit/shim/AmqpSender.hpp"
 
-#include <iomanip>
 #include <iostream>
 #include <json/json.h>
 #include "proton/container.hpp"
+#include "proton/decimal.hpp"
 #include "proton/event.hpp"
 
 namespace qpidit
@@ -83,55 +83,48 @@ namespace qpidit
             if (_amqpType.compare("null") == 0) {
                 std::string testValueStr(testValue.asString());
                 if (testValueStr.compare("None") != 0) { throw qpidit::InvalidTestValueError(_amqpType, testValueStr); }
-                msg.body(proton::amqp_null());
+                proton::value v; //proton::null n;
+                msg.body(v); //msg.body(n);
             } else if (_amqpType.compare("boolean") == 0) {
                 std::string testValueStr(testValue.asString());
                 if (testValueStr.compare("True") == 0) {
-                    msg.body(proton::amqp_boolean(true));
+                    msg.body(true);
                 } else if (testValueStr.compare("False") == 0) {
-                    msg.body(proton::amqp_boolean(false));
+                    msg.body(false);
                 } else {
                     throw qpidit::InvalidTestValueError(_amqpType, testValueStr);
                 }
             } else if (_amqpType.compare("ubyte") == 0) {
-                setIntegralValue<proton::amqp_ubyte>(msg, testValue.asString(), true);
+                setIntegralValue<uint8_t>(msg, testValue.asString(), true);
             } else if (_amqpType.compare("ushort") == 0) {
-                setIntegralValue<proton::amqp_ushort>(msg, testValue.asString(), true);
+                setIntegralValue<uint16_t>(msg, testValue.asString(), true);
             } else if (_amqpType.compare("uint") == 0) {
-                setIntegralValue<proton::amqp_uint>(msg, testValue.asString(), true);
+                setIntegralValue<uint32_t>(msg, testValue.asString(), true);
             } else if (_amqpType.compare("ulong") == 0) {
-                setIntegralValue<proton::amqp_ulong>(msg, testValue.asString(), true);
+                setIntegralValue<uint64_t>(msg, testValue.asString(), true);
             } else if (_amqpType.compare("byte") == 0) {
-                setIntegralValue<proton::amqp_byte>(msg, testValue.asString(), false);
+                setIntegralValue<int8_t>(msg, testValue.asString(), false);
             } else if (_amqpType.compare("short") == 0) {
-                setIntegralValue<proton::amqp_short>(msg, testValue.asString(), false);
+                setIntegralValue<int16_t>(msg, testValue.asString(), false);
             } else if (_amqpType.compare("int") == 0) {
-                setIntegralValue<proton::amqp_int>(msg, testValue.asString(), false);
+                setIntegralValue<int32_t>(msg, testValue.asString(), false);
             } else if (_amqpType.compare("long") == 0) {
-                setIntegralValue<proton::amqp_long>(msg, testValue.asString(), false);
+                setIntegralValue<int64_t>(msg, testValue.asString(), false);
             } else if (_amqpType.compare("float") == 0) {
-                setFloatValue<proton::amqp_float, uint32_t>(msg, testValue.asString());
+                setFloatValue<float, uint32_t>(msg, testValue.asString());
             } else if (_amqpType.compare("double") == 0) {
-                setFloatValue<proton::amqp_double, uint64_t>(msg, testValue.asString());
+                setFloatValue<double, uint64_t>(msg, testValue.asString());
             } else if (_amqpType.compare("decimal32") == 0) {
-                proton::amqp_decimal32 val;
-                val.value = std::strtoul(testValue.asString().data(), NULL, 16);
+                proton::decimal32 val;
+                hexStringToBytearray(val, testValue.asString().substr(2));
                 msg.body(val);
             } else if (_amqpType.compare("decimal64") == 0) {
-                proton::amqp_decimal64 val;
-                val.value = std::strtoul(testValue.asString().data(), NULL, 16);
+                proton::decimal64 val;
+                hexStringToBytearray(val, testValue.asString().substr(2));
                 msg.body(val);
             } else if (_amqpType.compare("decimal128") == 0) {
-                std::string testValueStr(testValue.asString());
-                if (testValueStr.size() != 34) { throw qpidit::InvalidTestValueError(_amqpType, testValueStr); }
-
-                const std::string s1 = testValueStr.substr(2, 16);
-                uint64_t p1 = std::strtoul(s1.data(), NULL, 16);
-                const std::string s2 = testValueStr.substr(18, 16);
-                uint64_t p2 = std::strtoul(s2.data(), NULL, 16);
-
-                proton::amqp_decimal128 val;
-                uint64ToChar16((char*)val.value.bytes, p1, p2);
+                proton::decimal128 val;
+                hexStringToBytearray(val, testValue.asString().substr(2));
                 msg.body(val);
             } else if (_amqpType.compare("char") == 0) {
                 std::string charStr = testValue.asString();
@@ -143,31 +136,34 @@ namespace qpidit
                 } else {
                     //TODO throw format error
                 }
-                msg.body(proton::amqp_char(val));
+                msg.body(val);
             } else if (_amqpType.compare("timestamp") == 0) {
-                proton::amqp_timestamp val;
-                val.milliseconds = std::strtoul(testValue.asString().data(), NULL, 16);
+                proton::timestamp val(std::strtoul(testValue.asString().data(), NULL, 16));
                 msg.body(val);
             } else if (_amqpType.compare("uuid") == 0) {
-                std::string testValueStr(testValue.asString());
-                if (testValueStr.size() != 36) { throw qpidit::InvalidTestValueError(_amqpType, testValueStr); }
+                proton::uuid val;
+                std::string uuidStr(testValue.asString());
                 // Expected format: "00000000-0000-0000-0000-000000000000"
-                std::ostringstream oss1;
-                oss1 << testValueStr.substr(0, 8) << testValueStr.substr(9, 4) << testValueStr.substr(14, 4);
-                uint64_t p1 = std::strtoul(oss1.str().data(), NULL, 16);
-                std::ostringstream oss2;
-                oss2 << testValueStr.substr(19, 4) << testValueStr.substr(24);
-                uint64_t p2 = std::strtoul(oss2.str().data(), NULL, 16);
-
-                proton::amqp_uuid val;
-                uint64ToChar16((char*)val.value.bytes, p1, p2);
+                //                   ^        ^    ^    ^    ^
+                //    start index -> 0        9    14   19   24
+                hexStringToBytearray(val, uuidStr.substr(0, 8), 0, 4);
+                hexStringToBytearray(val, uuidStr.substr(9, 4), 4, 2);
+                hexStringToBytearray(val, uuidStr.substr(14, 4), 6, 2);
+                hexStringToBytearray(val, uuidStr.substr(19, 4), 8, 2);
+                hexStringToBytearray(val, uuidStr.substr(24, 12), 10, 6);
                 msg.body(val);
             } else if (_amqpType.compare("binary") == 0) {
-                setStringValue<proton::amqp_binary>(msg, testValue.asString());
+                //setStringValue<proton::amqp_binary>(msg, testValue.asString());
+                proton::amqp_binary val(testValue.asString());
+                msg.body(val);
             } else if (_amqpType.compare("string") == 0) {
-                setStringValue<proton::amqp_string>(msg, testValue.asString());
+                //setStringValue<proton::amqp_string>(msg, testValue.asString());
+                proton::amqp_string val(testValue.asString());
+                msg.body(val);
             } else if (_amqpType.compare("symbol") == 0) {
-                setStringValue<proton::amqp_symbol>(msg, testValue.asString());
+                //setStringValue<proton::amqp_symbol>(msg, testValue.asString());
+                proton::amqp_symbol val(testValue.asString());
+                msg.body(val);
             } else if (_amqpType.compare("list") == 0) {
                 std::vector<proton::value> list;
                 processList(list, testValue);
@@ -203,18 +199,20 @@ namespace qpidit
         proton::value AmqpSender::extractProtonValue(const Json::Value& val) {
             switch (val.type()) {
             case Json::nullValue:
-                proton::amqp_null n;
-                return proton::value(n);
+            {
+                proton::value v; //proton::null n;
+                return v; //proton::value(n);
+            }
             case Json::intValue:
-                return proton::value(proton::amqp_int(val.asInt()));
+                return proton::value(val.asInt());
             case Json::uintValue:
-                return proton::value(proton::amqp_uint(val.asUInt()));
+                return proton::value(val.asUInt());
             case Json::realValue:
-                return proton::value(proton::amqp_double(val.asDouble()));
+                return proton::value(val.asDouble());
             case Json::stringValue:
-                return proton::value(proton::amqp_string(val.asString()));
+                return proton::value(val.asString());
             case Json::booleanValue:
-                return proton::value(proton::amqp_boolean(val.asBool()));
+                return proton::value(val.asBool());
             default:;
             }
         }
@@ -242,17 +240,17 @@ namespace qpidit
                 } else {
                     proton::value v;
                     if ((*i).isNull())
-                        v = proton::amqp_null();
-                    if ((*i).isBool())
-                        v = proton::amqp_boolean((*i).asBool());
+                        ;
+                    else if ((*i).isBool())
+                        v = (*i).asBool();
                     else if ((*i).isInt())
-                        v = proton::amqp_int((*i).asInt());
+                        v = (*i).asInt();
                     else if ((*i).isUInt())
-                        v = proton::amqp_uint((*i).asUInt());
+                        v = (*i).asUInt();
                     else if ((*i).isDouble())
-                        v = proton::amqp_double((*i).asDouble());
+                        v = (*i).asDouble();
                     else if ((*i).isString())
-                        v = proton::amqp_string((*i).asString());
+                        v = (*i).asString();
                     else
                         ; // TODO handle this case
                     array.push_back(v);

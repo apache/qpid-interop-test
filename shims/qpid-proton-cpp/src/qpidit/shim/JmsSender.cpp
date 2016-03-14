@@ -37,7 +37,7 @@ namespace qpidit
         typedef enum {JMS_MESSAGE_TYPE=0, JMS_OBJECTMESSAGE_TYPE, JMS_MAPMESSAGE_TYPE, JMS_BYTESMESSAGE_TYPE, JMS_STREAMMESSAGE_TYPE, JMS_TEXTMESSAGE_TYPE} jmsMessageType_t;
         //static
         proton::amqp_symbol JmsSender::s_jmsMessageTypeAnnotationKey("x-opt-jms-msg-type");
-        std::map<std::string, proton::amqp_byte>JmsSender::s_jmsMessageTypeAnnotationValues = initializeJmsMessageTypeAnnotationMap();
+        std::map<std::string, int8_t>JmsSender::s_jmsMessageTypeAnnotationValues = initializeJmsMessageTypeAnnotationMap();
 
         JmsSender::JmsSender(const std::string& brokerUrl,
                              const std::string& jmsMessageType,
@@ -174,11 +174,11 @@ namespace qpidit
             std::string mapKey(oss.str());
             std::map<std::string, proton::value> m;
             if (subType.compare("boolean") == 0) {
-                if (testValueStr.compare("False") == 0) m[mapKey] = proton::amqp_boolean(false);
-                else if (testValueStr.compare("True") == 0) m[mapKey] = proton::amqp_boolean(true);
+                if (testValueStr.compare("False") == 0) m[mapKey] = false;
+                else if (testValueStr.compare("True") == 0) m[mapKey] = true;
                 else throw InvalidTestValueError(subType, testValueStr);
             } else if (subType.compare("byte") == 0) {
-                m[mapKey] = proton::amqp_byte(getIntegralValue<int8_t>(testValueStr));
+                m[mapKey] = int8_t(getIntegralValue<int8_t>(testValueStr));
             } else if (subType.compare("bytes") == 0) {
                 m[mapKey] = proton::amqp_binary(testValueStr);
             } else if (subType.compare("char") == 0) {
@@ -188,17 +188,17 @@ namespace qpidit
                 } else { // Format: 'c'
                     val = testValueStr[0];
                 }
-                m[mapKey] = proton::amqp_char(val);
+                m[mapKey] = val;
             } else if (subType.compare("double") == 0) {
-                m[mapKey] = proton::amqp_double(getFloatValue<double, uint64_t>(testValueStr));
+                m[mapKey] = getFloatValue<double, uint64_t>(testValueStr);
             } else if (subType.compare("float") == 0) {
-                m[mapKey] = proton::amqp_float(getFloatValue<float, uint32_t>(testValueStr));
+                m[mapKey] = getFloatValue<float, uint32_t>(testValueStr);
             } else if (subType.compare("int") == 0) {
-                m[mapKey] = proton::amqp_int(getIntegralValue<int32_t>(testValueStr));
+                m[mapKey] = getIntegralValue<int32_t>(testValueStr);
             } else if (subType.compare("long") == 0) {
-                m[mapKey] = proton::amqp_long(getIntegralValue<int64_t>(testValueStr));
+                m[mapKey] = getIntegralValue<int64_t>(testValueStr);
             } else if (subType.compare("short") == 0) {
-                m[mapKey] = proton::amqp_short(getIntegralValue<int16_t>(testValueStr));
+                m[mapKey] = getIntegralValue<int16_t>(testValueStr);
             } else if (subType.compare("string") == 0) {
                 m[mapKey] = proton::amqp_string(testValueStr);
             } else {
@@ -221,11 +221,11 @@ namespace qpidit
         proton::message& JmsSender::setStreamMessage(proton::message& msg, const std::string& subType, const std::string& testValueStr) {
             std::vector<proton::value> l;
             if (subType.compare("boolean") == 0) {
-                if (testValueStr.compare("False") == 0) l.push_back(proton::value(proton::amqp_boolean(false)));
-                else if (testValueStr.compare("True") == 0) l.push_back(proton::value(proton::amqp_boolean(true)));
+                if (testValueStr.compare("False") == 0) l.push_back(proton::value(false));
+                else if (testValueStr.compare("True") == 0) l.push_back(proton::value(true));
                 else throw InvalidTestValueError(subType, testValueStr);
             } else if (subType.compare("byte") == 0) {
-                l.push_back(proton::value(proton::amqp_byte(getIntegralValue<int8_t>(testValueStr))));
+                l.push_back(proton::value(int8_t(getIntegralValue<int8_t>(testValueStr))));
             } else if (subType.compare("bytes") == 0) {
                 l.push_back(proton::value(proton::amqp_binary(testValueStr)));
             } else if (subType.compare("char") == 0) {
@@ -235,17 +235,17 @@ namespace qpidit
                 } else { // Format: 'c'
                     val = testValueStr[0];
                 }
-                l.push_back(proton::value(proton::amqp_char(val)));
+                l.push_back(proton::value(val));
             } else if (subType.compare("double") == 0) {
-                l.push_back(proton::value(proton::amqp_double(getFloatValue<double, uint64_t>(testValueStr))));
+                l.push_back(proton::value(getFloatValue<double, uint64_t>(testValueStr)));
             } else if (subType.compare("float") == 0) {
-                l.push_back(proton::value(proton::amqp_float(getFloatValue<float, uint32_t>(testValueStr))));
+                l.push_back(proton::value(getFloatValue<float, uint32_t>(testValueStr)));
             } else if (subType.compare("int") == 0) {
-                l.push_back(proton::value(proton::amqp_int(getIntegralValue<int32_t>(testValueStr))));
+                l.push_back(proton::value(getIntegralValue<int32_t>(testValueStr)));
             } else if (subType.compare("long") == 0) {
-                l.push_back(proton::value(proton::amqp_long(getIntegralValue<int64_t>(testValueStr))));
+                l.push_back(proton::value(getIntegralValue<int64_t>(testValueStr)));
             } else if (subType.compare("short") == 0) {
-                l.push_back(proton::value(proton::amqp_short(getIntegralValue<int16_t>(testValueStr))));
+                l.push_back(proton::value(getIntegralValue<int16_t>(testValueStr)));
             } else if (subType.compare("string") == 0) {
                 l.push_back(proton::value(proton::amqp_string(testValueStr)));
             } else {
@@ -292,8 +292,8 @@ namespace qpidit
         }
 
         //static
-        std::map<std::string, proton::amqp_byte> JmsSender::initializeJmsMessageTypeAnnotationMap() {
-            std::map<std::string, proton::amqp_byte> m;
+        std::map<std::string, int8_t> JmsSender::initializeJmsMessageTypeAnnotationMap() {
+            std::map<std::string, int8_t> m;
             m["JMS_MESSAGE_TYPE"] = JMS_MESSAGE_TYPE;
             m["JMS_OBJECTMESSAGE_TYPE"] = JMS_OBJECTMESSAGE_TYPE;
             m["JMS_MAPMESSAGE_TYPE"] = JMS_MAPMESSAGE_TYPE;

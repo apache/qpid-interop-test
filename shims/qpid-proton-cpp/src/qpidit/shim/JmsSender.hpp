@@ -40,7 +40,7 @@ namespace qpidit
         {
         protected:
             static proton::amqp_symbol s_jmsMessageTypeAnnotationKey;
-            static std::map<std::string, proton::amqp_byte>s_jmsMessageTypeAnnotationValues;
+            static std::map<std::string, int8_t>s_jmsMessageTypeAnnotationValues;
 
             const std::string _brokerUrl;
             const std::string _jmsMessageType;
@@ -66,7 +66,7 @@ namespace qpidit
             static proton::amqp_binary getJavaObjectBinary(const std::string& javaClassName, const std::string& valAsString);
             static uint32_t getTotalNumMessages(const Json::Value& testValueMap);
 
-            static std::map<std::string, proton::amqp_byte> initializeJmsMessageTypeAnnotationMap();
+            static std::map<std::string, int8_t> initializeJmsMessageTypeAnnotationMap();
 
             // Set message body to floating type T through integral type U
             // Used to convert a hex string representation of a float or double to a float or double

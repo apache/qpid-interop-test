@@ -24,6 +24,7 @@
 #include <iostream>
 #include <json/json.h>
 #include "proton/container.hpp"
+#include "proton/decimal.hpp"
 #include "proton/event.hpp"
 #include "qpidit/QpidItErrors.hpp"
 
@@ -61,52 +62,51 @@ namespace qpidit
                     _receivedValueList.append("None");
                 } else if (_amqpType.compare("boolean") == 0) {
                     checkMessageType(msg, proton::BOOLEAN);
-                    _receivedValueList.append(msg.body().get<proton::amqp_boolean>() ? "True": "False");
+                    _receivedValueList.append(msg.body().get<bool>() ? "True": "False");
                 } else if (_amqpType.compare("ubyte") == 0) {
                     checkMessageType(msg, proton::UBYTE);
-                    _receivedValueList.append(toHexStr<proton::amqp_ubyte>(msg.body().get<proton::amqp_ubyte>()));
+                    _receivedValueList.append(toHexStr<uint8_t>(msg.body().get<uint8_t>()));
                 } else if (_amqpType.compare("ushort") == 0) {
                     checkMessageType(msg, proton::USHORT);
-                    _receivedValueList.append(toHexStr<proton::amqp_ushort>(msg.body().get<proton::amqp_ushort>()));
+                    _receivedValueList.append(toHexStr<uint16_t>(msg.body().get<uint16_t>()));
                 } else if (_amqpType.compare("uint") == 0) {
                     checkMessageType(msg, proton::UINT);
-                    _receivedValueList.append(toHexStr<proton::amqp_uint>(msg.body().get<proton::amqp_uint>()));
+                    _receivedValueList.append(toHexStr<uint32_t>(msg.body().get<uint32_t>()));
                 } else if (_amqpType.compare("ulong") == 0) {
                     checkMessageType(msg, proton::ULONG);
-                    _receivedValueList.append(toHexStr<proton::amqp_ulong>(msg.body().get<proton::amqp_ulong>()));
+                    _receivedValueList.append(toHexStr<uint64_t>(msg.body().get<uint64_t>()));
                 } else if (_amqpType.compare("byte") == 0) {
                     checkMessageType(msg, proton::BYTE);
-                    _receivedValueList.append(toHexStr<proton::amqp_byte>(msg.body().get<proton::amqp_byte>()));
+                    _receivedValueList.append(toHexStr<int8_t>(msg.body().get<int8_t>()));
                 } else if (_amqpType.compare("short") == 0) {
                     checkMessageType(msg, proton::SHORT);
-                    _receivedValueList.append(toHexStr<proton::amqp_short>(msg.body().get<proton::amqp_short>()));
+                    _receivedValueList.append(toHexStr<int16_t>(msg.body().get<int16_t>()));
                 } else if (_amqpType.compare("int") == 0) {
                     checkMessageType(msg, proton::INT);
-                    _receivedValueList.append(toHexStr<proton::amqp_int>(msg.body().get<proton::amqp_int>()));
+                    _receivedValueList.append(toHexStr<int32_t>(msg.body().get<int32_t>()));
                 } else if (_amqpType.compare("long") == 0) {
                     checkMessageType(msg, proton::LONG);
-                    _receivedValueList.append(toHexStr<proton::amqp_long>(msg.body().get<proton::amqp_long>()));
+                    _receivedValueList.append(toHexStr<int64_t>(msg.body().get<int64_t>()));
                 } else if (_amqpType.compare("float") == 0) {
                     checkMessageType(msg, proton::FLOAT);
-                    proton::amqp_float f = msg.body().get<proton::amqp_float>();
+                    float f = msg.body().get<float>();
                     _receivedValueList.append(toHexStr<uint32_t>(*((uint32_t*)&f), true));
                 } else if (_amqpType.compare("double") == 0) {
                     checkMessageType(msg, proton::DOUBLE);
-                    proton::amqp_double d = msg.body().get<proton::amqp_double>();
+                    double d = msg.body().get<double>();
                     _receivedValueList.append(toHexStr<uint64_t>(*((uint64_t*)&d), true));
                 } else if (_amqpType.compare("decimal32") == 0) {
                     checkMessageType(msg, proton::DECIMAL32);
-                    _receivedValueList.append(toHexStr<uint32_t>(msg.body().get<proton::amqp_decimal32>(), true));
+                    _receivedValueList.append(byteArrayToHexStr(msg.body().get<proton::decimal32>()));
                 } else if (_amqpType.compare("decimal64") == 0) {
                     checkMessageType(msg, proton::DECIMAL64);
-                    _receivedValueList.append(toHexStr<uint64_t>(msg.body().get<proton::amqp_decimal64>(), true));
+                    _receivedValueList.append(byteArrayToHexStr(msg.body().get<proton::decimal64>()));
                 } else if (_amqpType.compare("decimal128") == 0) {
                     checkMessageType(msg, proton::DECIMAL128);
-                    proton::amqp_decimal128 d128(msg.body().get<proton::amqp_decimal128>());
-                    _receivedValueList.append(stringToHexStr(std::string(d128.value.bytes, 16)));
+                    _receivedValueList.append(byteArrayToHexStr(msg.body().get<proton::decimal128>()));
                 } else if (_amqpType.compare("char") == 0) {
                     checkMessageType(msg, proton::CHAR);
-                    wchar_t c = msg.body().get<proton::amqp_char>();
+                    wchar_t c = msg.body().get<wchar_t>();
                     std::stringstream oss;
                     if (c < 0x7f && std::iswprint(c)) {
                         oss << (char)c;
@@ -117,12 +117,12 @@ namespace qpidit
                 } else if (_amqpType.compare("timestamp") == 0) {
                     checkMessageType(msg, proton::TIMESTAMP);
                     std::ostringstream oss;
-                    oss << "0x" << std::hex << msg.body().get<proton::amqp_timestamp>().milliseconds;
+                    oss << "0x" << std::hex << msg.body().get<proton::timestamp>().milliseconds();
                     _receivedValueList.append(oss.str());
                 } else if (_amqpType.compare("uuid") == 0) {
                     checkMessageType(msg, proton::UUID);
                     std::ostringstream oss;
-                    oss << msg.body().get<proton::amqp_uuid>();
+                    oss << msg.body().get<proton::uuid>();
                     _receivedValueList.append(oss.str());
                 } else if (_amqpType.compare("binary") == 0) {
                     checkMessageType(msg, proton::BINARY);

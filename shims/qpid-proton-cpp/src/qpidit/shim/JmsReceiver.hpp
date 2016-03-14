@@ -38,7 +38,7 @@ namespace qpidit
         {
         protected:
             static proton::amqp_symbol s_jmsMessageTypeAnnotationKey;
-            static std::map<std::string, proton::amqp_byte>s_jmsMessageTypeAnnotationValues;
+            static std::map<std::string, int8_t>s_jmsMessageTypeAnnotationValues;
 
             const std::string _brokerUrl;
             const std::string _jmsMessageType;
@@ -67,7 +67,7 @@ namespace qpidit
             void receiveJmsStreamMessage(const proton::message& msg);
             void receiveJmsTextMessage(const proton::message& msg);
 
-            static std::map<std::string, proton::amqp_byte> initializeJmsMessageTypeAnnotationMap();
+            static std::map<std::string, int8_t> initializeJmsMessageTypeAnnotationMap();
 
             // Format signed numbers in negative hex format if signedFlag is true, ie -0xNNNN, positive numbers in 0xNNNN format
             template<typename T> static std::string toHexStr(T val, bool fillFlag = false, bool signedFlag = true) {

@@ -66,6 +66,12 @@ namespace qpidit
                 oss << (sizeof(T) == 1 ? (int)val & 0xff : sizeof(T) == 2 ? val & 0xffff : sizeof(T) == 4 ? val & 0xffffffff : val);
                 return oss.str();
             }
+
+            template<size_t N> static std::string byteArrayToHexStr(const proton::byte_array<N>& val) {
+                std::ostringstream oss;
+                oss << val;
+                return oss.str();
+            }
         };
 
     } /* namespace shim */

@@ -35,7 +35,7 @@ namespace qpidit
         typedef enum {JMS_MESSAGE_TYPE=0, JMS_OBJECTMESSAGE_TYPE, JMS_MAPMESSAGE_TYPE, JMS_BYTESMESSAGE_TYPE, JMS_STREAMMESSAGE_TYPE, JMS_TEXTMESSAGE_TYPE} jmsMessageType_t;
         //static
         proton::amqp_symbol JmsReceiver::s_jmsMessageTypeAnnotationKey("x-opt-jms-msg-type");
-        std::map<std::string, proton::amqp_byte>JmsReceiver::s_jmsMessageTypeAnnotationValues = initializeJmsMessageTypeAnnotationMap();
+        std::map<std::string, int8_t>JmsReceiver::s_jmsMessageTypeAnnotationValues = initializeJmsMessageTypeAnnotationMap();
 
 
         JmsReceiver::JmsReceiver(const std::string& brokerUrl,
@@ -66,7 +66,7 @@ namespace qpidit
         void JmsReceiver::on_message(proton::event &e) {
             proton::message& msg = e.message();
             if (_received < _expected) {
-                switch (msg.message_annotations()[proton::amqp_symbol("x-opt-jms-msg-type")].get<proton::amqp_byte>()) {
+                switch (msg.message_annotations()[proton::amqp_symbol("x-opt-jms-msg-type")].get<int8_t>()) {
                 case JMS_MESSAGE_TYPE:
                     receiveJmsMessage(msg);
                     break;
@@ -138,27 +138,27 @@ namespace qpidit
                 }
                 proton::value val = i->second;
                 if (subType.compare("boolean") == 0) {
-                    _receivedSubTypeList.append(val.get<proton::amqp_boolean>() ? Json::Value("True") : Json::Value("False"));
+                    _receivedSubTypeList.append(val.get<bool>() ? Json::Value("True") : Json::Value("False"));
                 } else if (subType.compare("byte") == 0) {
-                    _receivedSubTypeList.append(Json::Value(toHexStr<int8_t>(val.get<proton::amqp_byte>())));
+                    _receivedSubTypeList.append(Json::Value(toHexStr<int8_t>(val.get<int8_t>())));
                 } else if (subType.compare("bytes") == 0) {
                     _receivedSubTypeList.append(Json::Value(val.get<proton::amqp_binary>()));
                 } else if (subType.compare("char") == 0) {
                     std::ostringstream oss;
-                    oss << (char)val.get<proton::amqp_char>();
+                    oss << (char)val.get<wchar_t>();
                     _receivedSubTypeList.append(Json::Value(oss.str()));
                 } else if (subType.compare("double") == 0) {
-                    proton::amqp_double d = val.get<proton::amqp_double>();
+                    double d = val.get<double>();
                     _receivedSubTypeList.append(Json::Value(toHexStr<int64_t>(*((int64_t*)&d), true, false)));
                 } else if (subType.compare("float") == 0) {
-                    proton::amqp_float f = val.get<proton::amqp_float>();
+                    float f = val.get<float>();
                     _receivedSubTypeList.append(Json::Value(toHexStr<int32_t>(*((int32_t*)&f), true, false)));
                 } else if (subType.compare("int") == 0) {
-                    _receivedSubTypeList.append(Json::Value(toHexStr<int32_t>(val.get<proton::amqp_int>())));
+                    _receivedSubTypeList.append(Json::Value(toHexStr<int32_t>(val.get<int32_t>())));
                 } else if (subType.compare("long") == 0) {
-                    _receivedSubTypeList.append(Json::Value(toHexStr<int64_t>(val.get<proton::amqp_long>())));
+                    _receivedSubTypeList.append(Json::Value(toHexStr<int64_t>(val.get<int64_t>())));
                 } else if (subType.compare("short") == 0) {
-                    _receivedSubTypeList.append(Json::Value(toHexStr<int16_t>(val.get<proton::amqp_short>())));
+                    _receivedSubTypeList.append(Json::Value(toHexStr<int16_t>(val.get<int16_t>())));
                 } else if (subType.compare("string") == 0) {
                     _receivedSubTypeList.append(Json::Value(val.get<proton::amqp_string>()));
                 } else {
@@ -226,27 +226,27 @@ namespace qpidit
             msg.body().get(l);
             for (std::vector<proton::value>::const_iterator i=l.begin(); i!=l.end(); ++i) {
                 if (subType.compare("boolean") == 0) {
-                    _receivedSubTypeList.append(i->get<proton::amqp_boolean>() ? Json::Value("True") : Json::Value("False"));
+                    _receivedSubTypeList.append(i->get<bool>() ? Json::Value("True") : Json::Value("False"));
                 } else if (subType.compare("byte") == 0) {
-                    _receivedSubTypeList.append(Json::Value(toHexStr<proton::amqp_byte>(i->get<proton::amqp_byte>())));
+                    _receivedSubTypeList.append(Json::Value(toHexStr<int8_t>(i->get<int8_t>())));
                 } else if (subType.compare("bytes") == 0) {
                     _receivedSubTypeList.append(Json::Value(i->get<proton::amqp_binary>()));
                 } else if (subType.compare("char") == 0) {
                     std::ostringstream oss;
-                    oss << (char)i->get<proton::amqp_char>();
+                    oss << (char)i->get<wchar_t>();
                     _receivedSubTypeList.append(Json::Value(oss.str()));
                 } else if (subType.compare("double") == 0) {
-                    proton::amqp_double d = i->get<proton::amqp_double>();
+                    double d = i->get<double>();
                     _receivedSubTypeList.append(Json::Value(toHexStr<int64_t>(*((int64_t*)&d), true, false)));
                 } else if (subType.compare("float") == 0) {
-                    proton::amqp_float f = i->get<proton::amqp_float>();
+                    float f = i->get<float>();
                     _receivedSubTypeList.append(Json::Value(toHexStr<int32_t>(*((int32_t*)&f), true, false)));
                 } else if (subType.compare("int") == 0) {
-                    _receivedSubTypeList.append(Json::Value(toHexStr<proton::amqp_int>(i->get<proton::amqp_int>())));
+                    _receivedSubTypeList.append(Json::Value(toHexStr<int32_t>(i->get<int32_t>())));
                 } else if (subType.compare("long") == 0) {
-                    _receivedSubTypeList.append(Json::Value(toHexStr<proton::amqp_long>(i->get<proton::amqp_long>())));
+                    _receivedSubTypeList.append(Json::Value(toHexStr<int64_t>(i->get<int64_t>())));
                 } else if (subType.compare("short") == 0) {
-                    _receivedSubTypeList.append(Json::Value(toHexStr<proton::amqp_short>(i->get<proton::amqp_short>())));
+                    _receivedSubTypeList.append(Json::Value(toHexStr<int16_t>(i->get<int16_t>())));
                 } else if (subType.compare("string") == 0) {
                     _receivedSubTypeList.append(Json::Value(i->get<proton::amqp_string>()));
                 } else {
@@ -264,8 +264,8 @@ namespace qpidit
         }
 
         //static
-        std::map<std::string, proton::amqp_byte> JmsReceiver::initializeJmsMessageTypeAnnotationMap() {
-            std::map<std::string, proton::amqp_byte> m;
+        std::map<std::string, int8_t> JmsReceiver::initializeJmsMessageTypeAnnotationMap() {
+            std::map<std::string, int8_t> m;
             m["JMS_MESSAGE_TYPE"] = JMS_MESSAGE_TYPE;
             m["JMS_OBJECTMESSAGE_TYPE"] = JMS_OBJECTMESSAGE_TYPE;
             m["JMS_MAPMESSAGE_TYPE"] = JMS_MAPMESSAGE_TYPE;
