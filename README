@@ -20,7 +20,7 @@ QUICKSTART. Detailed documentation for adding tests and using them are
 Issues
 ------
 Issues are tracked in the Apache JIRA at
-https://issues.apache.org/jira/browse/QPIDIT/?selectedTab=com.atlassian.jira.jira-projects-plugin:summary-panel
+https://issues.apache.org/jira/browse/QPIDIT
 
 Support
 -------
@@ -36,7 +36,7 @@ directory. The very short version of this is as follows:
 
 The first is a sender which reads the following from the command-line:
 
-<broker address> <amqp type> <test value 1> <test value 2> ...
+<broker address> <amqp type> <JSON string: test values> ...
 
 and is responsible for sending messages containing the test values each in a
 single message in the appropriate AMQP type format.
@@ -44,12 +44,12 @@ single message in the appropriate AMQP type format.
 The second client program is a receiver, and must read the following from the
 command-line
 
-<broker address> <amqp type> <num messages>
+<broker address> <amqp type> <JSON string: num messages>
 
 and is responsible for receiving <num messages> messages from the broker and
 printing the bodies of the received messages appropriately decoded for type
-<amqp type>. The printed output will contain the amqp type on the first line
-and each received message body on subsequent lines, one message per line.
+<amqp type>. The printed output will be a JSON string containing the identical
+structure to that sent to the send shim, but containing the received values.
 
 2. Add a subclass for this client in
 src/py/qpid-interop-test/types/simple_type_test.py

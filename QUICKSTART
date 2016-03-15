@@ -10,26 +10,23 @@ QUICKSTART GUIDE
 -----------------
 git clone https://git-wip-us.apache.org/repos/asf/qpid-interop-test.git
 
-2. Patch Proton and build
--------------------------
-Proton needs to be patched with a change that adds support for the missing AMQP types in the current
-python implementation. This patch will be proposed as a patch to Proton itself, and if accepted,
-this part of the procedure will go away. Until then, the patch is located in the etc directory as
-proton-python-amqp-types.patch. Copy this to the qpid-proton directory, then:
-
-cd <path/to/>qpid-proton
-patch -p1 proton-python-amqp-types.patch
-cd build/
+2. Get Qpid Proton
+------------------
+git clone https://git-wip-us.apache.org/repos/asf/qpid-proton.git
+cd qpid-proton
+mkdir build
+cd build
+cmake ..
 make
+# installing is optional, if you want to install, then the following line:
 sudo make install
 cd ..
-mvn -DskipTests package
 mvn -DskipTests install
 
 3. Build Qpid JMS
 -----------------
-cd <path/to/>qpid-jms
-mvn -DskipTests package
+git clone https://git-wip-us.apache.org/repos/asf/qpid-jms.git
+cd qpid-jms
 mvn -DskipTests install
 
 
@@ -58,12 +55,6 @@ export QPID_INTEROP_TEST_HOME=<abs path to top level qpid-interop-test directory
 
 Start a broker (Active-MQ or Qpid).
 NOTE: For qpidd, YOU MUST USE THE --queue-pattern qpid-interop parameter so it will create non-existent queues as needed.
-NOTE: For qpidd, there are some bugs in the broker which will cause the simple type tests for the following types to fail:
-      * char
-      * decimal32
-      * decimal64
-      * deciaml128 
-      See https://issues.apache.org/jira/browse/QPID-6328 for more info on this.
 
 From top level directory:
 ./src/py/qpid-interop-test/jms/jms_message_tests.py
