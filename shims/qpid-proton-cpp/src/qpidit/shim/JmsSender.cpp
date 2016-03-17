@@ -123,8 +123,7 @@ namespace qpidit
             } else if (subType.compare("bytes") == 0) {
                 bin.assign(testValueStr.begin(), testValueStr.end());
             } else if (subType.compare("char") == 0) {
-                char val[2];
-                val[0] = 0;
+                bin.push_back(char(0));
                 if (testValueStr[0] == '\\') { // Format: '\xNN'
                     bin.push_back(getIntegralValue<char>(testValueStr.substr(2)));
                 } else { // Format: 'c'
@@ -135,22 +134,31 @@ namespace qpidit
                 try {
                     val = htobe64(std::strtoul(testValueStr.data(), NULL, 16));
                 } catch (const std::exception& e) { throw qpidit::InvalidTestValueError("double", testValueStr); }
-                bin.assign(sizeof(val), val);
+                numToBinary(val, bin);
+               //for (int i=0; i<sizeof(val); ++i) {
+               //     bin.push_back(* ((char*)&val + i));
+               // }
             } else if (subType.compare("float") == 0) {
                 uint32_t val;
                 try {
                     val = htobe32((uint32_t)std::strtoul(testValueStr.data(), NULL, 16));
                 } catch (const std::exception& e) { throw qpidit::InvalidTestValueError("float", testValueStr); }
-                bin.assign(sizeof(val), val);
+                numToBinary(val, bin);
+                //for (int i=0; i<sizeof(val); ++i) {
+                //    bin.push_back(* ((char*)&val + i));
+                //}
             } else if (subType.compare("long") == 0) {
                 uint64_t val = htobe64(getIntegralValue<uint64_t>(testValueStr));
-                bin.assign(sizeof(val), val);
+                numToBinary(val, bin);
+                //bin.assign(sizeof(val), val);
             } else if (subType.compare("int") == 0) {
                 uint32_t val = htobe32(getIntegralValue<uint32_t>(testValueStr));
-                bin.assign(sizeof(val), val);
+                numToBinary(val, bin);
+                //bin.assign(sizeof(val), val);
             } else if (subType.compare("short") == 0) {
                 uint16_t val = htobe16(getIntegralValue<int16_t>(testValueStr));
-                bin.assign(sizeof(val), val);
+                numToBinary(val, bin);
+                //bin.assign(sizeof(val), val);
             } else if (subType.compare("string") == 0) {
                 std::ostringstream oss;
                 uint16_t strlen = htobe16((uint16_t)testValueStr.size());

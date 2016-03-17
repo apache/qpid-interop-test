@@ -68,6 +68,12 @@ namespace qpidit
 
             static std::map<std::string, int8_t> initializeJmsMessageTypeAnnotationMap();
 
+            template<typename T> static T numToBinary(T n, proton::binary& b) {
+                for (int i=0; i<sizeof(n); ++i) {
+                    b.push_back(* ((char*)&n + i));
+                }
+            }
+
             // Set message body to floating type T through integral type U
             // Used to convert a hex string representation of a float or double to a float or double
             template<typename T, typename U> T getFloatValue(const std::string& testValueStr) {
