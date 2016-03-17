@@ -10,8 +10,8 @@ QUICKSTART GUIDE
 -----------------
 git clone https://git-wip-us.apache.org/repos/asf/qpid-interop-test.git
 
-2. Get Qpid Proton
-------------------
+2. Get and build Qpid Proton
+----------------------------
 git clone https://git-wip-us.apache.org/repos/asf/qpid-proton.git
 cd qpid-proton
 mkdir build
@@ -23,8 +23,8 @@ sudo make install
 cd ..
 mvn -DskipTests install
 
-3. Build Qpid JMS
------------------
+3. Get and build Qpid JMS
+-------------------------
 git clone https://git-wip-us.apache.org/repos/asf/qpid-jms.git
 cd qpid-jms
 mvn -DskipTests install
@@ -36,18 +36,36 @@ mvn -DskipTests install
 needed, particularly AmqpPrimitiveTypes.TYPE_MAP which controls the AMQP types
 and test values for each type.
 
-4. Run the tests (uninstalled)
+4. Build qpid-interop-test components:
+--------------------------------------
+cd qpid-interop-test
+./java-clean.sh
+./java-buuld.sh
+cd shims/qpid-jms
+./java-clean.sh
+./java-buuld.sh
+cd ../qpid-proton-cpp
+mkdir build
+cd build
+ccmake ..
+make clean
+make
+cd ../../..
+
+5. Run the tests (uninstalled)
 ------------------------------
 Note that installation is still to be completed, this section will change to
 reflect installation details when complete.
 
-qpid-proton installed:
+Select one of the two following options:
+
+a. qpid-proton installed:
 Assuming proton's "make install" has been run, from top level qpid-interop-test directory:
 export PYTHONPATH=/usr/local/lib64/proton/bindings/python:src/py/qpid-interop-test
 export LD_LIBRARY_PATH=/usr/local/lib64
 export QPID_INTEROP_TEST_HOME=<abs path to top level qpid-interop-test directory>
 
-qpid-proton built but not installed:
+b. qpid-proton built but not installed:
 Assuming proton's "make" has been run from a "build" directory as described in the proton README (but not make install), from top level qpid-interop-test directory:
 export PYTHONPATH=<abs path to top level qpid-proton directory>/proton-c/bindings/python:<abs path to top level qpid-proton directory>/build/proton-c/bindings/python:src/py/qpid-interop-test
 export LD_LIBRARY_PATH=<abs path to top level qpid-proton directory>/build/proton-c
@@ -57,6 +75,12 @@ Start a broker (Active-MQ or Qpid).
 NOTE: For qpidd, YOU MUST USE THE --queue-pattern qpid-interop parameter so it will create non-existent queues as needed.
 
 From top level directory:
-./src/py/qpid-interop-test/jms/jms_message_tests.py
+AMQP type tests:
 ./src/py/qpid-interop-test/types/simple_type_tests.py
+
+JMS message tests: In order to correctly set the Java CLASSPATH, the versions of Qpid-jms and Qpid-proton must be known. These are set as follows:
+./src/py/qpid-interop-test/jms/jms_message_tests.py --qpid-jms-ver <jms-version> --qpid-proton-ver <proton-version>
+For example:
+./src/py/qpid-interop-test/jms/jms_message_tests.py --qpid-jms-ver 0.9.0-SNAPSHOT --qpid-proton-ver 0.13.0-SNAPSHOT
+
 
