@@ -39,7 +39,7 @@ namespace qpidit
         class JmsSender : public proton::handler
         {
         protected:
-            static proton::amqp_symbol s_jmsMessageTypeAnnotationKey;
+            static proton::symbol s_jmsMessageTypeAnnotationKey;
             static std::map<std::string, int8_t>s_jmsMessageTypeAnnotationValues;
 
             const std::string _brokerUrl;
@@ -63,7 +63,7 @@ namespace qpidit
             proton::message& setStreamMessage(proton::message& msg, const std::string& subType, const std::string& testValue);
             proton::message& setTextMessage(proton::message& msg, const Json::Value& testValue);
 
-            static proton::amqp_binary getJavaObjectBinary(const std::string& javaClassName, const std::string& valAsString);
+            static proton::binary getJavaObjectBinary(const std::string& javaClassName, const std::string& valAsString);
             static uint32_t getTotalNumMessages(const Json::Value& testValueMap);
 
             static std::map<std::string, int8_t> initializeJmsMessageTypeAnnotationMap();

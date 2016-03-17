@@ -23,8 +23,8 @@
 
 #include <iostream>
 #include <json/json.h>
+#include <proton/types.hpp>
 #include "proton/container.hpp"
-#include "proton/decimal.hpp"
 #include "proton/event.hpp"
 #include "qpidit/QpidItErrors.hpp"
 
@@ -126,13 +126,13 @@ namespace qpidit
                     _receivedValueList.append(oss.str());
                 } else if (_amqpType.compare("binary") == 0) {
                     checkMessageType(msg, proton::BINARY);
-                    _receivedValueList.append(msg.body().get<proton::amqp_binary>());
+                    _receivedValueList.append(std::string(msg.body().get<proton::binary>()));
                 } else if (_amqpType.compare("string") == 0) {
                     checkMessageType(msg, proton::STRING);
-                    _receivedValueList.append(msg.body().get<proton::amqp_string>());
+                    _receivedValueList.append(msg.body().get<std::string>());
                 } else if (_amqpType.compare("symbol") == 0) {
                     checkMessageType(msg, proton::SYMBOL);
-                    _receivedValueList.append(msg.body().get<proton::amqp_symbol>());
+                    _receivedValueList.append(msg.body().get<proton::symbol>());
                 } else if (_amqpType.compare("list") == 0) {
                     checkMessageType(msg, proton::LIST);
                     Json::Value jsonList(Json::arrayValue);
@@ -166,7 +166,7 @@ namespace qpidit
         //static
         Json::Value& AmqpReceiver::getMap(Json::Value& jsonMap, const proton::value& val) {
             std::map<proton::value, proton::value> msgMap;
-            val.decode() >> proton::to_map(msgMap);
+            val.get(msgMap);
             for (std::map<proton::value, proton::value>::const_iterator i = msgMap.begin(); i != msgMap.end(); ++i) {
                 switch (i->second.type()) {
                 case proton::LIST:
@@ -196,7 +196,7 @@ namespace qpidit
         //static
         Json::Value& AmqpReceiver::getSequence(Json::Value& jsonList, const proton::value& val) {
             std::vector<proton::value> msgList;
-            val.decode() >> proton::to_sequence(msgList);
+            val.get(msgList);
             for (std::vector<proton::value>::const_iterator i=msgList.begin(); i!=msgList.end(); ++i) {
                 switch ((*i).type()) {
                 case proton::LIST:

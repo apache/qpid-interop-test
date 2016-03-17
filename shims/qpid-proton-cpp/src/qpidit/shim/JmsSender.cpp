@@ -36,7 +36,7 @@ namespace qpidit
     {
         typedef enum {JMS_MESSAGE_TYPE=0, JMS_OBJECTMESSAGE_TYPE, JMS_MAPMESSAGE_TYPE, JMS_BYTESMESSAGE_TYPE, JMS_STREAMMESSAGE_TYPE, JMS_TEXTMESSAGE_TYPE} jmsMessageType_t;
         //static
-        proton::amqp_symbol JmsSender::s_jmsMessageTypeAnnotationKey("x-opt-jms-msg-type");
+        proton::symbol JmsSender::s_jmsMessageTypeAnnotationKey("x-opt-jms-msg-type");
         std::map<std::string, int8_t>JmsSender::s_jmsMessageTypeAnnotationValues = initializeJmsMessageTypeAnnotationMap();
 
         JmsSender::JmsSender(const std::string& brokerUrl,
@@ -112,59 +112,59 @@ namespace qpidit
         }
 
         proton::message& JmsSender::setBytesMessage(proton::message& msg, const std::string& subType, const std::string& testValueStr) {
-            proton::amqp_binary bin;
+            proton::binary bin;
             if (subType.compare("boolean") == 0) {
-                if (testValueStr.compare("False") == 0) bin.assign("\x00", 1);
-                else if (testValueStr.compare("True") == 0) bin.assign("\x01", 1);
+                if (testValueStr.compare("False") == 0) bin.push_back(char(0));
+                else if (testValueStr.compare("True") == 0) bin.push_back(char(1));
                 else throw InvalidTestValueError(subType, testValueStr);
             } else if (subType.compare("byte") == 0) {
                 uint8_t val = getIntegralValue<int8_t>(testValueStr);
-                bin.assign((char*)&val, sizeof(val));
+                bin.push_back(char(val));
             } else if (subType.compare("bytes") == 0) {
-                bin.assign(testValueStr);
+                bin.assign(testValueStr.begin(), testValueStr.end());
             } else if (subType.compare("char") == 0) {
                 char val[2];
                 val[0] = 0;
                 if (testValueStr[0] == '\\') { // Format: '\xNN'
-                    val[1] = (char)getIntegralValue<char>(testValueStr.substr(2));
+                    bin.push_back(getIntegralValue<char>(testValueStr.substr(2)));
                 } else { // Format: 'c'
-                    val[1] = testValueStr[0];
+                    bin.push_back(testValueStr[0]);
                 }
-                bin.assign(val, sizeof(val));
             } else if (subType.compare("double") == 0) {
                 uint64_t val;
                 try {
                     val = htobe64(std::strtoul(testValueStr.data(), NULL, 16));
                 } catch (const std::exception& e) { throw qpidit::InvalidTestValueError("double", testValueStr); }
-                bin.assign((char*)&val, sizeof(val));
+                bin.assign(sizeof(val), val);
             } else if (subType.compare("float") == 0) {
                 uint32_t val;
                 try {
                     val = htobe32((uint32_t)std::strtoul(testValueStr.data(), NULL, 16));
                 } catch (const std::exception& e) { throw qpidit::InvalidTestValueError("float", testValueStr); }
-                bin.assign((char*)&val, sizeof(val));
+                bin.assign(sizeof(val), val);
             } else if (subType.compare("long") == 0) {
                 uint64_t val = htobe64(getIntegralValue<uint64_t>(testValueStr));
-                bin.assign((char*)&val, sizeof(val));
+                bin.assign(sizeof(val), val);
             } else if (subType.compare("int") == 0) {
                 uint32_t val = htobe32(getIntegralValue<uint32_t>(testValueStr));
-                bin.assign((char*)&val, sizeof(val));
+                bin.assign(sizeof(val), val);
             } else if (subType.compare("short") == 0) {
                 uint16_t val = htobe16(getIntegralValue<int16_t>(testValueStr));
-                bin.assign((char*)&val, sizeof(val));
+                bin.assign(sizeof(val), val);
             } else if (subType.compare("string") == 0) {
                 std::ostringstream oss;
                 uint16_t strlen = htobe16((uint16_t)testValueStr.size());
                 oss.write((char*)&strlen, sizeof(strlen));
                 oss << testValueStr;
-                bin.assign(oss.str());
+                std::string os = oss.str();
+                bin.assign(os.begin(), os.end());
             } else {
                 throw qpidit::UnknownJmsMessageSubTypeError(subType);
             }
             msg.body(bin);
             msg.inferred(true);
-            msg.content_type(proton::amqp_symbol("application/octet-stream"));
-            msg.message_annotations()[proton::amqp_symbol("x-opt-jms-msg-type")] = s_jmsMessageTypeAnnotationValues["JMS_BYTESMESSAGE_TYPE"];
+            msg.content_type(proton::symbol("application/octet-stream"));
+            msg.message_annotations()[proton::symbol("x-opt-jms-msg-type")] = s_jmsMessageTypeAnnotationValues["JMS_BYTESMESSAGE_TYPE"];
             return msg;
         }
 
@@ -180,7 +180,7 @@ namespace qpidit
             } else if (subType.compare("byte") == 0) {
                 m[mapKey] = int8_t(getIntegralValue<int8_t>(testValueStr));
             } else if (subType.compare("bytes") == 0) {
-                m[mapKey] = proton::amqp_binary(testValueStr);
+                m[mapKey] = proton::binary(testValueStr);
             } else if (subType.compare("char") == 0) {
                 wchar_t val;
                 if (testValueStr[0] == '\\') { // Format: '\xNN'
@@ -200,34 +200,34 @@ namespace qpidit
             } else if (subType.compare("short") == 0) {
                 m[mapKey] = getIntegralValue<int16_t>(testValueStr);
             } else if (subType.compare("string") == 0) {
-                m[mapKey] = proton::amqp_string(testValueStr);
+                m[mapKey] = testValueStr;
             } else {
                 throw qpidit::UnknownJmsMessageSubTypeError(subType);
             }
             msg.inferred(false);
             msg.body(m);
-            msg.message_annotations()[proton::amqp_symbol("x-opt-jms-msg-type")] = s_jmsMessageTypeAnnotationValues["JMS_MAPMESSAGE_TYPE"];
+            msg.message_annotations()[proton::symbol("x-opt-jms-msg-type")] = s_jmsMessageTypeAnnotationValues["JMS_MAPMESSAGE_TYPE"];
             return msg;
         }
 
         proton::message& JmsSender::setObjectMessage(proton::message& msg, const std::string& subType, const Json::Value& testValue) {
             msg.body(getJavaObjectBinary(subType, testValue.asString()));
             msg.inferred(true);
-            msg.content_type(proton::amqp_symbol("application/x-java-serialized-object"));
-            msg.message_annotations()[proton::amqp_symbol("x-opt-jms-msg-type")] = s_jmsMessageTypeAnnotationValues["JMS_OBJECTMESSAGE_TYPE"];
+            msg.content_type(proton::symbol("application/x-java-serialized-object"));
+            msg.message_annotations()[proton::symbol("x-opt-jms-msg-type")] = s_jmsMessageTypeAnnotationValues["JMS_OBJECTMESSAGE_TYPE"];
             return msg;
         }
 
         proton::message& JmsSender::setStreamMessage(proton::message& msg, const std::string& subType, const std::string& testValueStr) {
             std::vector<proton::value> l;
             if (subType.compare("boolean") == 0) {
-                if (testValueStr.compare("False") == 0) l.push_back(proton::value(false));
-                else if (testValueStr.compare("True") == 0) l.push_back(proton::value(true));
+                if (testValueStr.compare("False") == 0) l.push_back(false);
+                else if (testValueStr.compare("True") == 0) l.push_back(true);
                 else throw InvalidTestValueError(subType, testValueStr);
             } else if (subType.compare("byte") == 0) {
-                l.push_back(proton::value(int8_t(getIntegralValue<int8_t>(testValueStr))));
+                l.push_back(int8_t(getIntegralValue<int8_t>(testValueStr)));
             } else if (subType.compare("bytes") == 0) {
-                l.push_back(proton::value(proton::amqp_binary(testValueStr)));
+                l.push_back(proton::binary(testValueStr));
             } else if (subType.compare("char") == 0) {
                 wchar_t val;
                 if (testValueStr[0] == '\\') { // Format: '\xNN'
@@ -235,45 +235,45 @@ namespace qpidit
                 } else { // Format: 'c'
                     val = testValueStr[0];
                 }
-                l.push_back(proton::value(val));
+                l.push_back(val);
             } else if (subType.compare("double") == 0) {
-                l.push_back(proton::value(getFloatValue<double, uint64_t>(testValueStr)));
+                l.push_back(getFloatValue<double, uint64_t>(testValueStr));
             } else if (subType.compare("float") == 0) {
-                l.push_back(proton::value(getFloatValue<float, uint32_t>(testValueStr)));
+                l.push_back(getFloatValue<float, uint32_t>(testValueStr));
             } else if (subType.compare("int") == 0) {
-                l.push_back(proton::value(getIntegralValue<int32_t>(testValueStr)));
+                l.push_back(getIntegralValue<int32_t>(testValueStr));
             } else if (subType.compare("long") == 0) {
-                l.push_back(proton::value(getIntegralValue<int64_t>(testValueStr)));
+                l.push_back(getIntegralValue<int64_t>(testValueStr));
             } else if (subType.compare("short") == 0) {
-                l.push_back(proton::value(getIntegralValue<int16_t>(testValueStr)));
+                l.push_back(getIntegralValue<int16_t>(testValueStr));
             } else if (subType.compare("string") == 0) {
-                l.push_back(proton::value(proton::amqp_string(testValueStr)));
+                l.push_back(testValueStr);
             } else {
                 throw qpidit::UnknownJmsMessageSubTypeError(subType);
             }
             msg.body(l);
             msg.inferred(true);
-            msg.message_annotations()[proton::amqp_symbol("x-opt-jms-msg-type")] = s_jmsMessageTypeAnnotationValues["JMS_STREAMMESSAGE_TYPE"];
+            msg.message_annotations()[proton::symbol("x-opt-jms-msg-type")] = s_jmsMessageTypeAnnotationValues["JMS_STREAMMESSAGE_TYPE"];
             return msg;
        }
 
         proton::message& JmsSender::setTextMessage(proton::message& msg, const Json::Value& testValue) {
             msg.body(testValue.asString());
             msg.inferred(false);
-            msg.message_annotations()[proton::amqp_symbol("x-opt-jms-msg-type")] = s_jmsMessageTypeAnnotationValues["JMS_TEXTMESSAGE_TYPE"];
+            msg.message_annotations()[proton::symbol("x-opt-jms-msg-type")] = s_jmsMessageTypeAnnotationValues["JMS_TEXTMESSAGE_TYPE"];
             return msg;
         }
 
         //static
-        proton::amqp_binary JmsSender::getJavaObjectBinary(const std::string& javaClassName, const std::string& valAsString) {
-            proton::amqp_binary javaObjectBinary;
+        proton::binary JmsSender::getJavaObjectBinary(const std::string& javaClassName, const std::string& valAsString) {
+            proton::binary javaObjectBinary;
             char buf[1024];
             int bytesRead;
             FILE* fp = ::popen("java -cp target/JavaObjUtils.jar org.apache.qpid.interop_test.obj_util.JavaObjToBytes javaClassStr", "rb");
             if (fp == NULL) { throw qpidit::PopenError(errno); }
             do {
                 bytesRead = ::fread(buf, 1, sizeof(buf), fp);
-                javaObjectBinary.append(buf, bytesRead);
+                javaObjectBinary.insert(javaObjectBinary.end(), &buf[0], &buf[bytesRead-1]);
             } while (bytesRead == sizeof(buf));
             int status = ::pclose(fp);
             if (status == -1) {

@@ -34,7 +34,7 @@ namespace qpidit
     {
         typedef enum {JMS_MESSAGE_TYPE=0, JMS_OBJECTMESSAGE_TYPE, JMS_MAPMESSAGE_TYPE, JMS_BYTESMESSAGE_TYPE, JMS_STREAMMESSAGE_TYPE, JMS_TEXTMESSAGE_TYPE} jmsMessageType_t;
         //static
-        proton::amqp_symbol JmsReceiver::s_jmsMessageTypeAnnotationKey("x-opt-jms-msg-type");
+        proton::symbol JmsReceiver::s_jmsMessageTypeAnnotationKey("x-opt-jms-msg-type");
         std::map<std::string, int8_t>JmsReceiver::s_jmsMessageTypeAnnotationValues = initializeJmsMessageTypeAnnotationMap();
 
 
@@ -66,7 +66,7 @@ namespace qpidit
         void JmsReceiver::on_message(proton::event &e) {
             proton::message& msg = e.message();
             if (_received < _expected) {
-                switch (msg.message_annotations()[proton::amqp_symbol("x-opt-jms-msg-type")].get<int8_t>()) {
+                switch (msg.message_annotations()[proton::symbol("x-opt-jms-msg-type")].get<int8_t>()) {
                 case JMS_MESSAGE_TYPE:
                     receiveJmsMessage(msg);
                     break;
@@ -142,7 +142,7 @@ namespace qpidit
                 } else if (subType.compare("byte") == 0) {
                     _receivedSubTypeList.append(Json::Value(toHexStr<int8_t>(val.get<int8_t>())));
                 } else if (subType.compare("bytes") == 0) {
-                    _receivedSubTypeList.append(Json::Value(val.get<proton::amqp_binary>()));
+                    _receivedSubTypeList.append(Json::Value(std::string(val.get<proton::binary>())));
                 } else if (subType.compare("char") == 0) {
                     std::ostringstream oss;
                     oss << (char)val.get<wchar_t>();
@@ -160,7 +160,7 @@ namespace qpidit
                 } else if (subType.compare("short") == 0) {
                     _receivedSubTypeList.append(Json::Value(toHexStr<int16_t>(val.get<int16_t>())));
                 } else if (subType.compare("string") == 0) {
-                    _receivedSubTypeList.append(Json::Value(val.get<proton::amqp_string>()));
+                    _receivedSubTypeList.append(Json::Value(val.get<std::string>()));
                 } else {
                     throw qpidit::UnknownJmsMessageSubTypeError(subType);
                 }
@@ -172,46 +172,46 @@ namespace qpidit
                 throw qpidit::IncorrectMessageBodyTypeError(_jmsMessageType, "JMS_BYTESMESSAGE_TYPE");
             }
             std::string subType(_subTypeList[_subTypeIndex]);
-            proton::amqp_binary body = msg.body().get<proton::amqp_binary>();
+            proton::binary body = msg.body().get<proton::binary>();
             if (subType.compare("boolean") == 0) {
-                if (body.size() != 1) throw IncorrectMessageBodyLengthError(1, body.size());
+                if (body.size() != 1) throw IncorrectMessageBodyLengthError("JmsReceiver::receiveJmsBytesMessage, subType=boolean", 1, body.size());
                 _receivedSubTypeList.append(body[0] ? Json::Value("True") : Json::Value("False"));
             } else if (subType.compare("byte") == 0) {
-                if (body.size() != sizeof(int8_t)) throw IncorrectMessageBodyLengthError(sizeof(int8_t), body.size());
+                if (body.size() != sizeof(int8_t)) throw IncorrectMessageBodyLengthError("JmsReceiver::receiveJmsBytesMessage, subType=byte", sizeof(int8_t), body.size());
                 int8_t val = *((int8_t*)body.data());
                 _receivedSubTypeList.append(Json::Value(toHexStr<int8_t>(val)));
             } else if (subType.compare("bytes") == 0) {
-                _receivedSubTypeList.append(Json::Value(body));
+                _receivedSubTypeList.append(Json::Value(std::string(body)));
             } else if (subType.compare("char") == 0) {
-                if (body.size() != sizeof(uint16_t)) throw IncorrectMessageBodyLengthError(sizeof(uint16_t), body.size());
+                if (body.size() != sizeof(uint16_t)) throw IncorrectMessageBodyLengthError("JmsReceiver::receiveJmsBytesMessage, subType=char", sizeof(uint16_t), body.size());
                 // TODO: This is ugly: ignoring first byte - handle UTF-16 correctly
                 char c = body[1];
                 std::ostringstream oss;
                 oss << c;
                 _receivedSubTypeList.append(Json::Value(oss.str()));
             } else if (subType.compare("double") == 0) {
-                if (body.size() != sizeof(int64_t)) throw IncorrectMessageBodyLengthError(sizeof(int64_t), body.size());
+                if (body.size() != sizeof(int64_t)) throw IncorrectMessageBodyLengthError("JmsReceiver::receiveJmsBytesMessage, subType=double", sizeof(int64_t), body.size());
                 int64_t val = be64toh(*((int64_t*)body.data()));
                 _receivedSubTypeList.append(Json::Value(toHexStr<int64_t>(val, true, false)));
             } else if (subType.compare("float") == 0) {
-                if (body.size() != sizeof(int32_t)) throw IncorrectMessageBodyLengthError(sizeof(int32_t), body.size());
+                if (body.size() != sizeof(int32_t)) throw IncorrectMessageBodyLengthError("JmsReceiver::receiveJmsBytesMessage, subType=float", sizeof(int32_t), body.size());
                 int32_t val = be32toh(*((int32_t*)body.data()));
                 _receivedSubTypeList.append(Json::Value(toHexStr<int32_t>(val, true, false)));
             } else if (subType.compare("long") == 0) {
-                if (body.size() != sizeof(int64_t)) throw IncorrectMessageBodyLengthError(sizeof(int64_t), body.size());
+                if (body.size() != sizeof(int64_t)) throw IncorrectMessageBodyLengthError("JmsReceiver::receiveJmsBytesMessage, subType=long", sizeof(int64_t), body.size());
                 int64_t val = be64toh(*((int64_t*)body.data()));
                 _receivedSubTypeList.append(Json::Value(toHexStr<int64_t>(val)));
             } else if (subType.compare("int") == 0) {
-                if (body.size() != sizeof(int32_t)) throw IncorrectMessageBodyLengthError(sizeof(int32_t), body.size());
+                if (body.size() != sizeof(int32_t)) throw IncorrectMessageBodyLengthError("JmsReceiver::receiveJmsBytesMessage, subType=int", sizeof(int32_t), body.size());
                 int32_t val = be32toh(*((int32_t*)body.data()));
                 _receivedSubTypeList.append(Json::Value(toHexStr<int32_t>(val)));
             } else if (subType.compare("short") == 0) {
-                if (body.size() != sizeof(int16_t)) throw IncorrectMessageBodyLengthError(sizeof(int16_t), body.size());
+                if (body.size() != sizeof(int16_t)) throw IncorrectMessageBodyLengthError("JmsReceiver::receiveJmsBytesMessage, subType=short", sizeof(int16_t), body.size());
                 int16_t val = be16toh(*((int16_t*)body.data()));
                 _receivedSubTypeList.append(Json::Value(toHexStr<int16_t>(val)));
             } else if (subType.compare("string") == 0) {
                 // TODO: decode string size in first two bytes and check string size
-                _receivedSubTypeList.append(Json::Value(body.substr(2)));
+                _receivedSubTypeList.append(Json::Value(std::string(body).substr(2)));
             } else {
                 throw qpidit::UnknownJmsMessageSubTypeError(subType);
             }
@@ -230,7 +230,7 @@ namespace qpidit
                 } else if (subType.compare("byte") == 0) {
                     _receivedSubTypeList.append(Json::Value(toHexStr<int8_t>(i->get<int8_t>())));
                 } else if (subType.compare("bytes") == 0) {
-                    _receivedSubTypeList.append(Json::Value(i->get<proton::amqp_binary>()));
+                    _receivedSubTypeList.append(Json::Value(std::string(i->get<proton::binary>())));
                 } else if (subType.compare("char") == 0) {
                     std::ostringstream oss;
                     oss << (char)i->get<wchar_t>();
@@ -248,7 +248,7 @@ namespace qpidit
                 } else if (subType.compare("short") == 0) {
                     _receivedSubTypeList.append(Json::Value(toHexStr<int16_t>(i->get<int16_t>())));
                 } else if (subType.compare("string") == 0) {
-                    _receivedSubTypeList.append(Json::Value(i->get<proton::amqp_string>()));
+                    _receivedSubTypeList.append(Json::Value(i->get<std::string>()));
                 } else {
                     throw qpidit::UnknownJmsMessageSubTypeError(subType);
                 }
@@ -260,7 +260,7 @@ namespace qpidit
             if(_jmsMessageType.compare("JMS_TEXTMESSAGE_TYPE") != 0) {
                 throw qpidit::IncorrectMessageBodyTypeError(_jmsMessageType, "JMS_TEXTMESSAGE_TYPE");
             }
-            _receivedSubTypeList.append(Json::Value(msg.body().get<proton::amqp_string>()));
+            _receivedSubTypeList.append(Json::Value(msg.body().get<std::string>()));
         }
 
         //static

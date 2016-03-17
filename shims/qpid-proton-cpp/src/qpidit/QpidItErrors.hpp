@@ -74,7 +74,7 @@ namespace qpidit
     class IncorrectMessageBodyLengthError: public std::runtime_error
     {
     public:
-        IncorrectMessageBodyLengthError(int expected, int found);
+        IncorrectMessageBodyLengthError(const std::string& context, int expected, int found);
         virtual ~IncorrectMessageBodyLengthError() throw();
     };
 

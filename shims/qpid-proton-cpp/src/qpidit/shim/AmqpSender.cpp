@@ -154,24 +154,24 @@ namespace qpidit
                 msg.body(val);
             } else if (_amqpType.compare("binary") == 0) {
                 //setStringValue<proton::amqp_binary>(msg, testValue.asString());
-                proton::amqp_binary val(testValue.asString());
+                proton::binary val(testValue.asString());
                 msg.body(val);
             } else if (_amqpType.compare("string") == 0) {
                 //setStringValue<proton::amqp_string>(msg, testValue.asString());
-                proton::amqp_string val(testValue.asString());
+                std::string val(testValue.asString());
                 msg.body(val);
             } else if (_amqpType.compare("symbol") == 0) {
                 //setStringValue<proton::amqp_symbol>(msg, testValue.asString());
-                proton::amqp_symbol val(testValue.asString());
+                proton::symbol val(testValue.asString());
                 msg.body(val);
             } else if (_amqpType.compare("list") == 0) {
                 std::vector<proton::value> list;
                 processList(list, testValue);
-                msg.body(proton::as<proton::LIST>(list));
+                msg.body(list);
             } else if (_amqpType.compare("map") == 0) {
                 std::map<std::string, proton::value> map;
                 processMap(map, testValue);
-                msg.body(proton::as<proton::MAP>(map));
+                msg.body(map);
             } else if (_amqpType.compare("array") == 0) {
 /*
                 std::vector<proton::value> array;

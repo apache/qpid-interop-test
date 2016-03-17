@@ -37,7 +37,7 @@ namespace qpidit
         class JmsReceiver : public proton::handler
         {
         protected:
-            static proton::amqp_symbol s_jmsMessageTypeAnnotationKey;
+            static proton::symbol s_jmsMessageTypeAnnotationKey;
             static std::map<std::string, int8_t>s_jmsMessageTypeAnnotationValues;
 
             const std::string _brokerUrl;

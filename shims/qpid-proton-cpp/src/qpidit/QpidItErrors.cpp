@@ -22,6 +22,7 @@
 #include "qpidit/QpidItErrors.hpp"
 
 #include <json/reader.h>
+#include <string.h>
 
 namespace qpidit
 {
@@ -64,8 +65,8 @@ namespace qpidit
 
     // --- IncorrectMessageBodyLengthError ---
 
-    IncorrectMessageBodyLengthError::IncorrectMessageBodyLengthError(int expected, int found) :
-                    std::runtime_error(MSG("Incorrect body length found in message body: expected: " << expected
+    IncorrectMessageBodyLengthError::IncorrectMessageBodyLengthError(const std::string& context, int expected, int found) :
+                    std::runtime_error(MSG(context << ": Incorrect body length found in message body: expected: " << expected
                                     << "; found " << found))
     {}
 
