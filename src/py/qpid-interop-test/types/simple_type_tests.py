@@ -156,14 +156,14 @@ class AmqpPrimitiveTypes(TestTypeMap):
                    bytes(12345),
                    b'Hello, world!',
                    b'\\x01\\x02\\x03\\x04\\x05abcde\\x80\\x81\\xfe\\xff',
-                   b'The quick brown fox jumped over the lazy dog 0123456789.' * 1000
+                   b'The quick brown fox jumped over the lazy dog 0123456789.' * 100
                   ],
         # strings must be unicode to comply with AMQP spec
         'string': [u'',
                    u'Hello, world!',
                    u'"Hello, world!"',
                    u"Charlie's peach",
-                   u'The quick brown fox jumped over the lazy dog 0123456789.' * 1000
+                   u'The quick brown fox jumped over the lazy dog 0123456789.' * 100
                   ],
         'symbol': ['',
                    'myDomain.123',
@@ -174,7 +174,7 @@ class AmqpPrimitiveTypes(TestTypeMap):
                  ['ulong:12345', 'timestamp:%d' % (time()*1000), 'short:-2500', 'uuid:%s' % uuid4(), 'symbol:a.b.c', 'none:', 'decimal64:0x400921fb54442eea'],
                  [[], 'none', ['ubyte:1', 'ubyte:2', 'ubyte:3'], 'boolean:True', 'boolean:False', {'string:hello': 'long:1234', 'string:goodbye': 'boolean:True'}],
                  [[], [[], [[], [], []], []], []],
-                 ['short:0', 'short:1', 'short:2', 'short:3', 'short:4', 'short:5', 'short:6', 'short:7', 'short:8', 'short:9'] * 1000
+                 ['short:0', 'short:1', 'short:2', 'short:3', 'short:4', 'short:5', 'short:6', 'short:7', 'short:8', 'short:9'] * 100
                 ],
         'map': [{},
                 {'string:one': 'ubyte:1',
@@ -190,7 +190,7 @@ class AmqpPrimitiveTypes(TestTypeMap):
                  # 'boolean:True': 'string:Hello, world!'}: 'symbol:map.value',
                  #'string:list': [],
                  'string:map': {'char:A': 'int:1',
-                                'char:B': 'int:2'}}
+                                'char:B': 'int:2'}},
                ],
         # TODO: Support all AMQP types in array (including keys)
 #        'array': [[],
@@ -205,8 +205,10 @@ class AmqpPrimitiveTypes(TestTypeMap):
 
     BROKER_SKIP = {'null': {'ActiveMQ': 'Null type not sent in Proton Python binding: PROTON-1091',
                             'qpid-cpp': 'Null type not sent in Proton Python binding: PROTON-1091',},
-                   'decimal32': {'qpid-cpp': 'decimal32 not supported on qpid-cpp broker: QPIDIT-5, QPID-6328',},
-                   'decimal64': {'qpid-cpp': 'decimal64 not supported on qpid-cpp broker: QPIDIT-6, QPID-6328',},
+                   'decimal32': {'ActiveMQ': 'decimal32 and decimal64 are sent byte reversed: PROTON-1160',
+                                 'qpid-cpp': 'decimal32 not supported on qpid-cpp broker: QPIDIT-5, QPID-6328',},
+                   'decimal64': {'ActiveMQ': 'decimal32 and decimal64 are sent byte reversed: PROTON-1160',
+                                 'qpid-cpp': 'decimal64 not supported on qpid-cpp broker: QPIDIT-6, QPID-6328',},
                    'decimal128': {'qpid-cpp': 'decimal128 not supported on qpid-cpp broker: QPIDIT-3, QPID-6328',},
                    'char': {'qpid-cpp': 'char not supported on qpid-cpp broker: QPIDIT-4, QPID-6328',},
                   }
@@ -224,7 +226,10 @@ class AmqpTypeTestCase(unittest.TestCase):
         to receive the values. Finally, compare the sent values with the received values.
         """
         if len(test_value_list) > 0:
-            queue_name = 'qpid-interop.simple_type_tests.%s.%s.%s' % (amqp_type, send_shim.NAME, receive_shim.NAME)
+            # TODO: When Artemis can support it (in the next release), revert the queue name back to 'qpid-interop...'
+            # Currently, Artemis only supports auto-create queues for JMS, and the queue name must be prefixed by 'jms.queue.'
+            #queue_name = 'qpid-interop.simple_type_tests.%s.%s.%s' % (amqp_type, send_shim.NAME, receive_shim.NAME)
+            queue_name = 'jms.queue.qpid-interop.simple_type_tests.%s.%s.%s' % (amqp_type, send_shim.NAME, receive_shim.NAME)
             send_error_text = send_shim.send(broker_addr, queue_name, amqp_type, dumps(test_value_list))
             if len(send_error_text) > 0:
                 self.fail('Send shim \'%s\':\n%s' % (send_shim.NAME, send_error_text))
@@ -329,7 +334,7 @@ class ProtonPythonShim(Shim):
     """
     Shim for qpid-proton Python client
     """
-    NAME = 'Python'
+    NAME = 'ProtonPython'
     SHIM_LOC = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'src')
     SEND = [path.join(SHIM_LOC, 'TypesSenderShim.py')]
     RECEIVE = [path.join(SHIM_LOC, 'TypesReceiverShim.py')]
@@ -339,7 +344,7 @@ class ProtonCppShim(Shim):
     """
     Shim for qpid-proton C++ client
     """
-    NAME = 'C++'
+    NAME = 'ProtonCpp'
     SHIM_LOC = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'build', 'src')
     SEND = [path.join(SHIM_LOC, 'AmqpSender')]
     RECEIVE = [path.join(SHIM_LOC, 'AmqpReceiver')]

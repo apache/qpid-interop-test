@@ -83,8 +83,8 @@ namespace qpidit
             if (_amqpType.compare("null") == 0) {
                 std::string testValueStr(testValue.asString());
                 if (testValueStr.compare("None") != 0) { throw qpidit::InvalidTestValueError(_amqpType, testValueStr); }
-                proton::value v; //proton::null n;
-                msg.body(v); //msg.body(n);
+                proton::value v;
+                msg.body(v);
             } else if (_amqpType.compare("boolean") == 0) {
                 std::string testValueStr(testValue.asString());
                 if (testValueStr.compare("True") == 0) {

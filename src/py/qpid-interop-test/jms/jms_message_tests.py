@@ -190,8 +190,8 @@ class JmsMessageTypeTestCase(unittest.TestCase):
         to receive the values. Finally, compare the sent values with the received values.
         """
         if len(test_values) > 0:
-            queue_name = 'qpid-interop.jms_message_type_tests.%s.%s.%s' % (jms_message_type, send_shim.NAME,
-                                                                           receive_shim.NAME)
+            queue_name = 'jms.queue.qpid-interop.jms_message_type_tests.%s.%s.%s' % (jms_message_type, send_shim.NAME,
+                                                                                     receive_shim.NAME)
             send_error_text = send_shim.send(broker_addr, queue_name, jms_message_type, dumps(test_values))
             if len(send_error_text) > 0:
                 self.fail('Send shim \'%s\':\n%s' % (send_shim.NAME, send_error_text))

@@ -71,8 +71,11 @@ export PYTHONPATH=<abs path to top level qpid-proton directory>/proton-c/binding
 export LD_LIBRARY_PATH=<abs path to top level qpid-proton directory>/build/proton-c
 export QPID_INTEROP_TEST_HOME=<abs path to top level qpid-interop-test directory>
 
-Start a broker (Active-MQ or Qpid).
-NOTE: For qpidd, YOU MUST USE THE --queue-pattern qpid-interop parameter so it will create non-existent queues as needed.
+Start a broker (Artemis, Active-MQ or Qpid).
+NOTE: For qpidd, YOU MUST USE THE FOLLOWING PARAMETERS:
+  --load-module amqp : will enable the AMQP 1.0 protocol
+  --queue-pattern jms.queue.qpid-interop: will automatically create queues using this prefix as needed
+  --auth no : will disable authentication (which these tests do not use).
 
 From top level directory:
 AMQP type tests:
