@@ -45,18 +45,18 @@ namespace qpidit
 
         AmqpSender::~AmqpSender() {}
 
-        void AmqpSender::on_start(proton::event &e) {
-            e.container().open_sender(_brokerUrl);
+        void AmqpSender::on_container_start(proton::event &e, proton::container &c) {
+            c.open_sender(_brokerUrl);
         }
 
-        void AmqpSender::on_sendable(proton::event &e) {
+        void AmqpSender::on_sendable(proton::event &e, proton::sender &s) {
             if (_totalMsgs == 0) {
-                e.sender().connection().close();
+                s.connection().close();
             } else if (_msgsSent == 0) {
                 for (Json::Value::const_iterator i=_testValues.begin(); i!=_testValues.end(); ++i) {
-                    if (e.sender().credit()) {
+                    if (s.credit()) {
                         proton::message msg;
-                        e.sender().send(setMessage(msg, *i));
+                        s.send(setMessage(msg, *i));
                         _msgsSent++;
                     }
                 }
@@ -65,15 +65,31 @@ namespace qpidit
             }
         }
 
-        void AmqpSender::on_delivery_accept(proton::event &e) {
+        void AmqpSender::on_delivery_accept(proton::event &e, proton::delivery &d) {
             _msgsConfirmed++;
             if (_msgsConfirmed == _totalMsgs) {
-                e.connection().close();
+                d.connection().close();
             }
         }
 
-        void AmqpSender::on_disconnect(proton::event &e) {
+        void AmqpSender::on_transport_close(proton::event &e, proton::transport &t) {
             _msgsSent = _msgsConfirmed;
+        }
+
+        void AmqpSender::on_connection_error(proton::event &e, proton::connection &c) {
+            std::cerr << "AmqpSender:on_connection_error() event=" << e.name() << std::endl;
+        }
+
+        void AmqpSender::on_sender_error(proton::event &e, proton::sender& l) {
+            std::cerr << "AmqpSender:on_sender_error() event=" << e.name() << std::endl;
+        }
+
+        void AmqpSender::on_transport_error(proton::event &e, proton::transport &t) {
+            std::cerr << "AmqpSender:on_transport_error() event=" << e.name() << std::endl;
+        }
+
+        void AmqpSender::on_unhandled_error(proton::event &e, const proton::condition &c) {
+            std::cerr << "AmqpSender:on_unhandled_error() event=" << e.name() << " condition=" << c.name() << std::endl;
         }
 
         // protected

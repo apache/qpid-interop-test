@@ -59,31 +59,30 @@ namespace qpidit
             return _receivedValueMap;
         }
 
-        void JmsReceiver::on_start(proton::event &e) {
-            _receiver = e.container().open_receiver(_brokerUrl);
+        void JmsReceiver::on_container_start(proton::event &e, proton::container &c) {
+            _receiver = c.open_receiver(_brokerUrl);
         }
 
-        void JmsReceiver::on_message(proton::event &e) {
-            proton::message& msg = e.message();
+        void JmsReceiver::on_message(proton::event &e, proton::delivery &d, proton::message &m) {
             if (_received < _expected) {
-                switch (msg.message_annotations()[proton::symbol("x-opt-jms-msg-type")].get<int8_t>()) {
+                switch (m.message_annotations()[proton::symbol("x-opt-jms-msg-type")].get<int8_t>()) {
                 case JMS_MESSAGE_TYPE:
-                    receiveJmsMessage(msg);
+                    receiveJmsMessage(m);
                     break;
                 case JMS_OBJECTMESSAGE_TYPE:
-                    receiveJmsObjectMessage(msg);
+                    receiveJmsObjectMessage(m);
                     break;
                 case JMS_MAPMESSAGE_TYPE:
-                    receiveJmsMapMessage(msg);
+                    receiveJmsMapMessage(m);
                     break;
                 case JMS_BYTESMESSAGE_TYPE:
-                    receiveJmsBytesMessage(msg);
+                    receiveJmsBytesMessage(m);
                     break;
                 case JMS_STREAMMESSAGE_TYPE:
-                    receiveJmsStreamMessage(msg);
+                    receiveJmsStreamMessage(m);
                     break;
                 case JMS_TEXTMESSAGE_TYPE:
-                    receiveJmsTextMessage(msg);
+                    receiveJmsTextMessage(m);
                     break;
                 default:;
                     // TODO: handle error - no known JMS message type

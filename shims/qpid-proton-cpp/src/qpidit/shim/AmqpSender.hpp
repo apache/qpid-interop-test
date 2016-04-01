@@ -45,10 +45,15 @@ namespace qpidit
         public:
             AmqpSender(const std::string& brokerUrl, const std::string& amqpType, const Json::Value& testValues);
             virtual ~AmqpSender();
-            void on_start(proton::event &e);
-            void on_sendable(proton::event &e);
-            void on_delivery_accept(proton::event &e);
-            void on_disconnect(proton::event &e);
+            void on_container_start(proton::event &e, proton::container &c);
+            void on_sendable(proton::event &e, proton::sender &s);
+            void on_delivery_accept(proton::event &e, proton::delivery &d);
+            void on_transport_close(proton::event &e, proton::transport &t);
+
+            void on_connection_error(proton::event &e, proton::connection &c);
+            void on_sender_error(proton::event &e, proton::sender& l);
+            void on_transport_error(proton::event &e, proton::transport &t);
+            void on_unhandled_error(proton::event &e, const proton::condition &c);
         protected:
             proton::message& setMessage(proton::message& msg, const Json::Value& testValue);
 

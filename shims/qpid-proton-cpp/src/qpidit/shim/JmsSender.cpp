@@ -56,39 +56,39 @@ namespace qpidit
 
         JmsSender::~JmsSender() {}
 
-        void JmsSender::on_start(proton::event &e) {
-            e.container().open_sender(_brokerUrl);
+        void JmsSender::on_container_start(proton::event &e, proton::container &c) {
+            c.open_sender(_brokerUrl);
         }
 
-        void JmsSender::on_sendable(proton::event &e) {
+        void JmsSender::on_sendable(proton::event &e, proton::sender &s) {
             if (_totalMsgs == 0) {
-                e.sender().connection().close();
+                s.connection().close();
             } else if (_msgsSent == 0) {
                 Json::Value::Members subTypes = _testValueMap.getMemberNames();
                 std::sort(subTypes.begin(), subTypes.end());
                 for (std::vector<std::string>::const_iterator i=subTypes.begin(); i!=subTypes.end(); ++i) {
-                    sendMessages(e, *i, _testValueMap[*i]);
+                    sendMessages(s, *i, _testValueMap[*i]);
                 }
             }
         }
 
-        void JmsSender::on_delivery_accept(proton::event &e) {
+        void JmsSender::on_delivery_accept(proton::event &e, proton::delivery &d) {
             _msgsConfirmed++;
             if (_msgsConfirmed == _totalMsgs) {
-                e.connection().close();
+                d.connection().close();
             }
         }
 
-        void JmsSender::on_disconnect(proton::event &e) {
+        void JmsSender::on_transport_close(proton::event &e, proton::transport &t) {
             _msgsSent = _msgsConfirmed;
         }
 
         // protected
 
-        void JmsSender::sendMessages(proton::event &e, const std::string& subType, const Json::Value& testValues) {
+        void JmsSender::sendMessages(proton::sender &s, const std::string& subType, const Json::Value& testValues) {
             uint32_t valueNumber = 0;
             for (Json::Value::const_iterator i=testValues.begin(); i!=testValues.end(); ++i) {
-                if (e.sender().credit()) {
+                if (s.credit()) {
                     proton::message msg;
                     if (_jmsMessageType.compare("JMS_BYTESMESSAGE_TYPE") == 0) {
                         setBytesMessage(msg, subType, (*i).asString());
@@ -103,7 +103,7 @@ namespace qpidit
                     } else {
                         throw qpidit::UnknownJmsMessageTypeError(_jmsMessageType);
                     }
-                    e.sender().send(msg);
+                    s.send(msg);
                     _msgsSent += 1;
                     valueNumber += 1;
                 }

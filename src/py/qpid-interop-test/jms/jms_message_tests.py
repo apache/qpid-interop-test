@@ -226,8 +226,6 @@ def create_testcase_class(broker_name, types, broker_addr, jms_message_type, shi
             self.run_test(self.broker_addr, self.jms_message_type, self.test_values, send_shim, receive_shim)
 
         inner_test_method.__name__ = 'test_%s_%s->%s' % (jms_message_type[4:-5], send_shim.NAME, receive_shim.NAME)
-        inner_test_method.__doc__ = 'JMS message type \'%s\' interop test: %s -> %s' % \
-                                    (jms_message_type, send_shim.NAME, receive_shim.NAME)
         setattr(cls, inner_test_method.__name__, inner_test_method)
 
     class_name = jms_message_type[4:-5].title() + 'TestCase'
