@@ -333,7 +333,7 @@ class QpidJmsShim(Shim):
 
     # Classpath components
     QPID_INTEROP_TEST_SHIM_JAR = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-jms', 'target', 'qpid-jms-shim.jar')
-    MAVEN_REPO_PATH = path.join(getenv('HOME'), '.m2', 'repository')
+    MAVEN_REPO_PATH = getenv('MAVEN_REPO_PATH', path.join(getenv('HOME'), '.m2', 'repository'))
     JMS_API_JAR = path.join(MAVEN_REPO_PATH, 'org', 'apache', 'geronimo', 'specs', 'geronimo-jms_1.1_spec', '1.1.1',
                             'geronimo-jms_1.1_spec-1.1.1.jar')
     JSON_API_JAR = path.join(QPID_INTEROP_TEST_HOME, 'jars', 'javax.json-api-1.0.jar')
