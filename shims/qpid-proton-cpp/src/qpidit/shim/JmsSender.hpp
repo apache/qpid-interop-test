@@ -51,10 +51,10 @@ namespace qpidit
         public:
             JmsSender(const std::string& brokerUrl, const std::string& jmsMessageType, const Json::Value& testValues);
             virtual ~JmsSender();
-            void on_container_start(proton::event &e, proton::container &c);
-            void on_sendable(proton::event &e, proton::sender &s);
-            void on_delivery_accept(proton::event &e, proton::delivery &d);
-            void on_transport_close(proton::event &e, proton::transport &t);
+            void on_container_start(proton::container &c);
+            void on_sendable(proton::sender &s);
+            void on_delivery_accept(proton::delivery &d);
+            void on_transport_close(proton::transport &t);
         protected:
             void  sendMessages(proton::sender &s, const std::string& subType, const Json::Value& testValueMap);
             proton::message& setBytesMessage(proton::message& msg, const std::string& subType, const std::string& testValueStr);

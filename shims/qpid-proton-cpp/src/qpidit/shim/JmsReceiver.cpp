@@ -24,8 +24,8 @@
 #include <iostream>
 #include <json/json.h>
 #include <map>
+#include "proton/connection.hpp"
 #include "proton/container.hpp"
-#include "proton/event.hpp"
 #include "qpidit/QpidItErrors.hpp"
 
 namespace qpidit
@@ -59,11 +59,11 @@ namespace qpidit
             return _receivedValueMap;
         }
 
-        void JmsReceiver::on_container_start(proton::event &e, proton::container &c) {
+        void JmsReceiver::on_container_start(proton::container &c) {
             _receiver = c.open_receiver(_brokerUrl);
         }
 
-        void JmsReceiver::on_message(proton::event &e, proton::delivery &d, proton::message &m) {
+        void JmsReceiver::on_message(proton::delivery &d, proton::message &m) {
             if (_received < _expected) {
                 switch (m.message_annotations()[proton::symbol("x-opt-jms-msg-type")].get<int8_t>()) {
                 case JMS_MESSAGE_TYPE:
@@ -98,7 +98,8 @@ namespace qpidit
                 _received++;
                 if (_received >= _expected) {
                     _receiver.close();
-                    e.connection().close();
+                    d.link().close();
+                    d.connection().close();
                 }
             }
         }

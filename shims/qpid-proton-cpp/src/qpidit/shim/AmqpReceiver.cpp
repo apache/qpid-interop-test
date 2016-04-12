@@ -23,9 +23,9 @@
 
 #include <iostream>
 #include <json/json.h>
-#include <proton/types.hpp>
+#include "proton/connection.hpp"
 #include "proton/container.hpp"
-#include "proton/event.hpp"
+#include <proton/types.hpp>
 #include "qpidit/QpidItErrors.hpp"
 
 namespace qpidit
@@ -49,11 +49,11 @@ namespace qpidit
             return _receivedValueList;
         }
 
-        void AmqpReceiver::on_container_start(proton::event &e, proton::container &c) {
+        void AmqpReceiver::on_container_start(proton::container &c) {
             _receiver = c.open_receiver(_brokerUrl);
         }
 
-        void AmqpReceiver::on_message(proton::event &e, proton::delivery &d, proton::message &m) {
+        void AmqpReceiver::on_message(proton::delivery &d, proton::message &m) {
             if (m.id().get<uint64_t>() < _received) return; // ignore duplicate
             if (_received < _expected) {
                 if (_amqpType.compare("null") == 0) {
@@ -148,25 +148,25 @@ namespace qpidit
             }
             _received++;
             if (_received >= _expected) {
-                e.receiver().close();
-                e.connection().close();
+                d.link().close();
+                d.connection().close();
             }
         }
 
-        void AmqpReceiver::on_connection_error(proton::event &e, proton::connection &c) {
-            std::cerr << "AmqpReceiver:on_connection_error() event=" << e.name() << std::endl;
+        void AmqpReceiver::on_connection_error(proton::connection &c) {
+            std::cerr << "AmqpReceiver:on_connection_error()" << std::endl;
         }
 
-        void AmqpReceiver::on_sender_error(proton::event &e, proton::sender& l) {
-            std::cerr << "AmqpReceiver:on_sender_error() event=" << e.name() << std::endl;
+        void AmqpReceiver::on_sender_error(proton::sender& l) {
+            std::cerr << "AmqpReceiver:on_sender_error()" << std::endl;
         }
 
-        void AmqpReceiver::on_transport_error(proton::event &e, proton::transport &t) {
-            std::cerr << "AmqpReceiver:on_transport_error() event=" << e.name() << std::endl;
+        void AmqpReceiver::on_transport_error(proton::transport &t) {
+            std::cerr << "AmqpReceiver:on_transport_error()" << std::endl;
         }
 
-        void AmqpReceiver::on_unhandled_error(proton::event &e, const proton::condition &c) {
-            std::cerr << "AmqpReceiver:on_unhandled_error() event=" << e.name() << " condition=" << c.name() << std::endl;
+        void AmqpReceiver::on_unhandled_error(const proton::condition &c) {
+            std::cerr << "AmqpReceiver:on_unhandled_error() condition=" << c.name() << std::endl;
         }
 
         // protected

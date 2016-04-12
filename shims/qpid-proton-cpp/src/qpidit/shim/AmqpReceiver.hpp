@@ -46,13 +46,13 @@ namespace qpidit
             AmqpReceiver(const std::string& brokerUrl, const std::string& amqpType, uint32_t exptected);
             virtual ~AmqpReceiver();
             Json::Value& getReceivedValueList();
-            void on_container_start(proton::event &e, proton::container &c);
-            void on_message(proton::event &e, proton::delivery &d, proton::message &m);
+            void on_container_start(proton::container &c);
+            void on_message(proton::delivery &d, proton::message &m);
 
-            void on_connection_error(proton::event &e, proton::connection &c);
-            void on_sender_error(proton::event &e, proton::sender& l);
-            void on_transport_error(proton::event &e, proton::transport &t);
-            void on_unhandled_error(proton::event &e, const proton::condition &c);
+            void on_connection_error(proton::connection &c);
+            void on_sender_error(proton::sender& l);
+            void on_transport_error(proton::transport &t);
+            void on_unhandled_error(const proton::condition &c);
         protected:
             static void checkMessageType(const proton::message& msg, proton::type_id msgType);
             static Json::Value& getMap(Json::Value& jsonMap, const proton::value& val);

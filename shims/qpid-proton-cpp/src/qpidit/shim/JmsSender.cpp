@@ -25,8 +25,8 @@
 #include <iostream>
 #include <iomanip>
 #include <json/json.h>
+#include "proton/connection.hpp"
 #include "proton/container.hpp"
-#include "proton/event.hpp"
 #include "qpidit/QpidItErrors.hpp"
 #include <stdio.h>
 
@@ -56,11 +56,11 @@ namespace qpidit
 
         JmsSender::~JmsSender() {}
 
-        void JmsSender::on_container_start(proton::event &e, proton::container &c) {
+        void JmsSender::on_container_start(proton::container &c) {
             c.open_sender(_brokerUrl);
         }
 
-        void JmsSender::on_sendable(proton::event &e, proton::sender &s) {
+        void JmsSender::on_sendable(proton::sender &s) {
             if (_totalMsgs == 0) {
                 s.connection().close();
             } else if (_msgsSent == 0) {
@@ -72,14 +72,15 @@ namespace qpidit
             }
         }
 
-        void JmsSender::on_delivery_accept(proton::event &e, proton::delivery &d) {
+        void JmsSender::on_delivery_accept(proton::delivery &d) {
             _msgsConfirmed++;
             if (_msgsConfirmed == _totalMsgs) {
+                d.link().close();
                 d.connection().close();
             }
         }
 
-        void JmsSender::on_transport_close(proton::event &e, proton::transport &t) {
+        void JmsSender::on_transport_close(proton::transport &t) {
             _msgsSent = _msgsConfirmed;
         }
 

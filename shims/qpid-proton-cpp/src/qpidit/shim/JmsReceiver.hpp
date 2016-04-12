@@ -54,8 +54,8 @@ namespace qpidit
             JmsReceiver(const std::string& brokerUrl, const std::string& jmsMessageType, const Json::Value& testNumberMap);
             virtual ~JmsReceiver();
             Json::Value& getReceivedValueMap();
-            void on_container_start(proton::event &e, proton::container &c);
-            void on_message(proton::event &e, proton::delivery &d, proton::message &m);
+            void on_container_start(proton::container &c);
+            void on_message(proton::delivery &d, proton::message &m);
 
             static uint32_t getTotalNumExpectedMsgs(const Json::Value testNumberMap);
 
