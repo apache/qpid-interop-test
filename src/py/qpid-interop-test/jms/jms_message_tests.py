@@ -342,8 +342,8 @@ class QpidJmsShim(Shim):
     LOGGER_IMPL_JAR = path.join(QPID_INTEROP_TEST_HOME, 'jars', 'slf4j-nop-1.5.6.jar')
     NETTY_JAR = path.join(MAVEN_REPO_PATH, 'io', 'netty', 'netty-all', '4.0.17.Final', 'netty-all-4.0.17.Final.jar')
 
-    JAVA_HOME = getenv('JAVA_HOME', '/usr/bin') # Default only works in Linux
-    JAVA_EXEC = path.join(JAVA_HOME, 'java')
+    JAVA_HOME = getenv('JAVA_HOME', '/usr/lib/jvm/java') # Default only works in Linux
+    JAVA_EXEC = path.join(JAVA_HOME, 'bin/java')
 
     def __init__(self, args):
         super(QpidJmsShim, self).__init__(args)
