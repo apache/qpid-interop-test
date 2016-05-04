@@ -53,7 +53,7 @@ namespace qpidit
             virtual ~JmsSender();
             void on_container_start(proton::container &c);
             void on_sendable(proton::sender &s);
-            void on_delivery_accept(proton::delivery &d);
+            void on_tracker_accept(proton::tracker &t);
             void on_transport_close(proton::transport &t);
         protected:
             void  sendMessages(proton::sender &s, const std::string& subType, const Json::Value& testValueMap);

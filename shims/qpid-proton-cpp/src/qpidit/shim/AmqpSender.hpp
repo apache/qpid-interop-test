@@ -47,13 +47,13 @@ namespace qpidit
             virtual ~AmqpSender();
             void on_container_start(proton::container &c);
             void on_sendable(proton::sender &s);
-            void on_delivery_accept(proton::delivery &d);
+            void on_tracker_accept(proton::tracker &t);
             void on_transport_close(proton::transport &t);
 
             void on_connection_error(proton::connection &c);
-            void on_sender_error(proton::sender& l);
+            void on_sender_error(proton::sender& s);
             void on_transport_error(proton::transport &t);
-            void on_unhandled_error(const proton::condition &c);
+            void on_unhandled_error(const proton::error_condition &c);
         protected:
             proton::message& setMessage(proton::message& msg, const Json::Value& testValue);
 

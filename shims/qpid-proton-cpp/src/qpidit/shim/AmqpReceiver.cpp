@@ -25,7 +25,8 @@
 #include <json/json.h>
 #include "proton/connection.hpp"
 #include "proton/container.hpp"
-#include <proton/types.hpp>
+#include "proton/delivery.hpp"
+#include "proton/receiver.hpp"
 #include "qpidit/QpidItErrors.hpp"
 
 namespace qpidit
@@ -50,7 +51,7 @@ namespace qpidit
         }
 
         void AmqpReceiver::on_container_start(proton::container &c) {
-            _receiver = c.open_receiver(_brokerUrl);
+            /*_receiver = */c.open_receiver(_brokerUrl);
         }
 
         void AmqpReceiver::on_message(proton::delivery &d, proton::message &m) {
@@ -148,7 +149,7 @@ namespace qpidit
             }
             _received++;
             if (_received >= _expected) {
-                d.link().close();
+                d.receiver().close();
                 d.connection().close();
             }
         }
@@ -165,8 +166,8 @@ namespace qpidit
             std::cerr << "AmqpReceiver:on_transport_error()" << std::endl;
         }
 
-        void AmqpReceiver::on_unhandled_error(const proton::condition &c) {
-            std::cerr << "AmqpReceiver:on_unhandled_error() condition=" << c.name() << std::endl;
+        void AmqpReceiver::on_unhandled_error(const proton::error_condition &c) {
+            std::cerr << "AmqpReceiver:on_unhandled_error() name=" << c.name() << " description=" << c.description() << std::endl;
         }
 
         // protected

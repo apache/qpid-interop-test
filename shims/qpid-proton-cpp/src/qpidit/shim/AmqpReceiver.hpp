@@ -25,7 +25,7 @@
 #include <iomanip>
 #include <json/value.h>
 #include "proton/handler.hpp"
-#include "proton/receiver.hpp"
+#include "proton/types.hpp"
 #include <sstream>
 
 namespace qpidit
@@ -38,7 +38,6 @@ namespace qpidit
         protected:
             const std::string _brokerUrl;
             const std::string _amqpType;
-            proton::receiver _receiver;
             uint32_t _expected;
             uint32_t _received;
             Json::Value _receivedValueList;
@@ -52,7 +51,7 @@ namespace qpidit
             void on_connection_error(proton::connection &c);
             void on_sender_error(proton::sender& l);
             void on_transport_error(proton::transport &t);
-            void on_unhandled_error(const proton::condition &c);
+            void on_unhandled_error(const proton::error_condition &c);
         protected:
             static void checkMessageType(const proton::message& msg, proton::type_id msgType);
             static Json::Value& getMap(Json::Value& jsonMap, const proton::value& val);

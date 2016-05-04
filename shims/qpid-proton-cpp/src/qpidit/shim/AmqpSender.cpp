@@ -25,7 +25,8 @@
 #include <json/json.h>
 #include "proton/connection.hpp"
 #include "proton/container.hpp"
-#include "proton/decimal.hpp"
+#include "proton/sender.hpp"
+#include "proton/tracker.hpp"
 
 namespace qpidit
 {
@@ -65,10 +66,10 @@ namespace qpidit
             }
         }
 
-        void AmqpSender::on_delivery_accept(proton::delivery &d) {
+        void AmqpSender::on_tracker_accept(proton::tracker &t) {
             _msgsConfirmed++;
             if (_msgsConfirmed == _totalMsgs) {
-                d.connection().close();
+                t.connection().close();
             }
         }
 
@@ -88,8 +89,8 @@ namespace qpidit
             std::cerr << "AmqpSender:on_transport_error()" << std::endl;
         }
 
-        void AmqpSender::on_unhandled_error(const proton::condition &c) {
-            std::cerr << "AmqpSender:on_unhandled_error()" << " condition=" << c.name() << std::endl;
+        void AmqpSender::on_unhandled_error(const proton::error_condition &c) {
+            std::cerr << "AmqpSender:on_unhandled_error()" << " name=" << c.name() << " description=" << c.description() << std::endl;
         }
 
         // protected

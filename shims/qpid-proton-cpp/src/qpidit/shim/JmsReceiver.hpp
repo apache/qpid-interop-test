@@ -25,7 +25,6 @@
 #include <iomanip>
 #include <json/value.h>
 #include "proton/handler.hpp"
-#include "proton/receiver.hpp"
 #include "proton/types.hpp"
 #include <sstream>
 
@@ -43,7 +42,6 @@ namespace qpidit
             const std::string _brokerUrl;
             const std::string _jmsMessageType;
             const Json::Value _testNumberMap;
-            proton::receiver _receiver;
             Json::Value::Members _subTypeList;
             int _subTypeIndex;
             uint32_t _expected;

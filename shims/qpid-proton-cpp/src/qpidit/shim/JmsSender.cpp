@@ -22,12 +22,12 @@
 #include "qpidit/shim/JmsSender.hpp"
 
 #include <cerrno>
-#include <iostream>
 #include <iomanip>
+#include <iostream>
 #include <json/json.h>
 #include "proton/connection.hpp"
 #include "proton/container.hpp"
-#include "qpidit/QpidItErrors.hpp"
+#include "proton/tracker.hpp"
 #include <stdio.h>
 
 namespace qpidit
@@ -72,11 +72,10 @@ namespace qpidit
             }
         }
 
-        void JmsSender::on_delivery_accept(proton::delivery &d) {
+        void JmsSender::on_tracker_accept(proton::tracker &t) {
             _msgsConfirmed++;
             if (_msgsConfirmed == _totalMsgs) {
-                d.link().close();
-                d.connection().close();
+                t.connection().close();
             }
         }
 

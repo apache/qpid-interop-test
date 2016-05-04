@@ -23,9 +23,9 @@
 
 #include <iostream>
 #include <json/json.h>
-#include <map>
 #include "proton/connection.hpp"
 #include "proton/container.hpp"
+#include "proton/delivery.hpp"
 #include "qpidit/QpidItErrors.hpp"
 
 namespace qpidit
@@ -44,7 +44,6 @@ namespace qpidit
                             _brokerUrl(brokerUrl),
                             _jmsMessageType(jmsMessageType),
                             _testNumberMap(testNumberMap),
-                            _receiver(),
                             _subTypeList(testNumberMap.getMemberNames()),
                             _subTypeIndex(0),
                             _expected(getTotalNumExpectedMsgs(testNumberMap)),
@@ -60,7 +59,7 @@ namespace qpidit
         }
 
         void JmsReceiver::on_container_start(proton::container &c) {
-            _receiver = c.open_receiver(_brokerUrl);
+            c.open_receiver(_brokerUrl);
         }
 
         void JmsReceiver::on_message(proton::delivery &d, proton::message &m) {
@@ -97,8 +96,7 @@ namespace qpidit
                 }
                 _received++;
                 if (_received >= _expected) {
-                    _receiver.close();
-                    d.link().close();
+                    d.receiver().close();
                     d.connection().close();
                 }
             }
