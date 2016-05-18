@@ -26,7 +26,7 @@
 #include <iostream>
 #include <json/json.h>
 #include "proton/connection.hpp"
-#include "proton/container.hpp"
+#include "proton/default_container.hpp"
 #include "proton/tracker.hpp"
 #include <stdio.h>
 
@@ -346,7 +346,7 @@ int main(int argc, char** argv) {
         }
 
         qpidit::shim::JmsSender sender(oss.str(), argv[3], testValueMap);
-        proton::container(sender).run();
+        proton::default_container(sender).run();
     } catch (const std::exception& e) {
         std::cerr << "JmsSender error: " << e.what() << std::endl;
     }

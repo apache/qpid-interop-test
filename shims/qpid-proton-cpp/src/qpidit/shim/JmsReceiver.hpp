@@ -24,7 +24,7 @@
 
 #include <iomanip>
 #include <json/value.h>
-#include "proton/handler.hpp"
+#include "proton/messaging_handler.hpp"
 #include "proton/types.hpp"
 #include <sstream>
 
@@ -33,7 +33,7 @@ namespace qpidit
     namespace shim
     {
 
-        class JmsReceiver : public proton::handler
+        class JmsReceiver : public proton::messaging_handler
         {
         protected:
             static proton::symbol s_jmsMessageTypeAnnotationKey;

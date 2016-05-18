@@ -24,7 +24,7 @@
 #include <iostream>
 #include <json/json.h>
 #include "proton/connection.hpp"
-#include "proton/container.hpp"
+#include "proton/default_container.hpp"
 #include "proton/sender.hpp"
 #include "proton/tracker.hpp"
 
@@ -354,7 +354,7 @@ int main(int argc, char** argv) {
         }
 
         qpidit::shim::AmqpSender sender(oss.str(), argv[3], testValues);
-        proton::container(sender).run();
+        proton::default_container(sender).run();
     } catch (const std::exception& e) {
         std::cerr << "AmqpSender error: " << e.what() << std::endl;
         exit(1);

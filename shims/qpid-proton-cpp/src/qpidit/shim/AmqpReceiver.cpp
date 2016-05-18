@@ -24,7 +24,7 @@
 #include <iostream>
 #include <json/json.h>
 #include "proton/connection.hpp"
-#include "proton/container.hpp"
+#include <proton/default_container.hpp>
 #include "proton/delivery.hpp"
 #include "proton/receiver.hpp"
 #include "qpidit/QpidItErrors.hpp"
@@ -272,7 +272,7 @@ int main(int argc, char** argv) {
 
     try {
         qpidit::shim::AmqpReceiver receiver(oss.str(), argv[3], std::strtoul(argv[4], NULL, 0));
-        proton::container(receiver).run();
+        proton::default_container(receiver).run();
 
         std::cout << argv[3] << std::endl;
         std::cout << receiver.getReceivedValueList();

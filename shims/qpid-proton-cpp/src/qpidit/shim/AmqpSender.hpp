@@ -24,7 +24,7 @@
 
 #include <iomanip>
 #include <json/value.h>
-#include "proton/handler.hpp"
+#include "proton/messaging_handler.hpp"
 #include "proton/message.hpp"
 #include "qpidit/QpidItErrors.hpp"
 
@@ -33,7 +33,7 @@ namespace qpidit
     namespace shim
     {
 
-        class AmqpSender : public proton::handler
+        class AmqpSender : public proton::messaging_handler
         {
         protected:
             const std::string _brokerUrl;

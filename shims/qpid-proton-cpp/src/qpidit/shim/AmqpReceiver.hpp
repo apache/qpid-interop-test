@@ -24,7 +24,7 @@
 
 #include <iomanip>
 #include <json/value.h>
-#include "proton/handler.hpp"
+#include "proton/messaging_handler.hpp"
 #include "proton/types.hpp"
 #include <sstream>
 
@@ -33,7 +33,7 @@ namespace qpidit
     namespace shim
     {
 
-        class AmqpReceiver : public proton::handler
+        class AmqpReceiver : public proton::messaging_handler
         {
         protected:
             const std::string _brokerUrl;

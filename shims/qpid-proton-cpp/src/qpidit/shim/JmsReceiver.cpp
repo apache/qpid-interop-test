@@ -24,7 +24,7 @@
 #include <iostream>
 #include <json/json.h>
 #include "proton/connection.hpp"
-#include "proton/container.hpp"
+#include "proton/default_container.hpp"
 #include "proton/delivery.hpp"
 #include "qpidit/QpidItErrors.hpp"
 
@@ -305,7 +305,7 @@ int main(int argc, char** argv) {
         }
 
         qpidit::shim::JmsReceiver receiver(oss.str(), argv[3], testNumberMap);
-        proton::container(receiver).run();
+        proton::default_container(receiver).run();
 
         std::cout << argv[3] << std::endl;
         std::cout << receiver.getReceivedValueMap();

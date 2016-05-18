@@ -23,7 +23,7 @@
 #define SRC_QPIDIT_SHIM_JMSSENDER_HPP_
 
 #include "json/value.h"
-#include "proton/handler.hpp"
+#include "proton/messaging_handler.hpp"
 #include "qpidit/QpidItErrors.hpp"
 #include <typeinfo>
 
@@ -36,7 +36,7 @@ namespace qpidit
     namespace shim
     {
 
-        class JmsSender : public proton::handler
+        class JmsSender : public proton::messaging_handler
         {
         protected:
             static proton::symbol s_jmsMessageTypeAnnotationKey;
