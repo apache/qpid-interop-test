@@ -206,11 +206,16 @@ class AmqpPrimitiveTypes(TestTypeMap):
     BROKER_SKIP = {'null': {'ActiveMQ': 'Null type not sent in Proton Python binding: PROTON-1091',
                             'qpid-cpp': 'Null type not sent in Proton Python binding: PROTON-1091',},
                    'decimal32': {'ActiveMQ': 'decimal32 and decimal64 are sent byte reversed: PROTON-1160',
-                                 'qpid-cpp': 'decimal32 not supported on qpid-cpp broker: QPIDIT-5, QPID-6328',},
+                                 'qpid-cpp': 'decimal32 not supported on qpid-cpp broker: QPIDIT-5, QPID-6328',
+                                 'unknown': 'decimal32 and decimal64 are sent byte reversed: PROTON-1160'},
                    'decimal64': {'ActiveMQ': 'decimal32 and decimal64 are sent byte reversed: PROTON-1160',
-                                 'qpid-cpp': 'decimal64 not supported on qpid-cpp broker: QPIDIT-6, QPID-6328',},
+                                 'qpid-cpp': 'decimal64 not supported on qpid-cpp broker: QPIDIT-6, QPID-6328',
+                                 'unknown': 'decimal32 and decimal64 are sent byte reversed: PROTON-1160'},
                    'decimal128': {'qpid-cpp': 'decimal128 not supported on qpid-cpp broker: QPIDIT-3, QPID-6328',},
-                   'char': {'qpid-cpp': 'char not supported on qpid-cpp broker: QPIDIT-4, QPID-6328',},
+                   'char': {'qpid-cpp': 'char not supported on qpid-cpp broker: QPIDIT-4, QPID-6328',
+                            'unknown': 'char types > 16 bits truncated on Artemis: ENTMQ-1685'},
+                   'float': {'unknown': '-NaN is stripped of its sign: ENTMQ-1686'},
+                   'double': {'unknown': '-NaN is stripped of its sign: ENTMQ-1686'},
                   }
 #    BROKER_SKIP = {}
 
