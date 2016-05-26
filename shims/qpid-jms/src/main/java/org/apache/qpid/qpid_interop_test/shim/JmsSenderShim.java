@@ -46,7 +46,8 @@ import org.apache.qpid.jms.JmsConnectionFactory;
 public class JmsSenderShim {
     private static final String USER = "guest";
     private static final String PASSWORD = "guest";
-    private static final String[] SUPPORTED_JMS_MESSAGE_TYPES = {"JMS_BYTESMESSAGE_TYPE",
+    private static final String[] SUPPORTED_JMS_MESSAGE_TYPES = {"JMS_MESSAGE_TYPE",
+                                                                 "JMS_BYTESMESSAGE_TYPE",
                                                                  "JMS_MAPMESSAGE_TYPE",
                                                                  "JMS_OBJECTMESSAGE_TYPE",
                                                                  "JMS_STREAMMESSAGE_TYPE",
@@ -66,7 +67,7 @@ public class JmsSenderShim {
         String queueName = args[1];
         String jmsMessageType = args[2];
         if (!isSupportedJmsMessageType(jmsMessageType)) {
-            System.out.println("ERROR: JmsReceiver: unknown or unsupported JMS message type \"" + jmsMessageType + "\"");
+            System.out.println("ERROR: JmsSender: Unknown or unsupported JMS message type \"" + jmsMessageType + "\"");
             System.exit(1);
         }
 
@@ -93,8 +94,14 @@ public class JmsSenderShim {
             for (String key: keyList) {
                 JsonArray testValues = testValuesMap.getJsonArray(key);
                 for (int i=0; i<testValues.size(); ++i) {
-                    String testValue = testValues.getJsonString(i).getString();
+                    String testValue = "";
+                    if (!testValues.isNull(i)) {
+                        testValue = testValues.getJsonString(i).getString();
+                    }
                     switch (jmsMessageType) {
+                    case "JMS_MESSAGE_TYPE":
+                        message = createMessage(session, key, testValue);
+                        break;
                     case "JMS_BYTESMESSAGE_TYPE":
                         message = createBytesMessage(session, key, testValue);
                         break;
@@ -122,6 +129,16 @@ public class JmsSenderShim {
             exp.printStackTrace(System.out);
             System.exit(1);
         }
+    }
+
+    protected static Message createMessage(Session session, String testValueType, String testValue) throws Exception, JMSException {
+        if (testValueType.compareTo("none") != 0) {
+            throw new Exception("Internal exception: Unexpected JMS message sub-type \"" + testValueType + "\"");
+        }
+        if (testValue.length() > 0) {
+            throw new Exception("Internal exception: Unexpected JMS message value \"" + testValue + "\" for sub-type \"" + testValueType + "\"");
+        }
+        return session.createMessage();
     }
 
     protected static BytesMessage createBytesMessage(Session session, String testValueType, String testValue) throws Exception, JMSException {

@@ -115,7 +115,7 @@ namespace qpidit
         // protected
 
         void JmsReceiver::receiveJmsMessage(const proton::message& msg) {
-            // TODO: use this format for testing message JMS properties
+            _receivedSubTypeList.append(Json::Value());
         }
 
         void JmsReceiver::receiveJmsObjectMessage(const proton::message& msg) {

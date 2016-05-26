@@ -121,6 +121,7 @@ class JmsMessageTypes(TestTypeMap):
         }
 
     TYPE_MAP = {
+        'JMS_MESSAGE_TYPE': {'none': [None]},
         'JMS_BYTESMESSAGE_TYPE': TYPE_SUBMAP,
         'JMS_MAPMESSAGE_TYPE': TYPE_SUBMAP,
 #        'JMS_OBJECTMESSAGE_TYPE': {
@@ -189,23 +190,21 @@ class JmsMessageTypeTestCase(unittest.TestCase):
         Run this test by invoking the shim send method to send the test values, followed by the shim receive method
         to receive the values. Finally, compare the sent values with the received values.
         """
-        if len(test_values) > 0:
-            queue_name = 'jms.queue.qpid-interop.jms_message_type_tests.%s.%s.%s' % (jms_message_type, send_shim.NAME,
-                                                                                     receive_shim.NAME)
-            send_error_text = send_shim.send(broker_addr, queue_name, jms_message_type, dumps(test_values))
-            if len(send_error_text) > 0:
-                self.fail('Send shim \'%s\':\n%s' % (send_shim.NAME, send_error_text))
-            num_test_values = {}
+        queue_name = 'jms.queue.qpid-interop.jms_message_type_tests.%s.%s.%s' % (jms_message_type, send_shim.NAME,
+                                                                                 receive_shim.NAME)
+        send_error_text = send_shim.send(broker_addr, queue_name, jms_message_type, dumps(test_values))
+        if len(send_error_text) > 0:
+            self.fail('Send shim \'%s\':\n%s' % (send_shim.NAME, send_error_text))
+        num_test_values = {}
+        if (len(test_values) > 0):
             for index in test_values.keys():
                 num_test_values[index] = len(test_values[index])
-            receive_text = receive_shim.receive(broker_addr, queue_name, jms_message_type, dumps(num_test_values))
-            if isinstance(receive_text, str):
-                self.fail(receive_text)
-            else:
-                self.assertEqual(receive_text, test_values, msg='\n    sent:%s\n\n    received:%s' % \
-                                 (test_values, receive_text))
+        receive_text = receive_shim.receive(broker_addr, queue_name, jms_message_type, dumps(num_test_values))
+        if isinstance(receive_text, str):
+            self.fail(receive_text)
         else:
-            self.fail('Type %s has no test values' % jms_message_type)
+            self.assertEqual(receive_text, test_values, msg='\n    sent:%s\n\n    received:%s' % \
+                             (test_values, receive_text))
 
 
 def create_testcase_class(broker_name, types, broker_addr, jms_message_type, shim_product):
@@ -408,7 +407,8 @@ if __name__ == '__main__':
     # As new shims are added, add them into this map to have them included in the test cases.
     SHIM_MAP = {ProtonCppShim.NAME: ProtonCppShim(ARGS),
                 QpidJmsShim.NAME: QpidJmsShim(ARGS),
-                ProtonPythonShim.NAME: ProtonPythonShim(ARGS)}
+                ProtonPythonShim.NAME: ProtonPythonShim(ARGS)
+                }
 
     # Connect to broker to find broker type
     CONNECTION_PROPS = broker_properties.getBrokerProperties(ARGS.broker)

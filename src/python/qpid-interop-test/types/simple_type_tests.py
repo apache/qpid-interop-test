@@ -203,6 +203,8 @@ class AmqpPrimitiveTypes(TestTypeMap):
 #                  ]
         }
 
+# TODO: Type 'unknown' corresponds to the Artemis broker at present because it does not return connection
+# properties that can identify it.  When this is fixed in Artemis, this will no longer work.
     BROKER_SKIP = {'null': {'ActiveMQ': 'Null type not sent in Proton Python binding: PROTON-1091',
                             'qpid-cpp': 'Null type not sent in Proton Python binding: PROTON-1091',},
                    'decimal32': {'ActiveMQ': 'decimal32 and decimal64 are sent byte reversed: PROTON-1160',

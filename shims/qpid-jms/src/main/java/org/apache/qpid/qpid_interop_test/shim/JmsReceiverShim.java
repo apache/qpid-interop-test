@@ -49,7 +49,8 @@ public class JmsReceiverShim {
     private static final String USER = "guest";
     private static final String PASSWORD = "guest";
     private static final int TIMEOUT = 1000;
-    private static final String[] SUPPORTED_JMS_MESSAGE_TYPES = {"JMS_BYTESMESSAGE_TYPE",
+    private static final String[] SUPPORTED_JMS_MESSAGE_TYPES = {"JMS_MESSAGE_TYPE",
+                                                                 "JMS_BYTESMESSAGE_TYPE",
                                                                  "JMS_MAPMESSAGE_TYPE",
                                                                  "JMS_OBJECTMESSAGE_TYPE",
                                                                  "JMS_STREAMMESSAGE_TYPE",
@@ -69,7 +70,7 @@ public class JmsReceiverShim {
         String queueName = args[1];
         String jmsMessageType = args[2];
         if (!isSupportedJmsMessageType(jmsMessageType)) {
-            System.out.println("ERROR: JmsReceiverShim: unknown or unsupported JMS message type \"" + jmsMessageType + "\"");
+            System.out.println("ERROR: JmsReceiverShim: Unknown or unsupported JMS message type \"" + jmsMessageType + "\"");
             System.exit(1);
         }
 
@@ -103,6 +104,9 @@ public class JmsReceiverShim {
                     message = messageConsumer.receive(TIMEOUT);
                     if (message == null) break;
                     switch (jmsMessageType) {
+                    case "JMS_MESSAGE_TYPE":
+                        jab.addNull();
+                        break;
                     case "JMS_BYTESMESSAGE_TYPE":
                         switch (key) {
                         case "boolean":
@@ -264,7 +268,7 @@ public class JmsReceiverShim {
                         break;
                     default:
                         connection.close();
-                        throw new Exception("JmsReceiverShim: Internal error: unknown or unsupported JMS message type \"" + jmsMessageType + "\"");
+                        throw new Exception("JmsReceiverShim: Internal error: Unknown or unsupported JMS message type \"" + jmsMessageType + "\"");
                     }
                 }
                 job.add(key, jab);

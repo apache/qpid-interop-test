@@ -90,7 +90,9 @@ namespace qpidit
             for (Json::Value::const_iterator i=testValues.begin(); i!=testValues.end(); ++i) {
                 if (s.credit()) {
                     proton::message msg;
-                    if (_jmsMessageType.compare("JMS_BYTESMESSAGE_TYPE") == 0) {
+                    if (_jmsMessageType.compare("JMS_MESSAGE_TYPE") == 0) {
+                        setMessage(msg, subType, (*i).asString());
+                    } else if (_jmsMessageType.compare("JMS_BYTESMESSAGE_TYPE") == 0) {
                         setBytesMessage(msg, subType, (*i).asString());
                     } else if (_jmsMessageType.compare("JMS_MAPMESSAGE_TYPE") == 0) {
                         setMapMessage(msg, subType, (*i).asString(), valueNumber);
@@ -109,6 +111,18 @@ namespace qpidit
                 }
             }
 
+        }
+
+        proton::message& JmsSender::setMessage(proton::message& msg, const std::string& subType, const std::string& testValueStr) {
+            if (subType.compare("none") != 0) {
+                throw qpidit::UnknownJmsMessageSubTypeError(subType);
+            }
+            if (testValueStr.size() != 0) {
+                throw InvalidTestValueError(subType, testValueStr);
+            }
+            msg.content_type(proton::symbol("application/octet-stream"));
+            msg.message_annotations()[proton::symbol("x-opt-jms-msg-type")] = s_jmsMessageTypeAnnotationValues["JMS_MESSAGE_TYPE"];
+            return msg;
         }
 
         proton::message& JmsSender::setBytesMessage(proton::message& msg, const std::string& subType, const std::string& testValueStr) {

@@ -57,6 +57,7 @@ namespace qpidit
             void on_transport_close(proton::transport &t);
         protected:
             void  sendMessages(proton::sender &s, const std::string& subType, const Json::Value& testValueMap);
+            proton::message& setMessage(proton::message& msg, const std::string& subType, const std::string& testValueStr);
             proton::message& setBytesMessage(proton::message& msg, const std::string& subType, const std::string& testValueStr);
             proton::message& setMapMessage(proton::message& msg, const std::string& subType, const std::string& testValueStr, uint32_t valueNumber);
             proton::message& setObjectMessage(proton::message& msg, const std::string& subType, const Json::Value& testValue);

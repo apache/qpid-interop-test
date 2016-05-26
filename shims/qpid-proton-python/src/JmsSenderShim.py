@@ -32,6 +32,7 @@ from traceback import format_exc
 # org.apache.qpid.jms.provider.amqp.message.AmqpMessageSupport
 QPID_JMS_TYPE_ANNOTATION_NAME = symbol(u'x-opt-jms-msg-type')
 QPID_JMS_TYPE_ANNOTATIONS = {
+    'JMS_MESSAGE_TYPE': byte(0),
     'JMS_BYTESMESSAGE_TYPE': byte(3),
     'JMS_MAPMESSAGE_TYPE': byte(2),
     'JMS_OBJECTMESSAGE_TYPE': byte(1),
@@ -91,7 +92,9 @@ class JmsSenderShim(MessagingHandler):
 
     # TODO: Change this to return a list of messages. That way each test can return more than one message
     def _create_message(self, test_value_type, test_value, value_num):
-        if self.jms_msg_type == 'JMS_BYTESMESSAGE_TYPE':
+        if self.jms_msg_type == 'JMS_MESSAGE_TYPE':
+            return self._create_jms_message(test_value_type, test_value)
+        elif self.jms_msg_type == 'JMS_BYTESMESSAGE_TYPE':
             return self._create_jms_bytesmessage(test_value_type, test_value)
         elif self.jms_msg_type == 'JMS_MAPMESSAGE_TYPE':
             return self._create_jms_mapmessage(test_value_type, test_value, "%s%03d" % (test_value_type, value_num))
@@ -104,6 +107,17 @@ class JmsSenderShim(MessagingHandler):
         else:
             print 'jms-send: Unsupported JMS message type "%s"' % self.jms_msg_type
             return None
+
+    def _create_jms_message(self, test_value_type, test_value):
+        if test_value_type != 'none':
+            raise InteropTestError('JmsSenderShim._create_jms_message: Unknown or unsupported subtype "%s"' %
+                                   test_value_type)
+        if test_value is not None:
+            raise InteropTestError('JmsSenderShim._create_jms_message: Invalid value "%s" for subtype "%s"' %
+                                   (test_value, test_value_type))
+        return Message(id=(self.sent+1),
+                       content_type='application/octet-stream',
+                       annotations=create_annotation('JMS_MESSAGE_TYPE'))
 
     def _create_jms_bytesmessage(self, test_value_type, test_value):
         # NOTE: test_value contains all unicode strings u'...' as returned by json

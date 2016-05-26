@@ -69,6 +69,8 @@ class JmsReceiverShim(MessagingHandler):
                 event.connection.close()
 
     def _handle_message(self, message):
+        if self.jms_msg_type == 'JMS_MESSAGE_TYPE':
+            return self._receive_jms_message(message)
         if self.jms_msg_type == 'JMS_BYTESMESSAGE_TYPE':
             return self._receive_jms_bytesmessage(message)
         if self.jms_msg_type == 'JMS_MAPMESSAGE_TYPE':
@@ -87,6 +89,14 @@ class JmsReceiverShim(MessagingHandler):
         for key in self.expteced_msg_map:
             total += int(self.expteced_msg_map[key])
         return total
+
+    def _receive_jms_message(self, message):
+        assert self.jms_msg_type == 'JMS_MESSAGE_TYPE'
+        assert message.annotations[QPID_JMS_TYPE_ANNOTATION_NAME] == byte(0)
+        if message.body is not None:
+            raise InteropTestError('_receive_jms_message: Invalid body for type JMS_MESSAGE_TYPE: %s' %
+                                   str(message.body))
+        return None
 
     def _receive_jms_bytesmessage(self, message):
         assert self.jms_msg_type == 'JMS_BYTESMESSAGE_TYPE'

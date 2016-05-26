@@ -59,13 +59,19 @@ reflect installation details when complete.
 
 Select one of the following two options:
 
-a. qpid-proton installed:
+a. qpid-proton installed (default install location):
 Assuming proton's "make install" has been run, from top level qpid-interop-test directory:
 export PYTHONPATH=/usr/local/lib64/proton/bindings/python:src/py/qpid-interop-test
 export LD_LIBRARY_PATH=/usr/local/lib64
 export QPID_INTEROP_TEST_HOME=<abs path to top level qpid-interop-test directory>
 
-b. qpid-proton built but not installed:
+b. qpid-proton installed to local directory <abs-path-to-local-proton-install-dir>:
+Assuming proton's "make install" has been run, from top level qpid-interop-test directory:
+export PYTHONPATH=<abs-path-to-local-proton-install-dir>/lib64/proton/bindings/python:src/py/qpid-interop-test
+export LD_LIBRARY_PATH=<abs-path-to-local-proton-install-dir>/lib64
+export QPID_INTEROP_TEST_HOME=<abs path to top level qpid-interop-test directory>
+
+c. qpid-proton built but not installed:
 Assuming proton's "make" has been run from a "build" directory as described in the proton README (but not make install), from top level qpid-interop-test directory:
 export PYTHONPATH=<abs path to top level qpid-proton directory>/proton-c/bindings/python:<abs path to top level qpid-proton directory>/build/proton-c/bindings/python:src/python/qpid-interop-test
 export LD_LIBRARY_PATH=<abs path to top level qpid-proton directory>/build/proton-c
