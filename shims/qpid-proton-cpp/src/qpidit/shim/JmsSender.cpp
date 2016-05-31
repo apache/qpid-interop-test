@@ -121,7 +121,7 @@ namespace qpidit
                 throw InvalidTestValueError(subType, testValueStr);
             }
             msg.content_type(proton::symbol("application/octet-stream"));
-            msg.message_annotations()[proton::symbol("x-opt-jms-msg-type")] = s_jmsMessageTypeAnnotationValues["JMS_MESSAGE_TYPE"];
+            msg.message_annotations().put(proton::symbol("x-opt-jms-msg-type"), s_jmsMessageTypeAnnotationValues["JMS_MESSAGE_TYPE"]);
             return msg;
         }
 
@@ -186,7 +186,7 @@ namespace qpidit
             msg.body(bin);
             msg.inferred(true);
             msg.content_type(proton::symbol("application/octet-stream"));
-            msg.message_annotations()[proton::symbol("x-opt-jms-msg-type")] = s_jmsMessageTypeAnnotationValues["JMS_BYTESMESSAGE_TYPE"];
+            msg.message_annotations().put(proton::symbol("x-opt-jms-msg-type"), s_jmsMessageTypeAnnotationValues["JMS_BYTESMESSAGE_TYPE"]);
             return msg;
         }
 
@@ -228,7 +228,7 @@ namespace qpidit
             }
             msg.inferred(false);
             msg.body(m);
-            msg.message_annotations()[proton::symbol("x-opt-jms-msg-type")] = s_jmsMessageTypeAnnotationValues["JMS_MAPMESSAGE_TYPE"];
+            msg.message_annotations().put(proton::symbol("x-opt-jms-msg-type"), s_jmsMessageTypeAnnotationValues["JMS_MAPMESSAGE_TYPE"]);
             return msg;
         }
 
@@ -236,7 +236,7 @@ namespace qpidit
             msg.body(getJavaObjectBinary(subType, testValue.asString()));
             msg.inferred(true);
             msg.content_type(proton::symbol("application/x-java-serialized-object"));
-            msg.message_annotations()[proton::symbol("x-opt-jms-msg-type")] = s_jmsMessageTypeAnnotationValues["JMS_OBJECTMESSAGE_TYPE"];
+            msg.message_annotations().put(proton::symbol("x-opt-jms-msg-type"), s_jmsMessageTypeAnnotationValues["JMS_OBJECTMESSAGE_TYPE"]);
             return msg;
         }
 
@@ -275,14 +275,14 @@ namespace qpidit
             }
             msg.body(l);
             msg.inferred(true);
-            msg.message_annotations()[proton::symbol("x-opt-jms-msg-type")] = s_jmsMessageTypeAnnotationValues["JMS_STREAMMESSAGE_TYPE"];
+            msg.message_annotations().put(proton::symbol("x-opt-jms-msg-type"), s_jmsMessageTypeAnnotationValues["JMS_STREAMMESSAGE_TYPE"]);
             return msg;
        }
 
         proton::message& JmsSender::setTextMessage(proton::message& msg, const Json::Value& testValue) {
             msg.body(testValue.asString());
             msg.inferred(false);
-            msg.message_annotations()[proton::symbol("x-opt-jms-msg-type")] = s_jmsMessageTypeAnnotationValues["JMS_TEXTMESSAGE_TYPE"];
+            msg.message_annotations().put(proton::symbol("x-opt-jms-msg-type"), s_jmsMessageTypeAnnotationValues["JMS_TEXTMESSAGE_TYPE"]);
             return msg;
         }
 

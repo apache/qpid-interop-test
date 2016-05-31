@@ -67,7 +67,7 @@ export QPID_INTEROP_TEST_HOME=<abs path to top level qpid-interop-test directory
 
 b. qpid-proton installed to local directory <abs-path-to-local-proton-install-dir>:
 Assuming proton's "make install" has been run, from top level qpid-interop-test directory:
-export PYTHONPATH=<abs-path-to-local-proton-install-dir>/lib64/proton/bindings/python:src/py/qpid-interop-test
+export PYTHONPATH=<abs-path-to-local-proton-install-dir>/lib64/proton/bindings/python:src/python/qpid-interop-test
 export LD_LIBRARY_PATH=<abs-path-to-local-proton-install-dir>/lib64
 export QPID_INTEROP_TEST_HOME=<abs path to top level qpid-interop-test directory>
 

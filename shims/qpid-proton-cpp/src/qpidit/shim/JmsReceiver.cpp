@@ -64,7 +64,7 @@ namespace qpidit
 
         void JmsReceiver::on_message(proton::delivery &d, proton::message &m) {
             if (_received < _expected) {
-                switch (m.message_annotations()[proton::symbol("x-opt-jms-msg-type")].get<int8_t>()) {
+                switch (m.message_annotations().get(proton::symbol("x-opt-jms-msg-type")).get<int8_t>()) {
                 case JMS_MESSAGE_TYPE:
                     receiveJmsMessage(m);
                     break;
