@@ -285,13 +285,14 @@ class Shim(object):
             #print '\n>>>', arg_list # DEBUG - useful to see command-line sent to shim
             output = check_output(arg_list)
             #print '<<<', output # DEBUG- useful to see text received from shim
-            str_tvl = output.split('\n')[:-1] # remove trailing \n
+            str_tvl = output.split('\n')
+            if str_tvl[-1] == '': # Trailing \n
+                str_tvl = str_tvl[:-1] # remove last empty string caused by trailing /n
             if len(str_tvl) == 1:
                 return output
             if len(str_tvl) == 2:
                 return loads(str_tvl[1])
-            else:
-                return loads("".join(str_tvl[1:]))
+            return loads("".join(str_tvl[1:]))
         except CalledProcessError as exc:
             return str(exc) + '\n\n' + exc.output
         except Exception as exc:
