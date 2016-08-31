@@ -33,20 +33,29 @@ from traceback import format_exc
 QPID_JMS_TYPE_ANNOTATION_NAME = symbol(u'x-opt-jms-msg-type')
 
 class JmsReceiverShim(MessagingHandler):
-    def __init__(self, url, jms_msg_type, expected_msg_map):
+    def __init__(self, url, jms_msg_type, test_parameters_list):
         super(JmsReceiverShim, self).__init__()
         self.url = url
         self.jms_msg_type = jms_msg_type
-        self.expteced_msg_map = expected_msg_map
+        self.expteced_msg_map = test_parameters_list[0]
+        self.flag_map = test_parameters_list[1]
         self.subtype_itr = iter(sorted(self.expteced_msg_map.keys()))
         self.expected = self._get_tot_num_messages()
         self.received = 0
         self.received_value_map = {}
         self.current_subtype = None
         self.current_subtype_msg_list = None
+        self.jms_header_map = {}
+        self.jms_property_map = {}
 
     def get_received_value_map(self):
         return self.received_value_map
+
+    def get_jms_header_map(self):
+        return self.jms_header_map
+
+    def get_jms_property_map(self):
+        return self.jms_property_map
 
     def on_start(self, event):
         event.container.create_receiver(self.url)
@@ -59,6 +68,8 @@ class JmsReceiverShim(MessagingHandler):
                 self.current_subtype = self.subtype_itr.next()
                 self.current_subtype_msg_list = []
             self.current_subtype_msg_list.append(self._handle_message(event.message))
+            self._process_jms_headers(event.message)
+            self._process_jms_properties(event.message)
             if len(self.current_subtype_msg_list) >= self.expteced_msg_map[self.current_subtype]:
                 self.received_value_map[self.current_subtype] = self.current_subtype_msg_list
                 self.current_subtype = None
@@ -227,7 +238,7 @@ class JmsReceiverShim(MessagingHandler):
             return hex(value)
         if self.current_subtype == 'string':
             return str(value)
-        raise InteropTestError('JMS message type %s: Unknown or unsupported subtype \'%s\'' %
+        raise InteropTestError('JmsRecieverShim._receive_jms_streammessage(): JMS message type %s: Unknown or unsupported subtype \'%s\'' %
                                (self.jms_msg_type, self.current_subtype))
 
     def _receive_jms_textmessage(self, message):
@@ -235,18 +246,72 @@ class JmsReceiverShim(MessagingHandler):
         assert message.annotations[QPID_JMS_TYPE_ANNOTATION_NAME] == byte(5)
         return message.body
 
+    def _process_jms_headers(self, message):
+        # JMS message type header
+        message_type_header = message._get_subject()
+        if message_type_header is not None:
+            self.jms_header_map['JMS_TYPE_HEADER'] = {'string': message_type_header}
+        
+        # JMS correlation ID
+        correlation_id = message._get_correlation_id()
+        if correlation_id is not None:
+            if 'JMS_CORRELATIONID_AS_BYTES' in self.flag_map and self.flag_map['JMS_CORRELATIONID_AS_BYTES']:
+                self.jms_header_map['JMS_CORRELATIONID_HEADER'] = {'bytes': correlation_id}
+            else:
+                self.jms_header_map['JMS_CORRELATIONID_HEADER'] = {'string': correlation_id}
+
+        # JMS reply-to
+        reply_to = message._get_reply_to()
+        if reply_to is not None:
+            if 'JMS_REPLYTO_AS_TOPIC' in self.flag_map and self.flag_map['JMS_REPLYTO_AS_TOPIC']:
+                # Some brokers prepend 'queue://' and 'topic://' to reply_to addresses, strip these when present
+                if len(reply_to) > 8 and reply_to[0:8] == 'topic://':
+                    reply_to = reply_to[8:]
+                self.jms_header_map['JMS_REPLYTO_HEADER'] = {'topic': reply_to}
+            else:
+                if len(reply_to) > 8 and reply_to[0:8] == 'queue://':
+                    reply_to = reply_to[8:]
+                self.jms_header_map['JMS_REPLYTO_HEADER'] = {'queue': reply_to}
+
+    def _process_jms_properties(self, message):
+        if message.properties is not None:
+            for jms_property_name in message.properties:
+                jms_property_type = jms_property_name[0:jms_property_name.index('_')]
+                value = message.properties[jms_property_name]
+                if (jms_property_type == 'boolean'):
+                    self.jms_property_map[jms_property_name] = {'boolean': str(value)}
+                elif (jms_property_type == 'byte'):
+                    self.jms_property_map[jms_property_name] = {'byte': hex(value)}
+                elif (jms_property_type == 'double'):
+                    self.jms_property_map[jms_property_name] = {'double': '0x%016x' % unpack('!Q', pack('!d', value))[0]}
+                elif (jms_property_type == 'float'):
+                    self.jms_property_map[jms_property_name] = {'float': '0x%08x' % unpack('!L', pack('!f', value))[0]}
+                elif (jms_property_type == 'int'):
+                    self.jms_property_map[jms_property_name] = {'int': hex(value)}
+                elif (jms_property_type == 'long'):
+                    self.jms_property_map[jms_property_name] = {'long': hex(int(value))}
+                elif (jms_property_type == 'short'):
+                    self.jms_property_map[jms_property_name] = {'short': hex(value)}
+                elif (jms_property_type == 'string'):
+                    self.jms_property_map[jms_property_name] = {'string': str(value)}
+                else:
+                    raise InteropTestError('JmsRecieverShim._process_jms_properties(): Unknown JMS property type "%s"' %
+                                           jms_property_type)
+
 
 # --- main ---
 # Args: 1: Broker address (ip-addr:port)
 #       2: Queue name
 #       3: JMS message type
-#       4: JSON string of map containing number of test values to receive for each type/subtype
+#       4: JSON Test parameters containing 2 maps: [testValuesMap, flagMap]
 #print '#### sys.argv=%s' % sys.argv
 try:
     RECEIVER = JmsReceiverShim('%s/%s' % (sys.argv[1], sys.argv[2]), sys.argv[3], loads(sys.argv[4]))
     Container(RECEIVER).run()
     print sys.argv[3]
     print dumps(RECEIVER.get_received_value_map())
+    print dumps(RECEIVER.get_jms_header_map())
+    print dumps(RECEIVER.get_jms_property_map())
 except KeyboardInterrupt:
     pass
 except Exception as exc:

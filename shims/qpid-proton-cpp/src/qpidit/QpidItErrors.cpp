@@ -172,6 +172,23 @@ namespace qpidit
     UnknownAmqpTypeError::~UnknownAmqpTypeError() throw() {}
 
 
+    // --- UnknownJmsDestinationTypeError ---
+
+    UnknownJmsDestinationTypeError::UnknownJmsDestinationTypeError(const std::string& jmsDestinationType) :
+                    std::runtime_error(MSG("Unknown JMS destination type \"" << jmsDestinationType << "\""))
+    {}
+
+    UnknownJmsDestinationTypeError::~UnknownJmsDestinationTypeError() throw() {}
+
+
+    // --- UnknownJmsHeaderTypeError ---
+
+    UnknownJmsHeaderTypeError::UnknownJmsHeaderTypeError(const std::string& jmsHeaderType) :
+                    std::runtime_error(MSG("Unknown or incorrect JMS header type \"" << jmsHeaderType << "\""))
+    {}
+
+    UnknownJmsHeaderTypeError::~UnknownJmsHeaderTypeError() throw() {}
+
     // --- UnknownJmsMessageSubTypeError ---
 
     UnknownJmsMessageSubTypeError::UnknownJmsMessageSubTypeError(const std::string& jmsMessageSubType) :
@@ -189,6 +206,14 @@ namespace qpidit
 
     UnknownJmsMessageTypeError::~UnknownJmsMessageTypeError() throw() {}
 
+
+    // --- UnknownJmsPropertyTypeError ---
+
+    UnknownJmsPropertyTypeError::UnknownJmsPropertyTypeError(const std::string& jmsPropertyType) :
+                    std::runtime_error(MSG("Unknown JMS property type \"" << jmsPropertyType << "\""))
+    {}
+
+    UnknownJmsPropertyTypeError::~UnknownJmsPropertyTypeError() throw() {}
 
     // --- UnsupportedAmqpTypeError ---
 

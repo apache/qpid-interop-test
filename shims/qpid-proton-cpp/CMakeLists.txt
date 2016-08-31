@@ -21,8 +21,7 @@ project (qpid-interop-test-cpp-shims)
 
 cmake_minimum_required(VERSION 2.6)
 
-set(PROTON_DIR "$ENV{HOME}/qpid-proton" CACHE PATH "Proton directory")
-set(PROTON_BUILD_DIR_NAME "build" CACHE STRING "Proton build directory")
+set(PROTON_INSTALL_DIR "/usr/local/qpid-proton" CACHE PATH "Proton install directory")
 
 add_subdirectory(src)
 

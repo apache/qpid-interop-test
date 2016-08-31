@@ -26,6 +26,7 @@
 #include <json/value.h>
 #include "proton/messaging_handler.hpp"
 #include "proton/types.hpp"
+#include "qpidit/shim/JmsDefinitions.hpp"
 #include <sstream>
 
 namespace qpidit
@@ -42,18 +43,32 @@ namespace qpidit
             const std::string _brokerUrl;
             const std::string _jmsMessageType;
             const Json::Value _testNumberMap;
+            const Json::Value _flagMap;
             Json::Value::Members _subTypeList;
             int _subTypeIndex;
             uint32_t _expected;
             uint32_t _received;
             Json::Value _receivedSubTypeList;
             Json::Value _receivedValueMap;
+            Json::Value _receivedHeadersMap;
+            Json::Value _receivedPropertiesMap;
         public:
-            JmsReceiver(const std::string& brokerUrl, const std::string& jmsMessageType, const Json::Value& testNumberMap);
+            JmsReceiver(const std::string& brokerUrl,
+                        const std::string& jmsMessageType,
+                        const Json::Value& testNumberMap,
+                        const Json::Value& flagMap);
             virtual ~JmsReceiver();
             Json::Value& getReceivedValueMap();
+            Json::Value& getReceivedHeadersMap();
+            Json::Value& getReceivedPropertiesMap();
             void on_container_start(proton::container &c);
             void on_message(proton::delivery &d, proton::message &m);
+
+            void on_connection_error(proton::connection &c);
+            void on_receiver_error(proton::receiver& r);
+            void on_session_error(proton::session &s);
+            void on_transport_error(proton::transport &t);
+            void on_error(const proton::error_condition &c);
 
             static uint32_t getTotalNumExpectedMsgs(const Json::Value testNumberMap);
 
@@ -64,6 +79,12 @@ namespace qpidit
             void receiveJmsBytesMessage(const proton::message& msg);
             void receiveJmsStreamMessage(const proton::message& msg);
             void receiveJmsTextMessage(const proton::message& msg);
+
+            void processMessageHeaders(const proton::message& msg);
+            void addMessageHeaderString(const char* headerName, const std::string& value);
+            void addMessageHeaderByteArray(const std::string& headerName, const proton::binary ba);
+            void addMessageHeaderDestination(const std::string& headerName, jmsDestinationType_t dt, const std::string& d);
+            void processMessageProperties(const proton::message& msg);
 
             static std::map<std::string, int8_t> initializeJmsMessageTypeAnnotationMap();
 

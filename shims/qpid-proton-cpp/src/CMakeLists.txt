@@ -17,12 +17,11 @@
 # under the License.
 #
 
-message("PROTON_DIR=${PROTON_DIR} PROTON_BUILD_DIR_NAME=${PROTON_BUILD_DIR_NAME}")
-include_directories(${PROTON_DIR}/proton-c/include)
-include_directories(${PROTON_DIR}/proton-c/bindings/cpp/include)
+message("PROTON_INSTALL_DIR=${PROTON_INSTALL_DIR}")
+include_directories(${PROTON_INSTALL_DIR}/include)
 include_directories(/usr/include/jsoncpp)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
-link_directories(${PROTON_DIR}/${PROTON_BUILD_DIR_NAME}/proton-c/bindings/cpp)
+link_directories(${PROTON_INSTALL_DIR}/lib64)
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
 # --- Common files and libs ---

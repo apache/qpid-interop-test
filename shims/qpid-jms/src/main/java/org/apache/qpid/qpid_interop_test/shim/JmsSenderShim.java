@@ -52,78 +52,62 @@ public class JmsSenderShim {
                                                                  "JMS_OBJECTMESSAGE_TYPE",
                                                                  "JMS_STREAMMESSAGE_TYPE",
                                                                  "JMS_TEXTMESSAGE_TYPE"};
+    Connection _connection;
+    Session _session;
+    Queue _queue;
+    MessageProducer _messageProducer;
+    int _msgsSent;
+    
 
     // args[0]: Broker URL
     // args[1]: Queue name
     // args[2]: JMS message type
-    // args[3]: JSON Test value map
+    // args[3]: JSON Test parameters containing 3 maps: [testValueMap, testHeadersMap, testPropertiesMap]
     public static void main(String[] args) throws Exception {
-        if (args.length < 4) {
-            System.out.println("JmsSenderShim: Insufficient number of arguments");
-            System.out.println("JmsSenderShim: Expected arguments: broker_address, queue_name, amqp_type, test_val, test_val, ...");
+        if (args.length != 4) {
+            System.out.println("JmsSenderShim: Incorrect number of arguments");
+            System.out.println("JmsSenderShim: Expected arguments: broker_address, queue_name, JMS_msg_type, JSON_send_params");
             System.exit(1);
         }
         String brokerAddress = "amqp://" + args[0];
         String queueName = args[1];
         String jmsMessageType = args[2];
         if (!isSupportedJmsMessageType(jmsMessageType)) {
-            System.out.println("ERROR: JmsSender: Unknown or unsupported JMS message type \"" + jmsMessageType + "\"");
+            System.err.println("ERROR: JmsSender: Unknown or unsupported JMS message type \"" + jmsMessageType + "\"");
             System.exit(1);
         }
 
         JsonReader jsonReader = Json.createReader(new StringReader(args[3]));
-        JsonObject testValuesMap = jsonReader.readObject();
+        JsonArray testParamsList = jsonReader.readArray();
         jsonReader.close();
 
+        if (testParamsList.size() != 3) {
+            System.err.println("ERROR: Incorrect number of JSON parameters: Expected 3, got " + Integer.toString(testParamsList.size()));
+            System.exit(1);
+        }
+        JsonObject testValuesMap = testParamsList.getJsonObject(0);
+        JsonObject testHeadersMap = testParamsList.getJsonObject(1);
+        JsonObject testPropertiesMap = testParamsList.getJsonObject(2);
+
+        JmsSenderShim shim = new JmsSenderShim(brokerAddress, queueName);
+        shim.runTests(jmsMessageType, testValuesMap, testHeadersMap, testPropertiesMap);
+    }
+
+    public JmsSenderShim(String brokerAddress, String queueName) {
         try {
             ConnectionFactory factory = (ConnectionFactory)new JmsConnectionFactory(brokerAddress);
 
-            Connection connection = factory.createConnection();
-            connection.setExceptionListener(new MyExceptionListener());
-            connection.start();
+            _connection = factory.createConnection();
+            _connection.setExceptionListener(new MyExceptionListener());
+            _connection.start();
 
-            Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+            _session = _connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
 
-            Queue queue = session.createQueue(queueName);
+            _queue = _session.createQueue(queueName);
 
-            MessageProducer messageProducer = session.createProducer(queue);
-
-            Message message = null;
-            List<String> keyList = new ArrayList<String>(testValuesMap.keySet());
-            Collections.sort(keyList);
-            for (String key: keyList) {
-                JsonArray testValues = testValuesMap.getJsonArray(key);
-                for (int i=0; i<testValues.size(); ++i) {
-                    String testValue = "";
-                    if (!testValues.isNull(i)) {
-                        testValue = testValues.getJsonString(i).getString();
-                    }
-                    switch (jmsMessageType) {
-                    case "JMS_MESSAGE_TYPE":
-                        message = createMessage(session, key, testValue);
-                        break;
-                    case "JMS_BYTESMESSAGE_TYPE":
-                        message = createBytesMessage(session, key, testValue);
-                        break;
-                    case "JMS_MAPMESSAGE_TYPE":
-                        message = createMapMessage(session, key, testValue, i);
-                        break;
-                    case "JMS_OBJECTMESSAGE_TYPE":
-                        message = createObjectMessage(session, key, testValue);
-                        break;
-                    case "JMS_STREAMMESSAGE_TYPE":
-                        message = createStreamMessage(session, key, testValue);
-                        break;
-                    case "JMS_TEXTMESSAGE_TYPE":
-                        message = createTextMessage(session, testValue);
-                        break;
-                    default:
-                        throw new Exception("Internal exception: Unexpected JMS message type \"" + jmsMessageType + "\"");
-                    }
-                    messageProducer.send(message, DeliveryMode.NON_PERSISTENT, Message.DEFAULT_PRIORITY, Message.DEFAULT_TIME_TO_LIVE);
-                }
-            }
-            connection.close();
+            _messageProducer = _session.createProducer(_queue);
+            
+            _msgsSent = 0;
         } catch (Exception exp) {
             System.out.println("Caught exception, exiting.");
             exp.printStackTrace(System.out);
@@ -131,18 +115,157 @@ public class JmsSenderShim {
         }
     }
 
-    protected static Message createMessage(Session session, String testValueType, String testValue) throws Exception, JMSException {
+    public void runTests(String jmsMessageType, JsonObject testValuesMap, JsonObject testHeadersMap, JsonObject testPropertiesMap) throws Exception {
+        List<String> testValuesKeyList = new ArrayList<String>(testValuesMap.keySet());
+        Collections.sort(testValuesKeyList);
+        for (String key: testValuesKeyList) {
+            JsonArray testValues = testValuesMap.getJsonArray(key);
+            for (int i=0; i<testValues.size(); ++i) {
+                String testValue = "";
+                if (!testValues.isNull(i)) {
+                    testValue = testValues.getJsonString(i).getString();
+                }
+                
+                // Send message
+                Message msg = createMessage(jmsMessageType, key, testValue, i);
+                addMessageHeaders(msg, testHeadersMap);
+                addMessageProperties(msg, testPropertiesMap);
+                _messageProducer.send(msg, DeliveryMode.NON_PERSISTENT, Message.DEFAULT_PRIORITY, Message.DEFAULT_TIME_TO_LIVE);
+                _msgsSent++;
+            }
+        }
+        _connection.close();
+    }
+    
+    protected Message createMessage(String jmsMessageType, String key, String testValue, int i) throws Exception {
+        Message message = null;
+        switch (jmsMessageType) {
+        case "JMS_MESSAGE_TYPE":
+            message = createJMSMessage(key, testValue);
+            break;
+        case "JMS_BYTESMESSAGE_TYPE":
+            message = createJMSBytesMessage(key, testValue);
+            break;
+        case "JMS_MAPMESSAGE_TYPE":
+            message = createJMSMapMessage(key, testValue, i);
+            break;
+        case "JMS_OBJECTMESSAGE_TYPE":
+            message = createJMSObjectMessage(key, testValue);
+            break;
+        case "JMS_STREAMMESSAGE_TYPE":
+            message = createJMSStreamMessage(key, testValue);
+            break;
+        case "JMS_TEXTMESSAGE_TYPE":
+            message = createTextMessage(testValue);
+            break;
+        default:
+            throw new Exception("Internal exception: Unexpected JMS message type \"" + jmsMessageType + "\"");
+        }
+        return message;
+    }
+
+
+    protected void addMessageHeaders(Message msg, JsonObject testHeadersMap) throws Exception, JMSException {
+        List<String> testHeadersKeyList = new ArrayList<String>(testHeadersMap.keySet());
+        for (String key: testHeadersKeyList) {
+            JsonObject subMap = testHeadersMap.getJsonObject(key);
+            List<String> subMapKeyList = new ArrayList<String>(subMap.keySet());
+            String subMapKey = subMapKeyList.get(0); // There is always only one entry in map
+            String subMapVal = subMap.getString(subMapKey);
+            switch (key) {
+            case "JMS_TYPE_HEADER":
+                if (subMapKey.compareTo("string") == 0) {
+                    msg.setJMSType(subMapVal);
+                } else {
+                    throw new Exception("Internal exception: Invalid message header type \"" + subMapKey + "\" for message header \"" + key + "\"");
+                }
+                break;
+            case "JMS_CORRELATIONID_HEADER":
+                if (subMapKey.compareTo("string") == 0) {
+                    msg.setJMSCorrelationID(subMapVal);
+                } else if (subMapKey.compareTo("bytes") == 0) {
+                    msg.setJMSCorrelationIDAsBytes(subMapVal.getBytes());
+                } else {
+                    throw new Exception("Internal exception: Invalid message header type \"" + subMapKey + "\" for message header \"" + key + "\"");
+                }
+                break;
+            case "JMS_REPLYTO_HEADER":
+                switch (subMapKey) {
+                case "queue":
+                    msg.setJMSReplyTo(_session.createQueue(subMapVal));
+                    break;
+                case "temp_queue":
+                    msg.setJMSReplyTo(_session.createTemporaryQueue());
+                    break;
+                case "topic":
+                    msg.setJMSReplyTo(_session.createTopic(subMapVal));
+                    break;
+                case "temp_topic":
+                    msg.setJMSReplyTo(_session.createTemporaryTopic());
+                    break;
+                default:
+                    throw new Exception("Internal exception: Invalid message header type \"" + subMapKey + "\" for message header \"" + key + "\"");
+                }
+                break;
+            default:
+                throw new Exception("Internal exception: Unknown or unsupported message header \"" + key + "\"");
+            }
+        }
+    }
+
+    protected void addMessageProperties(Message msg, JsonObject testPropertiesMap) throws Exception, JMSException {
+        List<String> testPropertiesKeyList = new ArrayList<String>(testPropertiesMap.keySet());
+        for (String key: testPropertiesKeyList) {
+            JsonObject subMap = testPropertiesMap.getJsonObject(key);
+            List<String> subMapKeyList = new ArrayList<String>(subMap.keySet());
+            String subMapKey = subMapKeyList.get(0); // There is always only one entry in map
+            String subMapVal = subMap.getString(subMapKey);
+            switch (subMapKey) {
+            case "boolean":
+                msg.setBooleanProperty(key, Boolean.parseBoolean(subMapVal));
+                break;
+            case "byte":
+                msg.setByteProperty(key, Byte.decode(subMapVal));
+                break;
+            case "double":
+                Long l1 = Long.parseLong(subMapVal.substring(2, 3), 16) << 60;
+                Long l2 = Long.parseLong(subMapVal.substring(3), 16);
+                msg.setDoubleProperty(key, Double.longBitsToDouble(l1 | l2));
+                break;
+            case "float":
+                Long i = Long.parseLong(subMapVal.substring(2), 16);
+                msg.setFloatProperty(key, Float.intBitsToFloat(i.intValue()));
+                break;
+            case "int":
+                msg.setIntProperty(key, Integer.decode(subMapVal));
+                break;
+            case "long":
+                msg.setLongProperty(key, Long.decode(subMapVal));
+                break;
+            case "short":
+                msg.setShortProperty(key, Short.decode(subMapVal));
+                break;
+            case "string":
+                msg.setStringProperty(key, subMapVal);
+                break;
+            default:
+                throw new Exception("Internal exception: Unknown or unsupported message property type \"" + subMapKey + "\"");
+            }
+        }
+    }
+
+    protected Message createJMSMessage(String testValueType, String testValue) throws Exception, JMSException {
         if (testValueType.compareTo("none") != 0) {
             throw new Exception("Internal exception: Unexpected JMS message sub-type \"" + testValueType + "\"");
         }
         if (testValue.length() > 0) {
             throw new Exception("Internal exception: Unexpected JMS message value \"" + testValue + "\" for sub-type \"" + testValueType + "\"");
         }
-        return session.createMessage();
+        return _session.createMessage();
     }
 
-    protected static BytesMessage createBytesMessage(Session session, String testValueType, String testValue) throws Exception, JMSException {
-        BytesMessage message = session.createBytesMessage();
+    protected BytesMessage createJMSBytesMessage(String testValueType, String testValue) throws Exception, JMSException {
+        BytesMessage message = _session.createBytesMessage();
         switch (testValueType) {
         case "boolean":
             message.writeBoolean(Boolean.parseBoolean(testValue));
@@ -157,7 +280,7 @@ public class JmsSenderShim {
             if (testValue.length() == 1) { // Char format: "X" or "\xNN"
                 message.writeChar(testValue.charAt(0));
             } else {
-                throw new Exception("JmsSenderShim.createBytesMessage() Malformed char string: \"" + testValue + "\" of length " + testValue.length());
+                throw new Exception("JmsSenderShim.createJMSBytesMessage() Malformed char string: \"" + testValue + "\" of length " + testValue.length());
             }
             break;
         case "double":
@@ -191,8 +314,8 @@ public class JmsSenderShim {
         return message;
     }
     
-    protected static MapMessage createMapMessage(Session session, String testValueType, String testValue, int testValueNum) throws Exception, JMSException {
-        MapMessage message = session.createMapMessage();
+    protected MapMessage createJMSMapMessage(String testValueType, String testValue, int testValueNum) throws Exception, JMSException {
+        MapMessage message = _session.createMapMessage();
         String name = String.format("%s%03d", testValueType, testValueNum);
         switch (testValueType) {
         case "boolean":
@@ -210,7 +333,7 @@ public class JmsSenderShim {
             } else if (testValue.length() == 6) { // Char format: "\xNNNN"
                 message.setChar(name, (char)Integer.parseInt(testValue.substring(2), 16));
             } else {
-                throw new Exception("JmsSenderShim.createMapMessage() Malformed char string: \"" + testValue + "\"");
+                throw new Exception("JmsSenderShim.createJMSMapMessage() Malformed char string: \"" + testValue + "\"");
             }
             break;
         case "double":
@@ -244,20 +367,20 @@ public class JmsSenderShim {
         return message;
     }
     
-    protected static ObjectMessage createObjectMessage(Session session, String className, String testValue) throws Exception, JMSException {
+    protected ObjectMessage createJMSObjectMessage(String className, String testValue) throws Exception, JMSException {
         Serializable obj = createJavaObject(className, testValue);
         if (obj == null) {
             // TODO: Handle error here
-            System.out.println("createObjectMessage: obj == null");
+            System.out.println("JmsSenderShim.createJMSObjectMessage: obj == null");
             return null;
         }
-        ObjectMessage message = session.createObjectMessage();
+        ObjectMessage message = _session.createObjectMessage();
         message.setObject(obj);
         return message;
     }
     
-    protected static StreamMessage createStreamMessage(Session session, String testValueType, String testValue) throws Exception, JMSException {
-        StreamMessage message = session.createStreamMessage();
+    protected StreamMessage createJMSStreamMessage(String testValueType, String testValue) throws Exception, JMSException {
+        StreamMessage message = _session.createStreamMessage();
         switch (testValueType) {
         case "boolean":
             message.writeBoolean(Boolean.parseBoolean(testValue));
@@ -274,7 +397,7 @@ public class JmsSenderShim {
             } else if (testValue.length() == 6) { // Char format: "\xNNNN"
                 message.writeChar((char)Integer.parseInt(testValue.substring(2), 16));
             } else {
-                throw new Exception("JmsSenderShim.createStreamMessage() Malformed char string: \"" + testValue + "\"");
+                throw new Exception("JmsSenderShim.createJMSStreamMessage() Malformed char string: \"" + testValue + "\"");
             }
             break;
         case "double":
@@ -303,7 +426,7 @@ public class JmsSenderShim {
             message.writeString(testValue);
             break;
         default:
-            throw new Exception("Internal exception: Unexpected JMS message sub-type \"" + testValueType + "\"");
+            throw new Exception("JmsSenderShim.createJMSStreamMessage(): Unexpected JMS message sub-type \"" + testValueType + "\"");
         }
         return message;
     }
@@ -321,7 +444,7 @@ public class JmsSenderShim {
                     // Format '\xNN' or '\xNNNN'
                     obj = (Serializable)ctor.newInstance((char)Integer.parseInt(testValue.substring(2), 16));
                 } else {
-                    throw new Exception("JmsSenderShim.createStreamMessage() Malformed char string: \"" + testValue + "\"");
+                    throw new Exception("JmsSenderShim.createJavaObject(): Malformed char string: \"" + testValue + "\"");
                 }
             } else {
                 // Use string constructor
@@ -361,8 +484,8 @@ public class JmsSenderShim {
         return obj;
     }
     
-    protected static TextMessage createTextMessage(Session session, String valueStr) throws JMSException {
-        return session.createTextMessage(valueStr);
+    protected TextMessage createTextMessage(String valueStr) throws JMSException {
+        return _session.createTextMessage(valueStr);
     }
     
     protected static boolean isSupportedJmsMessageType(String jmsMessageType) {

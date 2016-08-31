@@ -140,6 +140,20 @@ namespace qpidit
         virtual ~UnknownAmqpTypeError() throw();
     };
 
+    class UnknownJmsDestinationTypeError: public std::runtime_error
+    {
+    public:
+        explicit UnknownJmsDestinationTypeError(const std::string& jmsDestinationType);
+        virtual ~UnknownJmsDestinationTypeError() throw();
+    };
+
+    class UnknownJmsHeaderTypeError: public std::runtime_error
+    {
+    public:
+        explicit UnknownJmsHeaderTypeError(const std::string& jmsHeaderType);
+        virtual ~UnknownJmsHeaderTypeError() throw();
+    };
+
     class UnknownJmsMessageSubTypeError: public std::runtime_error
     {
     public:
@@ -152,6 +166,13 @@ namespace qpidit
     public:
         explicit UnknownJmsMessageTypeError(const std::string& jmsMessageType);
         virtual ~UnknownJmsMessageTypeError() throw();
+    };
+
+    class UnknownJmsPropertyTypeError: public std::runtime_error
+    {
+    public:
+        explicit UnknownJmsPropertyTypeError(const std::string& jmsPropertyType);
+        virtual ~UnknownJmsPropertyTypeError() throw();
     };
 
     class UnsupportedAmqpTypeError: public std::runtime_error

@@ -27,6 +27,7 @@
 #include <proton/default_container.hpp>
 #include "proton/delivery.hpp"
 #include "proton/receiver.hpp"
+#include "proton/transport.hpp"
 #include "qpidit/QpidItErrors.hpp"
 
 namespace qpidit
@@ -55,7 +56,7 @@ namespace qpidit
         }
 
         void AmqpReceiver::on_message(proton::delivery &d, proton::message &m) {
-            if (m.id().get<uint64_t>() < _received) return; // ignore duplicate
+            if (proton::get<uint64_t>(m.id()) < _received) return; // ignore duplicate
             if (_received < _expected) {
                 if (_amqpType.compare("null") == 0) {
                     checkMessageType(m, proton::NULL_TYPE);
@@ -155,19 +156,23 @@ namespace qpidit
         }
 
         void AmqpReceiver::on_connection_error(proton::connection &c) {
-            std::cerr << "AmqpReceiver:on_connection_error()" << std::endl;
+            std::cerr << "AmqpReceiver::on_connection_error(): " << c.error() << std::endl;
         }
 
-        void AmqpReceiver::on_sender_error(proton::sender& l) {
-            std::cerr << "AmqpReceiver:on_sender_error()" << std::endl;
+        void AmqpReceiver::on_receiver_error(proton::receiver& r) {
+            std::cerr << "AmqpReceiver::on_receiver_error(): " << r.error() << std::endl;
+        }
+
+        void AmqpReceiver::on_session_error(proton::session &s) {
+            std::cerr << "AmqpReceiver::on_session_error(): " << s.error() << std::endl;
         }
 
         void AmqpReceiver::on_transport_error(proton::transport &t) {
-            std::cerr << "AmqpReceiver:on_transport_error()" << std::endl;
+            std::cerr << "AmqpReceiver::on_transport_error(): " << t.error() << std::endl;
         }
 
-        void AmqpReceiver::on_unhandled_error(const proton::error_condition &c) {
-            std::cerr << "AmqpReceiver:on_unhandled_error() name=" << c.name() << " description=" << c.description() << std::endl;
+        void AmqpReceiver::on_error(const proton::error_condition &ec) {
+            std::cerr << "AmqpReceiver::on_error(): " << ec << std::endl;
         }
 
         // protected

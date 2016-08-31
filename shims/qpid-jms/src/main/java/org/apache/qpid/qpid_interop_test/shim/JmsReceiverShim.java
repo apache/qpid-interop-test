@@ -17,16 +17,19 @@
 package org.apache.qpid.interop_test.shim;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Enumeration;
 import java.util.List;
 import javax.jms.BytesMessage;
 import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
+import javax.jms.Destination;
 import javax.jms.ExceptionListener;
 import javax.jms.JMSException;
 import javax.jms.MapMessage;
@@ -37,7 +40,9 @@ import javax.jms.Queue;
 import javax.jms.Session;
 import javax.jms.StreamMessage;
 import javax.jms.TextMessage;
+import javax.jms.Topic;
 import javax.json.Json;
+import javax.json.JsonArray;
 import javax.json.JsonArrayBuilder;
 import javax.json.JsonObject;
 import javax.json.JsonObjectBuilder;
@@ -55,15 +60,24 @@ public class JmsReceiverShim {
                                                                  "JMS_OBJECTMESSAGE_TYPE",
                                                                  "JMS_STREAMMESSAGE_TYPE",
                                                                  "JMS_TEXTMESSAGE_TYPE"};
-
+    private static enum JMS_DESTINATION_TYPE {JMS_QUEUE, JMS_TEMPORARY_QUEUE, JMS_TOPIC, JMS_TEMPORARY_TOPIC};
+    
+    Connection _connection;
+    Session _session;
+    Queue _queue;
+    MessageConsumer _messageConsumer;
+    JsonObjectBuilder _jsonTestValueMapBuilder;
+    JsonObjectBuilder _jsonMessageHeaderMapBuilder;
+    JsonObjectBuilder _jsonMessagePropertiesMapBuilder;
+    
     // args[0]: Broker URL
     // args[1]: Queue name
     // args[2]: JMS message type
-    // args[3]: JSON Test number map
+    // args[3]: JSON Test parameters containing 2 maps: [testValuesMap, flagMap]
     public static void main(String[] args) throws Exception {
-        if (args.length < 4) {
-            System.out.println("JmsReceiverShim: Insufficient number of arguments");
-            System.out.println("JmsReceiverShim: Expected arguments: broker_address, queue_name, amqp_type, num_test_values");
+        if (args.length != 4) {
+            System.out.println("JmsReceiverShim: Incorrect number of arguments");
+            System.out.println("JmsReceiverShim: Expected arguments: broker_address, queue_name, JMS_msg_type, JSON_receive_params");
             System.exit(1);
         }
         String brokerAddress = "amqp://" + args[0];
@@ -75,221 +89,379 @@ public class JmsReceiverShim {
         }
 
         JsonReader jsonReader = Json.createReader(new StringReader(args[3]));
-        JsonObject numTestValuesMap = jsonReader.readObject();
+        JsonArray testParamsList = jsonReader.readArray();
         jsonReader.close();
 
-        Connection connection = null;
+        if (testParamsList.size() != 2) {
+            System.err.println("ERROR: Incorrect number of JSON parameters: Expected 2, got " + Integer.toString(testParamsList.size()));
+            System.exit(1);
+        }
 
+        JsonObject numTestValuesMap = testParamsList.getJsonObject(0);
+        JsonObject flagMap = testParamsList.getJsonObject(1);
+        
+        JmsReceiverShim shim = new JmsReceiverShim(brokerAddress, queueName);
+        shim.run(jmsMessageType, numTestValuesMap, flagMap);
+    }
+
+    public JmsReceiverShim(String brokerAddress, String queueName) {
         try {
+            _connection = null;
             ConnectionFactory factory = (ConnectionFactory)new JmsConnectionFactory(brokerAddress);
+            _connection = factory.createConnection(USER, PASSWORD);
+            _connection.setExceptionListener(new MyExceptionListener());
+            _connection.start();
 
-            connection = factory.createConnection(USER, PASSWORD);
-            connection.setExceptionListener(new MyExceptionListener());
-            connection.start();
+            _session = _connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
 
-            Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+            _queue = _session.createQueue(queueName);
 
-            Queue queue = session.createQueue(queueName);
+            _messageConsumer = _session.createConsumer(_queue);
 
-            MessageConsumer messageConsumer = session.createConsumer(queue);
+            _jsonTestValueMapBuilder = Json.createObjectBuilder();
+            _jsonMessageHeaderMapBuilder = Json.createObjectBuilder();
+            _jsonMessagePropertiesMapBuilder = Json.createObjectBuilder();
+        } catch (Exception exc) {
+            if (_connection != null)
+                try { _connection.close(); } catch (JMSException e) {}
+            System.out.println("Caught exception, exiting.");
+            exc.printStackTrace(System.out);
+            System.exit(1);
+        }
+    }
+    
+    public void run(String jmsMessageType, JsonObject numTestValuesMap, JsonObject flagMap) {
+        try {
+            List<String> subTypeKeyList = new ArrayList<String>(numTestValuesMap.keySet());
+            Collections.sort(subTypeKeyList);
             
-            List<String> keyList = new ArrayList<String>(numTestValuesMap.keySet());
-            Collections.sort(keyList);
-
             Message message = null;
-            JsonObjectBuilder job = Json.createObjectBuilder();
-            for (String key: keyList) {
-                JsonArrayBuilder jab = Json.createArrayBuilder();
-                for (int i=0; i<numTestValuesMap.getJsonNumber(key).intValue(); ++i) {
-                    message = messageConsumer.receive(TIMEOUT);
+            
+            for (String subType: subTypeKeyList) {
+                JsonArrayBuilder jasonTestValuesArrayBuilder = Json.createArrayBuilder();
+                for (int i=0; i<numTestValuesMap.getJsonNumber(subType).intValue(); ++i) {
+                    message = _messageConsumer.receive(TIMEOUT);
                     if (message == null) break;
                     switch (jmsMessageType) {
                     case "JMS_MESSAGE_TYPE":
-                        jab.addNull();
+                        processJMSMessage(jasonTestValuesArrayBuilder);
                         break;
                     case "JMS_BYTESMESSAGE_TYPE":
-                        switch (key) {
-                        case "boolean":
-                            jab.add(((BytesMessage)message).readBoolean()?"True":"False");
-                            break;
-                        case "byte":
-                            jab.add(formatByte(((BytesMessage)message).readByte()));
-                            break;
-                        case "bytes":
-                            {
-                                byte[] bytesBuff = new byte[65536];
-                                int numBytesRead = ((BytesMessage)message).readBytes(bytesBuff);
-                                if (numBytesRead >= 0) {
-                                    jab.add(new String(Arrays.copyOfRange(bytesBuff, 0, numBytesRead)));
-                                } else {
-                                    // NOTE: For this case, an empty byte array has nothing to return
-                                    jab.add(new String());
-                                }
-                            }
-                            break;
-                        case "char":
-                            jab.add(formatChar(((BytesMessage)message).readChar()));
-                            break;
-                        case "double":
-                            long l = Double.doubleToRawLongBits(((BytesMessage)message).readDouble());
-                            jab.add(String.format("0x%16s", Long.toHexString(l)).replace(' ', '0'));
-                            break;
-                        case "float":
-                            int i0 = Float.floatToRawIntBits(((BytesMessage)message).readFloat());
-                            jab.add(String.format("0x%8s", Integer.toHexString(i0)).replace(' ', '0'));
-                            break;
-                        case "int":
-                            jab.add(formatInt(((BytesMessage)message).readInt()));
-                            break;
-                        case "long":
-                            jab.add(formatLong(((BytesMessage)message).readLong()));
-                            break;
-                        case "object":
-                            {
-                                byte[] bytesBuff = new byte[65536];
-                                int numBytesRead = ((BytesMessage)message).readBytes(bytesBuff);
-                                if (numBytesRead >= 0) {
-                                    ByteArrayInputStream bais = new ByteArrayInputStream(Arrays.copyOfRange(bytesBuff, 0, numBytesRead));
-                                    ObjectInputStream ois = new ObjectInputStream(bais);
-                                    Object obj = ois.readObject();
-                                    jab.add(obj.getClass().getName() + ":" + obj.toString());
-                                } else {
-                                    jab.add("<object error>");
-                                }
-                            }
-                            break;
-                        case "short":
-                            jab.add(formatShort(((BytesMessage)message).readShort()));
-                            break;
-                        case "string":
-                            jab.add(((BytesMessage)message).readUTF());
-                            break;
-                        default:
-                            throw new Exception("JmsReceiverShim: Unknown subtype for " + jmsMessageType + ": \"" + key + "\"");
-                        }
+                        processJMSBytesMessage(jmsMessageType, subType, message, jasonTestValuesArrayBuilder);
                         break;
                     case "JMS_STREAMMESSAGE_TYPE":
-                        switch (key) {
-                        case "boolean":
-                            jab.add(((StreamMessage)message).readBoolean()?"True":"False");
-                            break;
-                        case "byte":
-                            jab.add(formatByte(((StreamMessage)message).readByte()));
-                            break;
-                        case "bytes":
-                            byte[] bytesBuff = new byte[65536];
-                            int numBytesRead = ((StreamMessage)message).readBytes(bytesBuff);
-                            if (numBytesRead >= 0) {
-                                jab.add(new String(Arrays.copyOfRange(bytesBuff, 0, numBytesRead)));
-                            } else {
-                                System.out.println("StreamMessage.readBytes() returned " + numBytesRead);
-                                jab.add("<bytes error>");
-                            }
-                            break;
-                        case "char":
-                            jab.add(formatChar(((StreamMessage)message).readChar()));
-                            break;
-                        case "double":
-                            long l = Double.doubleToRawLongBits(((StreamMessage)message).readDouble());
-                            jab.add(String.format("0x%16s", Long.toHexString(l)).replace(' ', '0'));
-                            break;
-                        case "float":
-                            int i0 = Float.floatToRawIntBits(((StreamMessage)message).readFloat());
-                            jab.add(String.format("0x%8s", Integer.toHexString(i0)).replace(' ', '0'));
-                            break;
-                        case "int":
-                            jab.add(formatInt(((StreamMessage)message).readInt()));
-                            break;
-                        case "long":
-                            jab.add(formatLong(((StreamMessage)message).readLong()));
-                            break;
-                        case "object":
-                            Object obj = ((StreamMessage)message).readObject();
-                            jab.add(obj.getClass().getName() + ":" + obj.toString());
-                            break;
-                        case "short":
-                            jab.add(formatShort(((StreamMessage)message).readShort()));
-                            break;
-                        case "string":
-                            jab.add(((StreamMessage)message).readString());
-                            break;
-                        default:
-                            throw new Exception("JmsReceiverShim: Unknown subtype for " + jmsMessageType + ": \"" + key + "\"");
-                        }
+                        processJMSStreamMessage(jmsMessageType, subType, message, jasonTestValuesArrayBuilder);
                         break;
                     case "JMS_MAPMESSAGE_TYPE":
-                        String name = String.format("%s%03d", key, i);
-                        switch (key) {
-                        case "boolean":
-                            jab.add(((MapMessage)message).getBoolean(name)?"True":"False");
-                            break;
-                        case "byte":
-                            jab.add(formatByte(((MapMessage)message).getByte(name)));
-                            break;
-                        case "bytes":
-                            jab.add(new String(((MapMessage)message).getBytes(name)));
-                            break;
-                        case "char":
-                            jab.add(formatChar(((MapMessage)message).getChar(name)));
-                            break;
-                        case "double":
-                            long l = Double.doubleToRawLongBits(((MapMessage)message).getDouble(name));
-                            jab.add(String.format("0x%16s", Long.toHexString(l)).replace(' ', '0'));
-                            break;
-                        case "float":
-                            int i0 = Float.floatToRawIntBits(((MapMessage)message).getFloat(name));
-                            jab.add(String.format("0x%8s", Integer.toHexString(i0)).replace(' ', '0'));
-                            break;
-                        case "int":
-                            jab.add(formatInt(((MapMessage)message).getInt(name)));
-                            break;
-                        case "long":
-                            jab.add(formatLong(((MapMessage)message).getLong(name)));
-                            break;
-                        case "object":
-                            Object obj = ((MapMessage)message).getObject(name);
-                            jab.add(obj.getClass().getName() + ":" + obj.toString());
-                            break;
-                        case "short":
-                            jab.add(formatShort(((MapMessage)message).getShort(name)));
-                            break;
-                        case "string":
-                            jab.add(((MapMessage)message).getString(name));
-                            break;
-                        default:
-                            throw new Exception("JmsReceiverShim: Unknown subtype for " + jmsMessageType + ": \"" + key + "\"");
-                        }
+                        processJMSMapMessage(jmsMessageType, subType, i, message, jasonTestValuesArrayBuilder);
                         break;
                     case "JMS_OBJECTMESSAGE_TYPE":
-                        jab.add(((ObjectMessage)message).getObject().toString());
+                        processJMSObjectMessage(subType, message, jasonTestValuesArrayBuilder);
                         break;
                     case "JMS_TEXTMESSAGE_TYPE":
-                        jab.add(((TextMessage)message).getText());
+                        processJMSTextMessage(message, jasonTestValuesArrayBuilder);
                         break;
                     default:
-                        connection.close();
+                        _connection.close();
                         throw new Exception("JmsReceiverShim: Internal error: Unknown or unsupported JMS message type \"" + jmsMessageType + "\"");
                     }
+                    
+                    processMessageHeaders(message, flagMap);
+                    processMessageProperties(message);
                 }
-                job.add(key, jab);
+                _jsonTestValueMapBuilder.add(subType, jasonTestValuesArrayBuilder);
             }
-            connection.close();
-
+            _connection.close();
+    
             System.out.println(jmsMessageType);
             StringWriter out = new StringWriter();
-            JsonWriter jsonWriter = Json.createWriter(out);
-            jsonWriter.writeObject(job.build());
-            jsonWriter.close();
-            System.out.println(out.toString());
+            writeJsonObject(_jsonTestValueMapBuilder, out);
+            out.append('\n');
+            writeJsonObject(_jsonMessageHeaderMapBuilder, out);
+            out.append('\n');
+            writeJsonObject(_jsonMessagePropertiesMapBuilder, out);
+            System.out.println(out.toString());        
         } catch (Exception exp) {
-            if (connection != null)
-                connection.close();
+            try { _connection.close(); } catch (JMSException e) {}
             System.out.println("Caught exception, exiting.");
             exp.printStackTrace(System.out);
             System.exit(1);
         }
     }
     
+    protected void processJMSMessage(JsonArrayBuilder jasonTestValuesArrayBuilder) {
+        jasonTestValuesArrayBuilder.addNull();        
+    }
+    
+    protected void processJMSBytesMessage(String jmsMessageType, String subType, Message message, JsonArrayBuilder jasonTestValuesArrayBuilder) throws Exception, JMSException, IOException, ClassNotFoundException {
+        switch (subType) {
+        case "boolean":
+            jasonTestValuesArrayBuilder.add(((BytesMessage)message).readBoolean()?"True":"False");
+            break;
+        case "byte":
+            jasonTestValuesArrayBuilder.add(formatByte(((BytesMessage)message).readByte()));
+            break;
+        case "bytes":
+            {
+                byte[] bytesBuff = new byte[65536];
+                int numBytesRead = ((BytesMessage)message).readBytes(bytesBuff);
+                if (numBytesRead >= 0) {
+                    jasonTestValuesArrayBuilder.add(new String(Arrays.copyOfRange(bytesBuff, 0, numBytesRead)));
+                } else {
+                    // NOTE: For this case, an empty byte array has nothing to return
+                    jasonTestValuesArrayBuilder.add(new String());
+                }
+            }
+            break;
+        case "char":
+            jasonTestValuesArrayBuilder.add(formatChar(((BytesMessage)message).readChar()));
+            break;
+        case "double":
+            long l = Double.doubleToRawLongBits(((BytesMessage)message).readDouble());
+            jasonTestValuesArrayBuilder.add(String.format("0x%16s", Long.toHexString(l)).replace(' ', '0'));
+            break;
+        case "float":
+            int i0 = Float.floatToRawIntBits(((BytesMessage)message).readFloat());
+            jasonTestValuesArrayBuilder.add(String.format("0x%8s", Integer.toHexString(i0)).replace(' ', '0'));
+            break;
+        case "int":
+            jasonTestValuesArrayBuilder.add(formatInt(((BytesMessage)message).readInt()));
+            break;
+        case "long":
+            jasonTestValuesArrayBuilder.add(formatLong(((BytesMessage)message).readLong()));
+            break;
+        case "object":
+            {
+                byte[] bytesBuff = new byte[65536];
+                int numBytesRead = ((BytesMessage)message).readBytes(bytesBuff);
+                if (numBytesRead >= 0) {
+                    ByteArrayInputStream bais = new ByteArrayInputStream(Arrays.copyOfRange(bytesBuff, 0, numBytesRead));
+                    ObjectInputStream ois = new ObjectInputStream(bais);
+                    Object obj = ois.readObject();
+                    jasonTestValuesArrayBuilder.add(obj.getClass().getName() + ":" + obj.toString());
+                } else {
+                    jasonTestValuesArrayBuilder.add("<object error>");
+                }
+            }
+            break;
+        case "short":
+            jasonTestValuesArrayBuilder.add(formatShort(((BytesMessage)message).readShort()));
+            break;
+        case "string":
+            jasonTestValuesArrayBuilder.add(((BytesMessage)message).readUTF());
+            break;
+        default:
+            throw new Exception("JmsReceiverShim: Unknown subtype for " + jmsMessageType + ": \"" + subType + "\"");
+        }        
+    }
+    
+    protected void processJMSMapMessage(String jmsMessageType, String subType, int count, Message message, JsonArrayBuilder jasonTestValuesArrayBuilder) throws Exception, JMSException {
+        String name = String.format("%s%03d", subType, count);
+        switch (subType) {
+        case "boolean":
+            jasonTestValuesArrayBuilder.add(((MapMessage)message).getBoolean(name)?"True":"False");
+            break;
+        case "byte":
+            jasonTestValuesArrayBuilder.add(formatByte(((MapMessage)message).getByte(name)));
+            break;
+        case "bytes":
+            jasonTestValuesArrayBuilder.add(new String(((MapMessage)message).getBytes(name)));
+            break;
+        case "char":
+            jasonTestValuesArrayBuilder.add(formatChar(((MapMessage)message).getChar(name)));
+            break;
+        case "double":
+            long l = Double.doubleToRawLongBits(((MapMessage)message).getDouble(name));
+            jasonTestValuesArrayBuilder.add(String.format("0x%16s", Long.toHexString(l)).replace(' ', '0'));
+            break;
+        case "float":
+            int i0 = Float.floatToRawIntBits(((MapMessage)message).getFloat(name));
+            jasonTestValuesArrayBuilder.add(String.format("0x%8s", Integer.toHexString(i0)).replace(' ', '0'));
+            break;
+        case "int":
+            jasonTestValuesArrayBuilder.add(formatInt(((MapMessage)message).getInt(name)));
+            break;
+        case "long":
+            jasonTestValuesArrayBuilder.add(formatLong(((MapMessage)message).getLong(name)));
+            break;
+        case "object":
+            Object obj = ((MapMessage)message).getObject(name);
+            jasonTestValuesArrayBuilder.add(obj.getClass().getName() + ":" + obj.toString());
+            break;
+        case "short":
+            jasonTestValuesArrayBuilder.add(formatShort(((MapMessage)message).getShort(name)));
+            break;
+        case "string":
+            jasonTestValuesArrayBuilder.add(((MapMessage)message).getString(name));
+            break;
+        default:
+            throw new Exception("JmsReceiverShim: Unknown subtype for " + jmsMessageType + ": \"" + subType + "\"");
+        }        
+    }
+    
+    protected void processJMSObjectMessage(String subType, Message message, JsonArrayBuilder jasonTestValuesArrayBuilder) throws JMSException {
+        jasonTestValuesArrayBuilder.add(((ObjectMessage)message).getObject().toString());
+    }
+    
+    protected void processJMSStreamMessage(String jmsMessageType, String subType, Message message, JsonArrayBuilder jasonTestValuesArrayBuilder) throws Exception, JMSException {
+        switch (subType) {
+        case "boolean":
+            jasonTestValuesArrayBuilder.add(((StreamMessage)message).readBoolean()?"True":"False");
+            break;
+        case "byte":
+            jasonTestValuesArrayBuilder.add(formatByte(((StreamMessage)message).readByte()));
+            break;
+        case "bytes":
+            byte[] bytesBuff = new byte[65536];
+            int numBytesRead = ((StreamMessage)message).readBytes(bytesBuff);
+            if (numBytesRead >= 0) {
+                jasonTestValuesArrayBuilder.add(new String(Arrays.copyOfRange(bytesBuff, 0, numBytesRead)));
+            } else {
+                System.out.println("StreamMessage.readBytes() returned " + numBytesRead);
+                jasonTestValuesArrayBuilder.add("<bytes error>");
+            }
+            break;
+        case "char":
+            jasonTestValuesArrayBuilder.add(formatChar(((StreamMessage)message).readChar()));
+            break;
+        case "double":
+            long l = Double.doubleToRawLongBits(((StreamMessage)message).readDouble());
+            jasonTestValuesArrayBuilder.add(String.format("0x%16s", Long.toHexString(l)).replace(' ', '0'));
+            break;
+        case "float":
+            int i0 = Float.floatToRawIntBits(((StreamMessage)message).readFloat());
+            jasonTestValuesArrayBuilder.add(String.format("0x%8s", Integer.toHexString(i0)).replace(' ', '0'));
+            break;
+        case "int":
+            jasonTestValuesArrayBuilder.add(formatInt(((StreamMessage)message).readInt()));
+            break;
+        case "long":
+            jasonTestValuesArrayBuilder.add(formatLong(((StreamMessage)message).readLong()));
+            break;
+        case "object":
+            Object obj = ((StreamMessage)message).readObject();
+            jasonTestValuesArrayBuilder.add(obj.getClass().getName() + ":" + obj.toString());
+            break;
+        case "short":
+            jasonTestValuesArrayBuilder.add(formatShort(((StreamMessage)message).readShort()));
+            break;
+        case "string":
+            jasonTestValuesArrayBuilder.add(((StreamMessage)message).readString());
+            break;
+        default:
+            throw new Exception("JmsReceiverShim: Unknown subtype for " + jmsMessageType + ": \"" + subType + "\"");
+        }        
+    }
+
+    protected void processJMSTextMessage(Message message, JsonArrayBuilder jasonTestValuesArrayBuilder) throws JMSException {
+        jasonTestValuesArrayBuilder.add(((TextMessage)message).getText());
+    }
+
+    protected void processMessageHeaders(Message message, JsonObject flagMap) throws Exception, JMSException {
+        addMessageHeaderString("JMS_TYPE_HEADER", message.getJMSType());
+        if (flagMap.containsKey("JMS_CORRELATIONID_AS_BYTES") && flagMap.getBoolean("JMS_CORRELATIONID_AS_BYTES")) {
+            addMessageHeaderByteArray("JMS_CORRELATIONID_HEADER", message.getJMSCorrelationIDAsBytes());
+        } else {
+            addMessageHeaderString("JMS_CORRELATIONID_HEADER", message.getJMSCorrelationID());
+        }
+        if (flagMap.containsKey("JMS_REPLYTO_AS_TOPIC") && flagMap.getBoolean("JMS_REPLYTO_AS_TOPIC")) {
+            addMessageHeaderDestination("JMS_REPLYTO_HEADER", JMS_DESTINATION_TYPE.JMS_TOPIC, message.getJMSReplyTo());
+        } else {
+            addMessageHeaderDestination("JMS_REPLYTO_HEADER", JMS_DESTINATION_TYPE.JMS_QUEUE, message.getJMSReplyTo());
+        }
+    }
+
+    protected void addMessageHeaderString(String headerName, String value) {
+        if (value != null) {
+            JsonObjectBuilder valueMap = Json.createObjectBuilder();
+            valueMap.add("string", value);
+            _jsonMessageHeaderMapBuilder.add(headerName, valueMap);
+        }
+    }
+
+    protected void addMessageHeaderByteArray(String headerName, byte[] value) {
+        if (value != null) {
+            JsonObjectBuilder valueMap = Json.createObjectBuilder();
+            valueMap.add("bytes", new String(value));
+            _jsonMessageHeaderMapBuilder.add(headerName, valueMap);
+        }        
+    }
+
+    protected void addMessageHeaderDestination(String headerName, JMS_DESTINATION_TYPE destinationType, Destination destination) throws Exception {
+        if (destination != null) {
+            JsonObjectBuilder valueMap = Json.createObjectBuilder();
+            switch (destinationType) {
+            case JMS_QUEUE:
+                valueMap.add("queue", ((Queue)destination).getQueueName());
+                break;
+            case JMS_TOPIC:
+                valueMap.add("topic", ((Topic)destination).getTopicName());
+                break;
+            default:
+                throw new Exception("Internal error: JMSDestination type not supported");
+            }
+            _jsonMessageHeaderMapBuilder.add(headerName, valueMap);
+        }
+    }
+
+    protected void processMessageProperties(Message message) throws Exception, JMSException {
+        Enumeration<String> propertyNames = message.getPropertyNames(); 
+        while (propertyNames.hasMoreElements()) {
+            JsonObjectBuilder valueMap = Json.createObjectBuilder();
+            String propertyName = propertyNames.nextElement();
+            int underscoreIndex = propertyName.indexOf('_');
+            if (underscoreIndex >= 0) {
+                String propType = propertyName.substring(0, underscoreIndex);
+                switch (propType) {
+                case "boolean":
+                    valueMap.add(propType, message.getBooleanProperty(propertyName) ? "True" : "False");
+                    _jsonMessagePropertiesMapBuilder.add(propertyName, valueMap);
+                    break;
+                case "byte":
+                    valueMap.add(propType, formatByte(message.getByteProperty(propertyName)));
+                    _jsonMessagePropertiesMapBuilder.add(propertyName, valueMap);
+                    break;
+                case "double":
+                    long l = Double.doubleToRawLongBits(message.getDoubleProperty(propertyName));
+                    valueMap.add(propType, String.format("0x%16s", Long.toHexString(l)).replace(' ', '0'));
+                    _jsonMessagePropertiesMapBuilder.add(propertyName, valueMap);
+                    break;
+                case "float":
+                    int i = Float.floatToRawIntBits(message.getFloatProperty(propertyName));
+                    valueMap.add(propType, String.format("0x%8s", Integer.toHexString(i)).replace(' ', '0'));
+                    _jsonMessagePropertiesMapBuilder.add(propertyName, valueMap);
+                    break;
+                case "int":
+                    valueMap.add(propType, formatInt(message.getIntProperty(propertyName)));
+                    _jsonMessagePropertiesMapBuilder.add(propertyName, valueMap);
+                    break;
+                case "long":
+                    valueMap.add(propType, formatLong(message.getLongProperty(propertyName)));
+                    _jsonMessagePropertiesMapBuilder.add(propertyName, valueMap);
+                    break;
+                case "short":
+                    valueMap.add(propType, formatShort(message.getShortProperty(propertyName)));
+                    _jsonMessagePropertiesMapBuilder.add(propertyName, valueMap);
+                    break;
+                case "string":
+                    valueMap.add(propType, message.getStringProperty(propertyName));
+                    _jsonMessagePropertiesMapBuilder.add(propertyName, valueMap);
+                    break;
+                default:
+                    ; // Ignore any other property the broker may add
+                }
+            } else {
+                // TODO: handle other non-test properties that might exist here
+            }
+        }
+    }
+
+    protected static void writeJsonObject(JsonObjectBuilder builder, StringWriter out) {
+        JsonWriter jsonWriter = Json.createWriter(out);
+        jsonWriter.writeObject(builder.build());
+        jsonWriter.close();        
+    }
+
     protected static String formatByte(byte b) {
         boolean neg = false;
         if (b < 0) {

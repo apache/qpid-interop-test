@@ -76,3 +76,10 @@ class TestTypeMap(object):
         """Return boolean True if test should be skipped"""
         return test_type in self.BROKER_SKIP.keys() and \
             broker_name in self.BROKER_SKIP[test_type]
+
+    @staticmethod
+    def merge_dicts(*dict_args):
+        res = {}
+        for d in dict_args:
+            res.update(d)
+        return res

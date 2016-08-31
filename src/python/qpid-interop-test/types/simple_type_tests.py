@@ -41,6 +41,9 @@ import broker_properties
 
 # TODO - propose a sensible default when installation details are worked out
 QPID_INTEROP_TEST_HOME = getenv('QPID_INTEROP_TEST_HOME')
+if QPID_INTEROP_TEST_HOME is None:
+    print 'ERROR: Environment variable QPID_INTEROP_TEST_HOME is not set'
+    exit(1)
 
 
 class AmqpPrimitiveTypes(TestTypeMap):
@@ -249,7 +252,6 @@ class AmqpTypeTestCase(unittest.TestCase):
         else:
             self.fail('Type %s has no test values' % amqp_type)
 
-
 def create_testcase_class(broker_name, types, broker_addr, amqp_type, shim_product):
     """
     Class factory function which creates new subclasses to AmqpTypeTestCase.
@@ -447,11 +449,11 @@ if __name__ == '__main__':
         print 'WARNING: Unable to get connection properties - unknown broker'
         BROKER = 'unknown'
     else:
-        print 'Test Broker: %s v.%s on %s' % (CONNECTION_PROPS[symbol(u'product')],
-                                              CONNECTION_PROPS[symbol(u'version')],
-                                              CONNECTION_PROPS[symbol(u'platform')])
+        BROKER = CONNECTION_PROPS[symbol(u'product')] if symbol(u'product') in CONNECTION_PROPS else '<product not found>'
+        BROKER_VERSION = CONNECTION_PROPS[symbol(u'version')] if symbol(u'version') in CONNECTION_PROPS else '<version not found>'
+        BROKER_PLATFORM = CONNECTION_PROPS[symbol(u'platform')] if symbol(u'platform') in CONNECTION_PROPS else '<platform not found>'
+        print 'Test Broker: %s v.%s on %s' % (BROKER, BROKER_VERSION, BROKER_PLATFORM)
         print
-        BROKER = CONNECTION_PROPS[symbol(u'product')]
 
     TYPES = AmqpPrimitiveTypes()
 

@@ -26,13 +26,13 @@
 #include "proton/connection.hpp"
 #include "proton/default_container.hpp"
 #include "proton/delivery.hpp"
+#include "proton/transport.hpp"
 #include "qpidit/QpidItErrors.hpp"
 
 namespace qpidit
 {
     namespace shim
     {
-        typedef enum {JMS_MESSAGE_TYPE=0, JMS_OBJECTMESSAGE_TYPE, JMS_MAPMESSAGE_TYPE, JMS_BYTESMESSAGE_TYPE, JMS_STREAMMESSAGE_TYPE, JMS_TEXTMESSAGE_TYPE} jmsMessageType_t;
         //static
         proton::symbol JmsReceiver::s_jmsMessageTypeAnnotationKey("x-opt-jms-msg-type");
         std::map<std::string, int8_t>JmsReceiver::s_jmsMessageTypeAnnotationValues = initializeJmsMessageTypeAnnotationMap();
@@ -40,22 +40,34 @@ namespace qpidit
 
         JmsReceiver::JmsReceiver(const std::string& brokerUrl,
                                  const std::string& jmsMessageType,
-                                 const Json::Value& testNumberMap):
+                                 const Json::Value& testNumberMap,
+                                 const Json::Value& flagMap):
                             _brokerUrl(brokerUrl),
                             _jmsMessageType(jmsMessageType),
                             _testNumberMap(testNumberMap),
+                            _flagMap(flagMap),
                             _subTypeList(testNumberMap.getMemberNames()),
                             _subTypeIndex(0),
                             _expected(getTotalNumExpectedMsgs(testNumberMap)),
                             _received(0UL),
                             _receivedSubTypeList(Json::arrayValue),
-                            _receivedValueMap(Json::objectValue)
+                            _receivedValueMap(Json::objectValue),
+                            _receivedHeadersMap(Json::objectValue),
+                            _receivedPropertiesMap(Json::objectValue)
         {}
 
         JmsReceiver::~JmsReceiver() {}
 
         Json::Value& JmsReceiver::getReceivedValueMap() {
             return _receivedValueMap;
+        }
+
+        Json::Value& JmsReceiver::getReceivedHeadersMap() {
+            return _receivedHeadersMap;
+        }
+
+        Json::Value& JmsReceiver::getReceivedPropertiesMap() {
+            return _receivedPropertiesMap;
         }
 
         void JmsReceiver::on_container_start(proton::container &c) {
@@ -86,6 +98,10 @@ namespace qpidit
                 default:;
                     // TODO: handle error - no known JMS message type
                 }
+
+                processMessageHeaders(m);
+                processMessageProperties(m);
+
                 std::string subType(_subTypeList[_subTypeIndex]);
                 // Increment the subtype if the required number of messages have been received
                 if (_receivedSubTypeList.size() >= _testNumberMap[subType].asInt() &&
@@ -100,6 +116,26 @@ namespace qpidit
                     d.connection().close();
                 }
             }
+        }
+
+        void JmsReceiver::on_connection_error(proton::connection &c) {
+            std::cerr << "JmsReceiver::on_connection_error(): " << c.error() << std::endl;
+        }
+
+        void JmsReceiver::on_receiver_error(proton::receiver& r) {
+            std::cerr << "JmsReceiver::on_receiver_error(): " << r.error() << std::endl;
+        }
+
+        void JmsReceiver::on_session_error(proton::session &s) {
+            std::cerr << "JmsReceiver::on_session_error(): " << s.error() << std::endl;
+        }
+
+        void JmsReceiver::on_transport_error(proton::transport &t) {
+            std::cerr << "JmsReceiver::on_transport_error(): " << t.error() << std::endl;
+        }
+
+        void JmsReceiver::on_error(const proton::error_condition &ec) {
+            std::cerr << "JmsReceiver::on_error(): " << ec << std::endl;
         }
 
         //static
@@ -261,6 +297,72 @@ namespace qpidit
             _receivedSubTypeList.append(Json::Value(msg.body().get<std::string>()));
         }
 
+        void JmsReceiver::processMessageHeaders(const proton::message& msg) {
+            addMessageHeaderString("JMS_TYPE_HEADER", msg.subject());
+            if (_flagMap.isMember("JMS_CORRELATIONID_AS_BYTES") && _flagMap["JMS_CORRELATIONID_AS_BYTES"].asBool()) {
+                addMessageHeaderByteArray("JMS_CORRELATIONID_HEADER", proton::get<proton::binary>(msg.correlation_id()));
+            } else {
+                try {
+                    addMessageHeaderString("JMS_CORRELATIONID_HEADER", proton::get<std::string>(msg.correlation_id()));
+                } catch (const std::exception& e) {} // TODO: UGLY, how do you check if there _is_ a correlation id?
+            }
+
+            std::string reply_to = msg.reply_to();
+            // Some brokers prepend 'queue://' and 'topic://' to reply_to addresses, strip these when present
+            if (_flagMap.isMember("JMS_REPLYTO_AS_TOPIC") && _flagMap["JMS_REPLYTO_AS_TOPIC"].asBool()) {
+                if (reply_to.find("topic://") == 0) {
+                    addMessageHeaderDestination("JMS_REPLYTO_HEADER", JMS_TOPIC, reply_to.substr(8));
+                } else {
+                    addMessageHeaderDestination("JMS_REPLYTO_HEADER", JMS_TOPIC, reply_to);
+                }
+            } else {
+                if (reply_to.find("queue://") == 0) {
+                    addMessageHeaderDestination("JMS_REPLYTO_HEADER", JMS_QUEUE, reply_to.substr(8));
+                } else {
+                    addMessageHeaderDestination("JMS_REPLYTO_HEADER", JMS_QUEUE, reply_to);
+                }
+            }
+        }
+
+        void JmsReceiver::addMessageHeaderString(const char* headerName, const std::string& value) {
+            if (!value.empty()) { // TODO: Remove this test when PROTON-1288 is fixed as empty strings are allowed in headers
+                Json::Value valueMap(Json::objectValue);
+                valueMap["string"] = value;
+                _receivedHeadersMap[headerName] = valueMap;
+            }
+        }
+
+        void JmsReceiver::addMessageHeaderByteArray(const std::string& headerName, const proton::binary ba) {
+            if (!ba.empty()) { // TODO: Remove this test when PROTON-1288 is fixed as empty binaries are allowed in headers
+                Json::Value valueMap(Json::objectValue);
+                valueMap["bytes"] = std::string(ba);
+                _receivedHeadersMap[headerName] = valueMap;
+            }
+        }
+
+        void JmsReceiver::addMessageHeaderDestination(const std::string& headerName, jmsDestinationType_t dt, const std::string& d) {
+            if (!d.empty()) {
+                Json::Value valueMap(Json::objectValue);
+                switch (dt) {
+                case JMS_QUEUE:
+                    valueMap["queue"] = d;
+                    break;
+                case JMS_TOPIC:
+                    valueMap["topic"] = d;
+                    break;
+                default:
+                    ; // TODO: Handle error: remaining JMS destinations not handled.
+                }
+                _receivedHeadersMap[headerName] = valueMap;
+            }
+        }
+
+        void JmsReceiver::processMessageProperties(const proton::message& msg) {
+            // TODO: Add this function when PROTON-1284 is fixed
+//            std::map<proton::value, proton::value> props;
+//            msg.properties().value() >> props;
+        }
+
         //static
         std::map<std::string, int8_t> JmsReceiver::initializeJmsMessageTypeAnnotationMap() {
             std::map<std::string, int8_t> m;
@@ -281,7 +383,7 @@ namespace qpidit
  * Args: 1: Broker address (ip-addr:port)
  *       2: Queue name
  *       3: JMS message type
- *       4: JSON string of map containing number of test values to receive for each type/subtype
+ *       4: JSON Test parameters containing 2 maps: [testValuesMap, flagMap]
  */
 int main(int argc, char** argv) {
     /*
@@ -297,21 +399,24 @@ int main(int argc, char** argv) {
     std::ostringstream oss;
     oss << argv[1] << "/" << argv[2];
 
-//    try {
-        Json::Value testNumberMap;
+    try {
+        Json::Value testParams;
         Json::Reader jsonReader;
-        if (not jsonReader.parse(argv[4], testNumberMap, false)) {
+        if (not jsonReader.parse(argv[4], testParams, false)) {
             throw qpidit::JsonParserError(jsonReader);
         }
 
-        qpidit::shim::JmsReceiver receiver(oss.str(), argv[3], testNumberMap);
+        qpidit::shim::JmsReceiver receiver(oss.str(), argv[3], testParams[0], testParams[1]);
         proton::default_container(receiver).run();
 
+        Json::FastWriter fw;
         std::cout << argv[3] << std::endl;
-        std::cout << receiver.getReceivedValueMap();
-//    } catch (const std::exception& e) {
-//        std::cerr << "JmsReceiver error: " << e.what() << std::endl;
-//        exit(1);
-//    }
+        std::cout << fw.write(receiver.getReceivedValueMap());
+        std::cout << fw.write(receiver.getReceivedHeadersMap());
+        std::cout << fw.write(receiver.getReceivedPropertiesMap());
+    } catch (const std::exception& e) {
+        std::cerr << "JmsReceiver error: " << e.what() << std::endl;
+        exit(1);
+    }
     exit(0);
 }

@@ -49,9 +49,10 @@ namespace qpidit
             void on_message(proton::delivery &d, proton::message &m);
 
             void on_connection_error(proton::connection &c);
-            void on_sender_error(proton::sender& l);
+            void on_receiver_error(proton::receiver& r);
+            void on_session_error(proton::session &s);
             void on_transport_error(proton::transport &t);
-            void on_unhandled_error(const proton::error_condition &c);
+            void on_error(const proton::error_condition &c);
         protected:
             static void checkMessageType(const proton::message& msg, proton::type_id msgType);
             static Json::Value& getMap(Json::Value& jsonMap, const proton::value& val);

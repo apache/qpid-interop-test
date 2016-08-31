@@ -23,8 +23,10 @@
 #define SRC_QPIDIT_SHIM_JMSSENDER_HPP_
 
 #include "json/value.h"
+#include "proton/message.hpp"
 #include "proton/messaging_handler.hpp"
 #include "qpidit/QpidItErrors.hpp"
+#include "qpidit/shim/JmsDefinitions.hpp"
 #include <typeinfo>
 
 namespace proton {
@@ -45,16 +47,25 @@ namespace qpidit
             const std::string _brokerUrl;
             const std::string _jmsMessageType;
             const Json::Value _testValueMap;
+            const Json::Value _testHeadersMap;
+            const Json::Value _testPropertiesMap;
             uint32_t _msgsSent;
             uint32_t _msgsConfirmed;
             uint32_t _totalMsgs;
         public:
-            JmsSender(const std::string& brokerUrl, const std::string& jmsMessageType, const Json::Value& testValues);
+            JmsSender(const std::string& brokerUrl, const std::string& jmsMessageType, const Json::Value& testParams);
             virtual ~JmsSender();
+
             void on_container_start(proton::container &c);
             void on_sendable(proton::sender &s);
             void on_tracker_accept(proton::tracker &t);
             void on_transport_close(proton::transport &t);
+
+            void on_connection_error(proton::connection &c);
+            void on_session_error(proton::session &s);
+            void on_sender_error(proton::sender& s);
+            void on_transport_error(proton::transport &t);
+            void on_error(const proton::error_condition &c);
         protected:
             void  sendMessages(proton::sender &s, const std::string& subType, const Json::Value& testValueMap);
             proton::message& setMessage(proton::message& msg, const std::string& subType, const std::string& testValueStr);
@@ -63,6 +74,18 @@ namespace qpidit
             proton::message& setObjectMessage(proton::message& msg, const std::string& subType, const Json::Value& testValue);
             proton::message& setStreamMessage(proton::message& msg, const std::string& subType, const std::string& testValue);
             proton::message& setTextMessage(proton::message& msg, const Json::Value& testValue);
+
+            proton::message& addMessageHeaders(proton::message& msg);
+            static proton::message& setJmsTypeHeader(proton::message& msg, const std::string& t);
+            static proton::message& setJmsCorrelationId(proton::message& msg, const std::string& cid);
+            static proton::message& setJmsCorrelationId(proton::message& msg, const proton::binary cid);
+            static proton::message& setJmsReplyTo(proton::message& msg, const std::string& dt, const std::string& d);
+
+            proton::message& addMessageProperties(proton::message& msg);
+            template<typename T> proton::message& setMessageProperty(proton::message& msg, const std::string& propertyName, T val) {
+                msg.properties().put(propertyName, val);
+                return msg;
+            }
 
             static proton::binary getJavaObjectBinary(const std::string& javaClassName, const std::string& valAsString);
             static uint32_t getTotalNumMessages(const Json::Value& testValueMap);

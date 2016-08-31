@@ -51,9 +51,10 @@ namespace qpidit
             void on_transport_close(proton::transport &t);
 
             void on_connection_error(proton::connection &c);
+            void on_session_error(proton::session &s);
             void on_sender_error(proton::sender& s);
             void on_transport_error(proton::transport &t);
-            void on_unhandled_error(const proton::error_condition &c);
+            void on_error(const proton::error_condition &c);
         protected:
             proton::message& setMessage(proton::message& msg, const Json::Value& testValue);
 

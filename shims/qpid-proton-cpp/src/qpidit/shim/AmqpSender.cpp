@@ -27,6 +27,7 @@
 #include "proton/default_container.hpp"
 #include "proton/sender.hpp"
 #include "proton/tracker.hpp"
+#include "proton/transport.hpp"
 
 namespace qpidit
 {
@@ -78,19 +79,23 @@ namespace qpidit
         }
 
         void AmqpSender::on_connection_error(proton::connection &c) {
-            std::cerr << "AmqpSender:on_connection_error()" << std::endl;
+            std::cerr << "AmqpSender::on_connection_error(): " << c.error() << std::endl;
         }
 
-        void AmqpSender::on_sender_error(proton::sender& l) {
-            std::cerr << "AmqpSender:on_sender_error()" << std::endl;
+        void AmqpSender::on_sender_error(proton::sender &s) {
+            std::cerr << "AmqpSender::on_sender_error(): " << s.error() << std::endl;
+        }
+
+        void AmqpSender::on_session_error(proton::session &s) {
+            std::cerr << "AmqpSender::on_session_error(): " << s.error() << std::endl;
         }
 
         void AmqpSender::on_transport_error(proton::transport &t) {
-            std::cerr << "AmqpSender:on_transport_error()" << std::endl;
+            std::cerr << "AmqpSender::on_transport_error(): " << t.error() << std::endl;
         }
 
-        void AmqpSender::on_unhandled_error(const proton::error_condition &c) {
-            std::cerr << "AmqpSender:on_unhandled_error()" << " name=" << c.name() << " description=" << c.description() << std::endl;
+        void AmqpSender::on_error(const proton::error_condition &ec) {
+            std::cerr << "AmqpSender::on_error(): " << ec << std::endl;
         }
 
         // protected
