@@ -24,24 +24,24 @@ Module to test JMS message types across different APIs
 #
 
 import argparse
+import sys
 import unittest
 
 from itertools import product
 from json import dumps, loads
 from os import getenv, path
 from subprocess import check_output, CalledProcessError
-from sys import exit
 
 from proton import symbol
 from test_type_map import TestTypeMap
 import broker_properties
 
 
-# TODO - propose a sensible default when installation details are worked out
+# TODO: propose a sensible default when installation details are worked out
 QPID_INTEROP_TEST_HOME = getenv('QPID_INTEROP_TEST_HOME')
 if QPID_INTEROP_TEST_HOME is None:
     print 'ERROR: Environment variable QPID_INTEROP_TEST_HOME is not set'
-    exit(1)
+    sys.exit(1)
 
 class JmsMessageTypes(TestTypeMap):
     """
@@ -109,7 +109,7 @@ class JmsMessageTypes(TestTypeMap):
                    "Charlie's \"peach\"",
                    'Charlie\'s "peach"',
                    'The quick brown fox jumped over the lazy dog 0123456789.'# * 100]
-                   ]
+                  ]
         }
 
     TYPE_ADDITIONAL_SUBMAP = {
@@ -118,7 +118,7 @@ class JmsMessageTypes(TestTypeMap):
                   b'Hello, world',
                   b'\\x01\\x02\\x03\\x04\\x05abcde\\x80\\x81\\xfe\\xff',
                   b'The quick brown fox jumped over the lazy dog 0123456789.' #* 100],
-                  ],
+                 ],
         'char': ['a',
                  'Z',
                  '\x01',
@@ -152,15 +152,15 @@ class JmsMessageTypes(TestTypeMap):
                                                 "Charlie's \"peach\"",
                                                 'Charlie\'s "peach"',
                                                 'The quick brown fox jumped over the lazy dog 0123456789.' * 10,
-#                                                #'', # TODO: Re-enable when PROTON-1288 is fixed
-                                                ],
+                                                #'', # TODO: Re-enable when PROTON-1288 is fixed
+                                               ],
                                      'bytes': [b'12345\\x006789',
                                                b'Hello, world',
                                                b'"Hello, world"',
                                                b'\\x01\\x02\\x03\\x04\\x05abcde\\x80\\x81\\xfe\\xff',
                                                b'The quick brown fox jumped over the lazy dog 0123456789.' * 10,
                                                #b'', # TODO: Re-enable when PROTON-1288 is fixed
-                                               ],
+                                              ],
                                     },
         'JMS_REPLYTO_HEADER': {'queue': ['q_aaa', 'q_bbb'],
                                'topic': ['t_aaa', 't_bbb'],
@@ -171,7 +171,7 @@ class JmsMessageTypes(TestTypeMap):
                                        'Charlie\'s "peach"',
                                        'The quick brown fox jumped over the lazy dog 0123456789.' * 10,
                                        #'', # TODO: Re-enable when PROTON-1288 is fixed
-                                       ],
+                                      ],
                            },
         }
 
@@ -188,52 +188,54 @@ class JmsMessageTypes(TestTypeMap):
                                           "Charlie's \"peach\"",
                                           'Charlie\'s "peach"',
                                           'The quick brown fox jumped over the lazy dog 0123456789.' * 10
-                                          ]},
-# TODO: Add Object messages when other (non-JMS clients) can generate Java class strings used in this messag type
-#        'JMS_OBJECTMESSAGE_TYPE': {
-#            'java.lang.Boolean': ['true',
-#                                  'false'],
-#            'java.lang.Byte': ['-128',
-#                               '0',
-#                               '127'],
-#            'java.lang.Character': [u'a',
-#                                    u'Z'],
-#            'java.lang.Double': ['0.0',
-#                                 '3.141592654',
-#                                 '-2.71828182846'],
-#            'java.lang.Float': ['0.0',
-#                                '3.14159',
-#                                '-2.71828'],
-#            'java.lang.Integer': ['-2147483648',
-#                                  '-129',
-#                                  '-128',
-#                                  '-1',
-#                                  '0',
-#                                  '127',
-#                                  '128',
-#                                  '2147483647'],
-#            'java.lang.Long' : ['-9223372036854775808',
-#                                '-129',
-#                                '-128',
-#                                '-1',
-#                                '0',
-#                                '127',
-#                                '128',
-#                                '9223372036854775807'],
-#            'java.lang.Short': ['-32768',
-#                                '-129',
-#                                '-128',
-#                                '-1',
-#                                '0',
-#                                '127',
-#                                '128',
-#                                '32767'],
-#            'java.lang.String': [u'',
-#                                 u'Hello, world',
-#                                 u'"Hello, world"',
-#                                 u"Charlie's \"peach\"",
-#                                 u'Charlie\'s "peach"']
-#            },
+                                         ]
+                                },
+        # TODO: Add Object messages when other (non-JMS clients) can generate Java class strings used in this message
+        # type
+        #'JMS_OBJECTMESSAGE_TYPE': {
+        #    'java.lang.Boolean': ['true',
+        #                          'false'],
+        #    'java.lang.Byte': ['-128',
+        #                       '0',
+        #                       '127'],
+        #    'java.lang.Character': [u'a',
+        #                            u'Z'],
+        #    'java.lang.Double': ['0.0',
+        #                         '3.141592654',
+        #                         '-2.71828182846'],
+        #    'java.lang.Float': ['0.0',
+        #                        '3.14159',
+        #                        '-2.71828'],
+        #    'java.lang.Integer': ['-2147483648',
+        #                          '-129',
+        #                          '-128',
+        #                          '-1',
+        #                          '0',
+        #                          '127',
+        #                          '128',
+        #                          '2147483647'],
+        #    'java.lang.Long' : ['-9223372036854775808',
+        #                        '-129',
+        #                        '-128',
+        #                        '-1',
+        #                        '0',
+        #                        '127',
+        #                        '128',
+        #                        '9223372036854775807'],
+        #    'java.lang.Short': ['-32768',
+        #                        '-129',
+        #                        '-128',
+        #                        '-1',
+        #                        '0',
+        #                        '127',
+        #                        '128',
+        #                        '32767'],
+        #    'java.lang.String': [u'',
+        #                         u'Hello, world',
+        #                         u'"Hello, world"',
+        #                         u"Charlie's \"peach\"",
+        #                         u'Charlie\'s "peach"']
+        #    },
         }
 
     BROKER_SKIP = {}
@@ -259,7 +261,7 @@ class JmsMessageTypeTestCase(unittest.TestCase):
             self.fail('Send shim \'%s\':\n%s' % (send_shim.NAME, send_error_text))
 
         num_test_values_map = {}
-        if (len(test_values) > 0):
+        if len(test_values) > 0:
             for index in test_values.keys():
                 num_test_values_map[index] = len(test_values[index])
         flags_map = {}
@@ -288,29 +290,6 @@ class JmsMessageTypeTestCase(unittest.TestCase):
             self.assertEqual(return_msg_props, msg_props,
                              msg='JMS message properties error:\n\n    sent:%s\n\n    received:%s' % \
                              (msg_props, return_msg_props))
-
-
-def create_msg_hdr_list(hdr_map):
-    msg_hdr_list = []
-    tot_cnt = 0
-    for hdr in hdr_map.iterkeys():
-        for hdr_type in hdr_map[hdr].iterkeys():
-            for hdr_val in hdr_map[hdr][hdr_type]:
-                msg_hdr_list.append({hdr: {hdr_type: hdr_val}})
-                tot_cnt += 1
-    return tot_cnt, msg_hdr_list
-
-
-def create_msg_props_list(props_map):
-    msg_props_list = []
-    tot_cnt = 0
-    for prop_type in props_map.iterkeys():
-        prop_cnt = 0
-        for prop in props_map[prop_type]:
-            msg_props_list.append({prop_type: {'prop_%s_%04d' % (prop_type, prop_cnt): prop}})
-            prop_cnt += 1
-            tot_cnt += 1
-    return tot_cnt, msg_props_list
 
 
 def create_testcase_class(broker_name, types, broker_addr, jms_message_type, shim_product):
@@ -375,31 +354,31 @@ def create_testcase_class(broker_name, types, broker_addr, jms_message_type, shi
         # One message with all the headers together using type[0] and val[0]
         all_hdrs = {}
         for msg_header in types.HEADERS_MAP.iterkeys():
-            header_type_dict = types.HEADERS_MAP[msg_header];
+            header_type_dict = types.HEADERS_MAP[msg_header]
             header_type, header_val_list = header_type_dict.iteritems().next()
             header_val = header_val_list[0]
             all_hdrs[msg_header] = {header_type: header_val}
         add_test_method(new_class, ('_hdrs', all_hdrs), ('', {}), send_shim, receive_shim)
 
-# Properties tests disabled until PROTON-1284 fixed
-#        # Iterate through properties
-#        # Structure: {prop_type_1: [val_1_1, val_1_2, ...],
-#        #             prop_type_2: [val_2_1, val_2_2, ...],
-#        #             ...
-#        #            }
-#        all_props = {}
-#        for prop_type, prop_val_list in types.PROPERTIES_MAP.iteritems():
-#            prop_val_cnt = 0
-#            for prop_val in prop_val_list:
-#                prop_val_cnt += 1
-#                all_props['%s_%02d' % (prop_type, prop_val_cnt)] = {prop_type: prop_val}
-#
-#        # One message with all properties together
-#        add_test_method(new_class, ('', {}), ('_props', all_props), send_shim, receive_shim)
-#
-#        # One message with all headers and all properties together
-#        add_test_method(new_class, ('_hdrs', all_hdrs), ('_props', all_props), send_shim, receive_shim)
-        
+        # Properties tests disabled until PROTON-1284 fixed
+        ## Iterate through properties
+        ## Structure: {prop_type_1: [val_1_1, val_1_2, ...],
+        ##             prop_type_2: [val_2_1, val_2_2, ...],
+        ##             ...
+        ##            }
+        #all_props = {}
+        #for prop_type, prop_val_list in types.PROPERTIES_MAP.iteritems():
+        #    prop_val_cnt = 0
+        #    for prop_val in prop_val_list:
+        #        prop_val_cnt += 1
+        #        all_props['%s_%02d' % (prop_type, prop_val_cnt)] = {prop_type: prop_val}
+
+        ## One message with all properties together
+        #add_test_method(new_class, ('', {}), ('_props', all_props), send_shim, receive_shim)
+
+        ## One message with all headers and all properties together
+        #add_test_method(new_class, ('_hdrs', all_hdrs), ('_props', all_props), send_shim, receive_shim)
+
     return new_class
 
 
@@ -411,9 +390,9 @@ class Shim(object):
     USE_SHELL = False
 
     def __init__(self, args):
-        self.ARGS = args
-        self.SEND = None
-        self.RECEIVE = None
+        self.args = args
+        self.sender = None
+        self.receiver = None
 
 
     def send(self, broker_addr, queue_name, jms_message_type, json_send_params_str):
@@ -422,14 +401,14 @@ class Shim(object):
         Return output (if any) from stdout.
         """
         arg_list = []
-        arg_list.extend(self.SEND)
+        arg_list.extend(self.sender)
         arg_list.extend([broker_addr, queue_name, jms_message_type])
         arg_list.append(json_send_params_str)
 
         try:
             # Debug print statements: - these are helpful to see what is being sent to the send shims
-            #print '\n### msg_hdr_list (%d): %s' % (msg_hdr_list_size, json_msg_hdr_list_str)
-            #print '\n### msg_props_list (%d): %s' % (msg_props_list_size, json_msg_props_list_str)
+            #print '\n*** msg_hdr_list (%d): %s' % (msg_hdr_list_size, json_msg_hdr_list_str)
+            #print '\n*** msg_props_list (%d): %s' % (msg_props_list_size, json_msg_props_list_str)
             #print '\n>>>', arg_list # DEBUG - useful to see command-line sent to shim
             return check_output(arg_list, shell=self.USE_SHELL)
         except CalledProcessError as exc:
@@ -447,7 +426,7 @@ class Shim(object):
         output = ''
         try:
             arg_list = []
-            arg_list.extend(self.RECEIVE)
+            arg_list.extend(self.receiver)
             arg_list.extend([broker_addr, queue_name, jms_message_type])
             arg_list.append(json_receive_params_str)
             # Debug print statement: this is useful to see what is being sent to the receive shims
@@ -478,8 +457,8 @@ class ProtonPythonShim(Shim):
 
     def __init__(self, args):
         super(ProtonPythonShim, self).__init__(args)
-        self.SEND = [path.join(self.SHIM_LOC, 'JmsSenderShim.py')]
-        self.RECEIVE = [path.join(self.SHIM_LOC, 'JmsReceiverShim.py')]
+        self.sender = [path.join(self.SHIM_LOC, 'JmsSenderShim.py')]
+        self.receiver = [path.join(self.SHIM_LOC, 'JmsReceiverShim.py')]
 
 
 class ProtonCppShim(Shim):
@@ -491,8 +470,8 @@ class ProtonCppShim(Shim):
 
     def __init__(self, args):
         super(ProtonCppShim, self).__init__(args)
-        self.SEND = [path.join(self.SHIM_LOC, 'JmsSender')]
-        self.RECEIVE = [path.join(self.SHIM_LOC, 'JmsReceiver')]
+        self.sender = [path.join(self.SHIM_LOC, 'JmsSender')]
+        self.receiver = [path.join(self.SHIM_LOC, 'JmsReceiver')]
 
 
 class QpidJmsShim(Shim):
@@ -505,29 +484,31 @@ class QpidJmsShim(Shim):
     MAVEN_REPO_PATH = getenv('MAVEN_REPO_PATH', path.join(getenv('HOME'), '.m2', 'repository'))
     QPID_INTEROP_TEST_SHIM_JAR = path.join(MAVEN_REPO_PATH, 'org', 'apache', 'qpid', 'qpid-interop-test-jms-shim',
                                            '0.1.0-SNAPSHOT', 'qpid-interop-test-jms-shim-0.1.0-SNAPSHOT.jar')
-    
+
     JAVA_HOME = getenv('JAVA_HOME', '/usr/lib/jvm/java') # Default only works in Linux
     JAVA_EXEC = path.join(JAVA_HOME, 'bin/java')
 
     def __init__(self, args):
         super(QpidJmsShim, self).__init__(args)
-        DEP_CLASSPATH_FILE = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-jms', 'cp.txt')
-        with open(DEP_CLASSPATH_FILE, 'r') as dcpfile:
-            self.CLASSPATH = dcpfile.read().replace('\n', '')
-        if self.jarExists(self.QPID_INTEROP_TEST_SHIM_JAR):
-            self.CLASSPATH += ':' + self.QPID_INTEROP_TEST_SHIM_JAR
+        dep_classpath_file = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-jms', 'cp.txt')
+        with open(dep_classpath_file, 'r') as dcpfile:
+            self.classpath = dcpfile.read().replace('\n', '')
+        if QpidJmsShim.jar_exists(self.QPID_INTEROP_TEST_SHIM_JAR):
+            self.classpath += ':' + self.QPID_INTEROP_TEST_SHIM_JAR
         else:
             print '*** ERROR: Cannot find jar file "%s"' % self.QPID_INTEROP_TEST_SHIM_JAR
 
-        self.SEND = [self.JAVA_EXEC, '-cp', self.CLASSPATH, 'org.apache.qpid.interop_test.shim.JmsSenderShim']
-        self.RECEIVE = [self.JAVA_EXEC, '-cp', self.CLASSPATH, 'org.apache.qpid.interop_test.shim.JmsReceiverShim']
+        self.sender = [self.JAVA_EXEC, '-cp', self.classpath, 'org.apache.qpid.interop_test.shim.JmsSenderShim']
+        self.receiver = [self.JAVA_EXEC, '-cp', self.classpath, 'org.apache.qpid.interop_test.shim.JmsReceiverShim']
 
-    def jarExists(self, jarPath):
+    @staticmethod
+    def jar_exists(jar_path):
+        """ Check if jar in attribute jar_path exists """
         try:
-            f = open(jarPath, 'rb')
-            f.close()
+            jar_file = open(jar_path, 'rb')
+            jar_file.close()
             return True
-        except IOError as e:
+        except IOError:
             pass
         return False
 
@@ -579,7 +560,7 @@ if __name__ == '__main__':
     SHIM_MAP = {ProtonCppShim.NAME: ProtonCppShim(ARGS),
                 QpidJmsShim.NAME: QpidJmsShim(ARGS),
                 ProtonPythonShim.NAME: ProtonPythonShim(ARGS)
-                }
+               }
 
     # Connect to broker to find broker type
     CONNECTION_PROPS = broker_properties.getBrokerProperties(ARGS.broker)
@@ -587,9 +568,12 @@ if __name__ == '__main__':
         print 'WARNING: Unable to get connection properties - unknown broker'
         BROKER = 'unknown'
     else:
-        BROKER = CONNECTION_PROPS[symbol(u'product')] if symbol(u'product') in CONNECTION_PROPS else '<product not found>'
-        BROKER_VERSION = CONNECTION_PROPS[symbol(u'version')] if symbol(u'version') in CONNECTION_PROPS else '<version not found>'
-        BROKER_PLATFORM = CONNECTION_PROPS[symbol(u'platform')] if symbol(u'platform') in CONNECTION_PROPS else '<platform not found>'
+        BROKER = CONNECTION_PROPS[symbol(u'product')] if symbol(u'product') in CONNECTION_PROPS \
+                 else '<product not found>'
+        BROKER_VERSION = CONNECTION_PROPS[symbol(u'version')] if symbol(u'version') in CONNECTION_PROPS \
+                         else '<version not found>'
+        BROKER_PLATFORM = CONNECTION_PROPS[symbol(u'platform')] if symbol(u'platform') in CONNECTION_PROPS \
+                          else '<platform not found>'
         print 'Test Broker: %s v.%s on %s' % (BROKER, BROKER_VERSION, BROKER_PLATFORM)
         print
 
@@ -619,7 +603,7 @@ if __name__ == '__main__':
             TEST_SUITE.addTest(unittest.makeSuite(test_case_class))
 
     # Finally, run all the dynamically created tests
-    res = unittest.TextTestRunner(verbosity=2).run(TEST_SUITE)
-    if not res.wasSuccessful():
-        exit(1)
+    RES = unittest.TextTestRunner(verbosity=2).run(TEST_SUITE)
+    if not RES.wasSuccessful():
+        sys.exit(1)
 

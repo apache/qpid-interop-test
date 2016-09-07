@@ -1,4 +1,9 @@
 #!/usr/bin/env python
+
+"""
+JMS receiver shim for qpid-interop-test
+"""
+
 #
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -33,6 +38,12 @@ from traceback import format_exc
 QPID_JMS_TYPE_ANNOTATION_NAME = symbol(u'x-opt-jms-msg-type')
 
 class JmsReceiverShim(MessagingHandler):
+    """
+    Receiver shim: This shim receives JMS messages sent by the Sender shim and prints the contents of the received
+    messages onto the terminal in JSON format for retrieval by the test harness. The JMS messages type and, where
+    applicable, body values, as well as the combinations of JMS headers and properties which may be attached to
+    the message are received on the command-line in JSON format when this program is launched.
+    """
     def __init__(self, url, jms_msg_type, test_parameters_list):
         super(JmsReceiverShim, self).__init__()
         self.url = url
@@ -49,18 +60,23 @@ class JmsReceiverShim(MessagingHandler):
         self.jms_property_map = {}
 
     def get_received_value_map(self):
+        """"Return the collected message values received"""
         return self.received_value_map
 
     def get_jms_header_map(self):
+        """Return the collected message headers received"""
         return self.jms_header_map
 
     def get_jms_property_map(self):
+        """Return the collected message properties received"""
         return self.jms_property_map
 
     def on_start(self, event):
+        """Event callback for when the client starts"""
         event.container.create_receiver(self.url)
 
     def on_message(self, event):
+        """Event callback when a message is received by the client"""
         if event.message.id and event.message.id < self.received:
             return # ignore duplicate message
         if self.expected == 0 or self.received < self.expected:
@@ -80,6 +96,7 @@ class JmsReceiverShim(MessagingHandler):
                 event.connection.close()
 
     def _handle_message(self, message):
+        """Handles the analysis of a received message"""
         if self.jms_msg_type == 'JMS_MESSAGE_TYPE':
             return self._receive_jms_message(message)
         if self.jms_msg_type == 'JMS_BYTESMESSAGE_TYPE':
@@ -96,12 +113,14 @@ class JmsReceiverShim(MessagingHandler):
         return None
 
     def _get_tot_num_messages(self):
+        """"Counts up the total number of messages which should be received from the expected message map"""
         total = 0
         for key in self.expteced_msg_map:
             total += int(self.expteced_msg_map[key])
         return total
 
     def _receive_jms_message(self, message):
+        """"Receives a JMS message (without a body)"""
         assert self.jms_msg_type == 'JMS_MESSAGE_TYPE'
         assert message.annotations[QPID_JMS_TYPE_ANNOTATION_NAME] == byte(0)
         if message.body is not None:
@@ -110,6 +129,7 @@ class JmsReceiverShim(MessagingHandler):
         return None
 
     def _receive_jms_bytesmessage(self, message):
+        """"Receives a JMS bytes message"""
         assert self.jms_msg_type == 'JMS_BYTESMESSAGE_TYPE'
         assert message.annotations[QPID_JMS_TYPE_ANNOTATION_NAME] == byte(3)
         if self.current_subtype == 'boolean':
@@ -153,6 +173,7 @@ class JmsReceiverShim(MessagingHandler):
                                (self.jms_msg_type, self.current_subtype))
 
     def _recieve_jms_mapmessage(self, message):
+        """"Receives a JMS map message"""
         assert self.jms_msg_type == 'JMS_MAPMESSAGE_TYPE'
         assert message.annotations[QPID_JMS_TYPE_ANNOTATION_NAME] == byte(2)
         key, value = message.body.items()[0]
@@ -181,18 +202,19 @@ class JmsReceiverShim(MessagingHandler):
                                (self.jms_msg_type, self.current_subtype))
 
     def _recieve_jms_objectmessage(self, message):
+        """"Receives a JMS Object message"""
         assert self.jms_msg_type == 'JMS_OBJECTMESSAGE_TYPE'
         assert message.annotations[QPID_JMS_TYPE_ANNOTATION_NAME] == byte(1)
         return self._get_java_obj(message.body)
 
     def _get_java_obj(self, java_obj_bytes):
-        '''
+        """
         Take bytes from serialized Java object and construct a Java object, then return its toString() value. The
         work of 'translating' the bytes to a Java object and obtaining its class and value is done in a Java
         utility org.apache.qpid.interop_test.obj_util.BytesToJavaObj located in jar JavaObjUtils.jar.
         java_obj_bytes: hex string representation of bytes from Java object (eg 'aced00057372...')
         returns: string containing Java class value as returned by the toString() method
-        '''
+        """
         java_obj_bytes_str = ''.join(["%02x" % ord(x) for x in java_obj_bytes]).strip()
         out_str = check_output(['java',
                                 '-cp',
@@ -213,6 +235,7 @@ class JmsReceiverShim(MessagingHandler):
         return java_class_value_str
 
     def _receive_jms_streammessage(self, message):
+        """Receives a JMS stream message"""
         assert self.jms_msg_type == 'JMS_STREAMMESSAGE_TYPE'
         assert message.annotations[QPID_JMS_TYPE_ANNOTATION_NAME] == byte(4)
         # Every message is a list with one item [value]
@@ -238,20 +261,23 @@ class JmsReceiverShim(MessagingHandler):
             return hex(value)
         if self.current_subtype == 'string':
             return str(value)
-        raise InteropTestError('JmsRecieverShim._receive_jms_streammessage(): JMS message type %s: Unknown or unsupported subtype \'%s\'' %
+        raise InteropTestError('JmsRecieverShim._receive_jms_streammessage(): ' +
+                               'JMS message type %s: Unknown or unsupported subtype \'%s\'' %
                                (self.jms_msg_type, self.current_subtype))
 
     def _receive_jms_textmessage(self, message):
+        """"Receives a JMS text message"""
         assert self.jms_msg_type == 'JMS_TEXTMESSAGE_TYPE'
         assert message.annotations[QPID_JMS_TYPE_ANNOTATION_NAME] == byte(5)
         return message.body
 
     def _process_jms_headers(self, message):
+        """"Checks the supplied message for three JMS headers: message type, correlation-id and reply-to"""
         # JMS message type header
         message_type_header = message._get_subject()
         if message_type_header is not None:
             self.jms_header_map['JMS_TYPE_HEADER'] = {'string': message_type_header}
-        
+
         # JMS correlation ID
         correlation_id = message._get_correlation_id()
         if correlation_id is not None:
@@ -274,25 +300,28 @@ class JmsReceiverShim(MessagingHandler):
                 self.jms_header_map['JMS_REPLYTO_HEADER'] = {'queue': reply_to}
 
     def _process_jms_properties(self, message):
+        """"Checks the supplied message for JMS message properties and decodes them"""
         if message.properties is not None:
             for jms_property_name in message.properties:
                 jms_property_type = jms_property_name[0:jms_property_name.index('_')]
                 value = message.properties[jms_property_name]
-                if (jms_property_type == 'boolean'):
+                if jms_property_type == 'boolean':
                     self.jms_property_map[jms_property_name] = {'boolean': str(value)}
-                elif (jms_property_type == 'byte'):
+                elif jms_property_type == 'byte':
                     self.jms_property_map[jms_property_name] = {'byte': hex(value)}
-                elif (jms_property_type == 'double'):
-                    self.jms_property_map[jms_property_name] = {'double': '0x%016x' % unpack('!Q', pack('!d', value))[0]}
-                elif (jms_property_type == 'float'):
-                    self.jms_property_map[jms_property_name] = {'float': '0x%08x' % unpack('!L', pack('!f', value))[0]}
-                elif (jms_property_type == 'int'):
+                elif jms_property_type == 'double':
+                    self.jms_property_map[jms_property_name] = {'double': '0x%016x' %
+                                                                          unpack('!Q', pack('!d', value))[0]}
+                elif jms_property_type == 'float':
+                    self.jms_property_map[jms_property_name] = {'float': '0x%08x' %
+                                                                         unpack('!L', pack('!f', value))[0]}
+                elif jms_property_type == 'int':
                     self.jms_property_map[jms_property_name] = {'int': hex(value)}
-                elif (jms_property_type == 'long'):
+                elif jms_property_type == 'long':
                     self.jms_property_map[jms_property_name] = {'long': hex(int(value))}
-                elif (jms_property_type == 'short'):
+                elif jms_property_type == 'short':
                     self.jms_property_map[jms_property_name] = {'short': hex(value)}
-                elif (jms_property_type == 'string'):
+                elif jms_property_type == 'string':
                     self.jms_property_map[jms_property_name] = {'string': str(value)}
                 else:
                     pass # Ignore any other properties, brokers can add them and we don't know what they may be

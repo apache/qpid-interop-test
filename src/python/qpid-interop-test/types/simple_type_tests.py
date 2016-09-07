@@ -24,26 +24,26 @@ Module to test AMQP primitive types across different APIs
 #
 
 import argparse
+import sys
 import unittest
 
 from itertools import product
 from json import dumps, loads
 from os import getenv, path
 from subprocess import check_output, CalledProcessError
-from sys import exit
 from time import mktime, time
 from uuid import UUID, uuid4
 
-from proton import int32, symbol, timestamp, ulong
+from proton import symbol
 from test_type_map import TestTypeMap
 import broker_properties
 
 
-# TODO - propose a sensible default when installation details are worked out
+# TODO: propose a sensible default when installation details are worked out
 QPID_INTEROP_TEST_HOME = getenv('QPID_INTEROP_TEST_HOME')
 if QPID_INTEROP_TEST_HOME is None:
     print 'ERROR: Environment variable QPID_INTEROP_TEST_HOME is not set'
-    exit(1)
+    sys.exit(1)
 
 
 class AmqpPrimitiveTypes(TestTypeMap):
@@ -174,10 +174,32 @@ class AmqpPrimitiveTypes(TestTypeMap):
         'list': [[],
                  ['ubyte:1', 'int:-2', 'float:3.14'],
                  ['string:a', 'string:b', 'string:c'],
-                 ['ulong:12345', 'timestamp:%d' % (time()*1000), 'short:-2500', 'uuid:%s' % uuid4(), 'symbol:a.b.c', 'none:', 'decimal64:0x400921fb54442eea'],
-                 [[], 'none', ['ubyte:1', 'ubyte:2', 'ubyte:3'], 'boolean:True', 'boolean:False', {'string:hello': 'long:1234', 'string:goodbye': 'boolean:True'}],
+                 ['ulong:12345',
+                  'timestamp:%d' % (time()*1000),
+                  'short:-2500',
+                  'uuid:%s' % uuid4(),
+                  'symbol:a.b.c',
+                  'none:',
+                  'decimal64:0x400921fb54442eea'
+                 ],
+                 [[],
+                  'none',
+                  ['ubyte:1', 'ubyte:2', 'ubyte:3'],
+                  'boolean:True',
+                  'boolean:False',
+                  {'string:hello': 'long:1234', 'string:goodbye': 'boolean:True'}
+                 ],
                  [[], [[], [[], [], []], []], []],
-                 ['short:0', 'short:1', 'short:2', 'short:3', 'short:4', 'short:5', 'short:6', 'short:7', 'short:8', 'short:9'] * 100
+                 ['short:0',
+                  'short:1',
+                  'short:2',
+                  'short:3',
+                  'short:4',
+                  'short:5',
+                  'short:6',
+                  'short:7',
+                  'short:8',
+                  'short:9'] * 10
                 ],
         'map': [{},
                 {'string:one': 'ubyte:1',
@@ -196,14 +218,14 @@ class AmqpPrimitiveTypes(TestTypeMap):
                                 'char:B': 'int:2'}},
                ],
         # TODO: Support all AMQP types in array (including keys)
-#        'array': [[],
-#                  [1, 2, 3],
-#                  ['Hello', 'world'],
-#                  [[1, 2, 3],
-#                   ['a', 'b', 'c'],
-#                   [2.3, 3.4, 4,5],
-#                   [True, False, True, True]]
-#                  ]
+        #'array': [[],
+        #          [1, 2, 3],
+        #          ['Hello', 'world'],
+        #          [[1, 2, 3],
+        #           ['a', 'b', 'c'],
+        #           [2.3, 3.4, 4,5],
+        #           [True, False, True, True]]
+        #          ]
         }
 
 # TODO: Type 'unknown' corresponds to the Artemis broker at present because it does not return connection
@@ -237,9 +259,11 @@ class AmqpTypeTestCase(unittest.TestCase):
         """
         if len(test_value_list) > 0:
             # TODO: When Artemis can support it (in the next release), revert the queue name back to 'qpid-interop...'
-            # Currently, Artemis only supports auto-create queues for JMS, and the queue name must be prefixed by 'jms.queue.'
+            # Currently, Artemis only supports auto-create queues for JMS, and the queue name must be prefixed by
+            # 'jms.queue.'
             #queue_name = 'qpid-interop.simple_type_tests.%s.%s.%s' % (amqp_type, send_shim.NAME, receive_shim.NAME)
-            queue_name = 'jms.queue.qpid-interop.simple_type_tests.%s.%s.%s' % (amqp_type, send_shim.NAME, receive_shim.NAME)
+            queue_name = 'jms.queue.qpid-interop.simple_type_tests.%s.%s.%s' % \
+                         (amqp_type, send_shim.NAME, receive_shim.NAME)
             send_error_text = send_shim.send(broker_addr, queue_name, amqp_type, dumps(test_value_list))
             if len(send_error_text) > 0:
                 self.fail('Send shim \'%s\':\n%s' % (send_shim.NAME, send_error_text))
@@ -449,9 +473,12 @@ if __name__ == '__main__':
         print 'WARNING: Unable to get connection properties - unknown broker'
         BROKER = 'unknown'
     else:
-        BROKER = CONNECTION_PROPS[symbol(u'product')] if symbol(u'product') in CONNECTION_PROPS else '<product not found>'
-        BROKER_VERSION = CONNECTION_PROPS[symbol(u'version')] if symbol(u'version') in CONNECTION_PROPS else '<version not found>'
-        BROKER_PLATFORM = CONNECTION_PROPS[symbol(u'platform')] if symbol(u'platform') in CONNECTION_PROPS else '<platform not found>'
+        BROKER = CONNECTION_PROPS[symbol(u'product')] if symbol(u'product') in CONNECTION_PROPS \
+                 else '<product not found>'
+        BROKER_VERSION = CONNECTION_PROPS[symbol(u'version')] if symbol(u'version') in CONNECTION_PROPS \
+                         else '<version not found>'
+        BROKER_PLATFORM = CONNECTION_PROPS[symbol(u'platform')] if symbol(u'platform') in CONNECTION_PROPS \
+                          else '<platform not found>'
         print 'Test Broker: %s v.%s on %s' % (BROKER, BROKER_VERSION, BROKER_PLATFORM)
         print
 
@@ -481,7 +508,7 @@ if __name__ == '__main__':
             TEST_SUITE.addTest(unittest.makeSuite(test_case_class))
 
     # Finally, run all the dynamically created tests
-    res = unittest.TextTestRunner(verbosity=2).run(TEST_SUITE)
-    if not res.wasSuccessful():
-        exit(1) # Errors or failures present
+    RES = unittest.TextTestRunner(verbosity=2).run(TEST_SUITE)
+    if not RES.wasSuccessful():
+        sys.exit(1) # Errors or failures present
 

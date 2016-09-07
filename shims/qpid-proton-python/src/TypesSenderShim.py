@@ -1,4 +1,9 @@
 #!/usr/bin/env python
+
+"""
+AMQP type test sender shim for qpid-interop-test
+"""
+
 #
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -32,9 +37,14 @@ from struct import unpack
 from traceback import format_exc
 from uuid import UUID
 
-class Sender(MessagingHandler):
+class AmqpTypesSenderShim(MessagingHandler):
+    """
+    Sender shim for AMQP types test
+    This shim receives the AMQP type and a list of test values. Each value is sent in a message body of the appropriate
+    AMQP type. There is no returned value.
+    """
     def __init__(self, url, amqp_type, test_value_list):
-        super(Sender, self).__init__()
+        super(AmqpTypesSenderShim, self).__init__()
         self.url = url
         self.amqp_type = amqp_type
         self.test_value_list = test_value_list
@@ -43,9 +53,11 @@ class Sender(MessagingHandler):
         self.total = len(test_value_list)
 
     def on_start(self, event):
+        """Event callback for when the client starts"""
         event.container.create_sender(self.url)
 
     def on_sendable(self, event):
+        """Event callback for when send credit is received, allowing the sending of messages"""
         if self.sent == 0:
             for test_value in self.test_value_list:
                 if event.sender.credit:
@@ -58,6 +70,10 @@ class Sender(MessagingHandler):
                         return
 
     def create_message(self, test_value):
+        """
+        Creates a single message with the test value translated from its string representation to the appropriate
+        AMQP value (set in self.amqp_type).
+        """
         if self.amqp_type == 'null':
             return Message(id=(self.sent+1), body=None)
         elif self.amqp_type == 'boolean':
@@ -114,11 +130,13 @@ class Sender(MessagingHandler):
             return None
 
     def on_accepted(self, event):
+        """Event callback for when a sent message is accepted by the broker"""
         self.confirmed += 1
         if self.confirmed == self.total:
             event.connection.close()
 
     def on_disconnected(self, event):
+        """Event callback for when the broker disconnects with the client"""
         self.sent = self.confirmed
 
 
@@ -128,7 +146,7 @@ class Sender(MessagingHandler):
 #       3: AMQP type
 #       4...n: Test value(s) as strings
 try:
-    Container(Sender('%s/%s' % (sys.argv[1], sys.argv[2]), sys.argv[3], loads(sys.argv[4]))).run()
+    Container(AmqpTypesSenderShim('%s/%s' % (sys.argv[1], sys.argv[2]), sys.argv[3], loads(sys.argv[4]))).run()
 except KeyboardInterrupt:
     pass
 except Exception as exc:

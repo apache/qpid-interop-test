@@ -1,4 +1,9 @@
 #!/usr/bin/env python
+
+"""
+AMQP type test receiver shim for qpid-interop-test
+"""
+
 #
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -29,9 +34,14 @@ from traceback import format_exc
 from string import digits, letters, punctuation
 from struct import pack, unpack
 
-class Receiver(MessagingHandler):
+class AmqpTypesReceiverShim(MessagingHandler):
+    """
+    Reciver shim for AMQP types test
+    This shim receives the number of messages supplied on the command-line and checks that they contain message
+    bodies of the exptected AMQP type. The values are then aggregated and returned.
+    """
     def __init__(self, url, amqp_type, num_expected_messages_str):
-        super(Receiver, self).__init__()
+        super(AmqpTypesReceiverShim, self).__init__()
         self.url = url
         self.received_value_list = []
         self.amqp_type = amqp_type
@@ -39,12 +49,15 @@ class Receiver(MessagingHandler):
         self.received = 0
 
     def get_received_value_list(self):
+        """Return the received list of AMQP values"""
         return self.received_value_list
 
     def on_start(self, event):
+        """Event callback for when the client starts"""
         event.container.create_receiver(self.url)
 
     def on_message(self, event):
+        """Event callback when a message is received by the client"""
         if event.message.id and event.message.id < self.received:
             return # ignore duplicate message
         if self.expected == 0 or self.received < self.expected:
@@ -103,7 +116,7 @@ class Receiver(MessagingHandler):
 #       3: AMQP type
 #       4: Expected number of test values to receive
 try:
-    RECEIVER = Receiver('%s/%s' % (sys.argv[1], sys.argv[2]), sys.argv[3], sys.argv[4])
+    RECEIVER = AmqpTypesReceiverShim('%s/%s' % (sys.argv[1], sys.argv[2]), sys.argv[3], sys.argv[4])
     Container(RECEIVER).run()
     print sys.argv[3]
     print dumps(RECEIVER.get_received_value_list())
