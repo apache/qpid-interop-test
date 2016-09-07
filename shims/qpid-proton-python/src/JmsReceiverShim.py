@@ -295,8 +295,7 @@ class JmsReceiverShim(MessagingHandler):
                 elif (jms_property_type == 'string'):
                     self.jms_property_map[jms_property_name] = {'string': str(value)}
                 else:
-                    raise InteropTestError('JmsRecieverShim._process_jms_properties(): Unknown JMS property type "%s"' %
-                                           jms_property_type)
+                    pass # Ignore any other properties, brokers can add them and we don't know what they may be
 
 
 # --- main ---
