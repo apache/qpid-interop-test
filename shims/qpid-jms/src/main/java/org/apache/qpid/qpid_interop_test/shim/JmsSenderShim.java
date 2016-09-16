@@ -83,6 +83,7 @@ public class JmsSenderShim {
 
         if (testParamsList.size() != 3) {
             System.err.println("ERROR: Incorrect number of JSON parameters: Expected 3, got " + Integer.toString(testParamsList.size()));
+            System.err.println("  JSON parameters found: \"" + testParamsList + "\"");
             System.exit(1);
         }
         JsonObject testValuesMap = testParamsList.getJsonObject(0);

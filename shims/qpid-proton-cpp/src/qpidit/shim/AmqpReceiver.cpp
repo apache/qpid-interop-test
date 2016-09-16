@@ -52,7 +52,7 @@ namespace qpidit
         }
 
         void AmqpReceiver::on_container_start(proton::container &c) {
-            /*_receiver = */c.open_receiver(_brokerUrl);
+            c.open_receiver(_brokerUrl);
         }
 
         void AmqpReceiver::on_message(proton::delivery &d, proton::message &m) {
@@ -280,7 +280,8 @@ int main(int argc, char** argv) {
         proton::default_container(receiver).run();
 
         std::cout << argv[3] << std::endl;
-        std::cout << receiver.getReceivedValueList();
+        Json::FastWriter fw;
+        std::cout << fw.write(receiver.getReceivedValueList());
     } catch (const std::exception& e) {
         std::cerr << "AmqpReceiver error: " << e.what() << std::endl;
         exit(-1);

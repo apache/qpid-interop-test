@@ -83,6 +83,15 @@ class JmsSenderShim(MessagingHandler):
                 if self._send_test_values(event, sub_type, self.test_value_map[sub_type]):
                     return
 
+    def on_connection_error(self, event):
+        print 'JmsSenderShim.on_connection_error'
+
+    def on_session_error(self, event):
+        print 'JmsSenderShim.on_session_error'
+
+    def on_link_error(self, event):
+        print 'JmsSenderShim.on_link_error'
+
     def on_accepted(self, event):
         """Event callback for when a sent message is accepted by the broker"""
         self.confirmed += 1

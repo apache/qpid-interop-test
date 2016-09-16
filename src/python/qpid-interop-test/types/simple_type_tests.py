@@ -28,16 +28,15 @@ import sys
 import unittest
 
 from itertools import product
-from json import dumps, loads
+from json import dumps
 from os import getenv, path
-from subprocess import check_output, CalledProcessError
 from time import mktime, time
 from uuid import UUID, uuid4
 
+import broker_properties
+import shims
 from proton import symbol
 from test_type_map import TestTypeMap
-import broker_properties
-
 
 # TODO: propose a sensible default when installation details are worked out
 QPID_INTEROP_TEST_HOME = getenv('QPID_INTEROP_TEST_HOME')
@@ -201,9 +200,12 @@ class AmqpPrimitiveTypes(TestTypeMap):
                   'short:8',
                   'short:9'] * 10
                 ],
-        'map': [{},
+        'map': [# Enpty map
+                {},
+                # Map with string keys
                 {'string:one': 'ubyte:1',
                  'string:two': 'ushort:2'},
+                # Map with other AMQP simple types as keys
                 {'none:': 'string:None',
                  'string:None': 'none:',
                  'string:One': 'long:-1234567890',
@@ -228,23 +230,24 @@ class AmqpPrimitiveTypes(TestTypeMap):
         #          ]
         }
 
-# TODO: Type 'unknown' corresponds to the Artemis broker at present because it does not return connection
-# properties that can identify it.  When this is fixed in Artemis, this will no longer work.
+    # This section contains tests that should be skipped because of know issues that would cause the test to fail.
+    # As the issues are resolved, these should be removed.
     BROKER_SKIP = {'null': {'ActiveMQ': 'Null type not sent in Proton Python binding: PROTON-1091',
                             'qpid-cpp': 'Null type not sent in Proton Python binding: PROTON-1091',},
                    'decimal32': {'ActiveMQ': 'decimal32 and decimal64 are sent byte reversed: PROTON-1160',
                                  'qpid-cpp': 'decimal32 not supported on qpid-cpp broker: QPIDIT-5, QPID-6328',
-                                 'unknown': 'decimal32 and decimal64 are sent byte reversed: PROTON-1160'},
+                                 'apache-activemq-artemis': 'decimal32 and decimal64 are sent byte reversed: PROTON-1160',
+                                 'qpid-dispatch-router': 'decimal32 and decimal64 are sent byte reversed: PROTON-1160'},
                    'decimal64': {'ActiveMQ': 'decimal32 and decimal64 are sent byte reversed: PROTON-1160',
                                  'qpid-cpp': 'decimal64 not supported on qpid-cpp broker: QPIDIT-6, QPID-6328',
-                                 'unknown': 'decimal32 and decimal64 are sent byte reversed: PROTON-1160'},
+                                 'apache-activemq-artemis': 'decimal32 and decimal64 are sent byte reversed: PROTON-1160',
+                                 'qpid-dispatch-router': 'decimal32 and decimal64 are sent byte reversed: PROTON-1160'},
                    'decimal128': {'qpid-cpp': 'decimal128 not supported on qpid-cpp broker: QPIDIT-3, QPID-6328',},
                    'char': {'qpid-cpp': 'char not supported on qpid-cpp broker: QPIDIT-4, QPID-6328',
-                            'unknown': 'char types > 16 bits truncated on Artemis: ENTMQ-1685'},
-                   'float': {'unknown': '-NaN is stripped of its sign: ENTMQ-1686'},
-                   'double': {'unknown': '-NaN is stripped of its sign: ENTMQ-1686'},
+                            'apache-activemq-artemis': 'char types > 16 bits truncated on Artemis: ENTMQ-1685'},
+                   'float': {'apache-activemq-artemis': '-NaN is stripped of its sign: ENTMQ-1686'},
+                   'double': {'apache-activemq-artemis': '-NaN is stripped of its sign: ENTMQ-1686'},
                   }
-#    BROKER_SKIP = {}
 
 
 class AmqpTypeTestCase(unittest.TestCase):
@@ -264,17 +267,36 @@ class AmqpTypeTestCase(unittest.TestCase):
             #queue_name = 'qpid-interop.simple_type_tests.%s.%s.%s' % (amqp_type, send_shim.NAME, receive_shim.NAME)
             queue_name = 'jms.queue.qpid-interop.simple_type_tests.%s.%s.%s' % \
                          (amqp_type, send_shim.NAME, receive_shim.NAME)
-            send_error_text = send_shim.send(broker_addr, queue_name, amqp_type, dumps(test_value_list))
-            if len(send_error_text) > 0:
-                self.fail('Send shim \'%s\':\n%s' % (send_shim.NAME, send_error_text))
-            receive_text = receive_shim.receive(broker_addr, queue_name, amqp_type, len(test_value_list))
-            if isinstance(receive_text, list):
-                self.assertEqual(receive_text, test_value_list, msg='\n    sent:%s\nreceived:%s' % \
-                                 (test_value_list, receive_text))
+
+            # Start the receive shim first (for queueless brokers/dispatch)
+            receiver = receive_shim.create_receiver(broker_addr, queue_name, amqp_type,
+                                                    str(len(test_value_list)))
+            receiver.start()
+
+            # Start the send shim
+            sender = send_shim.create_sender(broker_addr, queue_name, amqp_type,
+                                             dumps(test_value_list))
+            sender.start()
+
+            # Wait for both shims to finish
+            sender.join(shims.THREAD_TIMEOUT)
+            receiver.join(shims.THREAD_TIMEOUT)
+
+            # Process return string from sender
+            send_obj = sender.get_return_object()
+            if send_obj is not None:
+                if isinstance(send_obj, str) and len(send_obj) > 0:
+                    self.fail('Send shim \'%s\':\n%s' % (send_shim.NAME, send_obj))
+                else:
+                    self.fail(str(send_obj))
+
+            # Process return string from receiver
+            receive_obj = receiver.get_return_object()
+            if isinstance(receive_obj, list):
+                self.assertEqual(receive_obj, test_value_list, msg='\n    sent:%s\nreceived:%s' % \
+                                 (test_value_list, receive_obj))
             else:
-                self.fail(receive_text)
-        else:
-            self.fail('Type %s has no test values' % amqp_type)
+                self.fail(receive_obj)
 
 def create_testcase_class(broker_name, types, broker_addr, amqp_type, shim_product):
     """
@@ -309,125 +331,22 @@ def create_testcase_class(broker_name, types, broker_addr, amqp_type, shim_produ
     return new_class
 
 
-class Shim(object):
-    """
-    Abstract shim class, parent of all shims.
-    """
-    NAME = None
-    SEND = None
-    RECEIVE = None
-    USE_SHELL = False
-
-    def send(self, broker_addr, queue_name, amqp_type, json_test_values_str):
-        """
-        Send the values of type amqp_type in test_value_list to queue queue_name. Return output (if any) from stdout.
-        """
-        arg_list = []
-        arg_list.extend(self.SEND)
-        arg_list.extend([broker_addr, queue_name, amqp_type])
-        arg_list.append(json_test_values_str)
-
-        try:
-            #print '\n>>>', arg_list # DEBUG - useful to see command-line sent to shim
-            return check_output(arg_list, shell=self.USE_SHELL)
-        except CalledProcessError as exc:
-            return str(exc) + '\n\nOutput:\n' + exc.output
-        except Exception as exc:
-            return str(exc)
-
-
-    def receive(self, broker_addr, queue_name, amqp_type, num_test_values):
-        """
-        Receive num_test_values messages containing type amqp_type from queue queue_name. If the first line returned
-        from stdout is the AMQP type, then the rest is assumed to be the returned test value list. Otherwise error
-        output is assumed.
-        """
-        output = ''
-        try:
-            arg_list = []
-            arg_list.extend(self.RECEIVE)
-            arg_list.extend([broker_addr, queue_name, amqp_type, str(num_test_values)])
-            #print '\n>>>', arg_list # DEBUG - useful to see command-line sent to shim
-            output = check_output(arg_list)
-            #print '<<<', output # DEBUG - useful to see text received from shim
-            str_tvl = output.split('\n')[0:-1] # remove trailing \n
-            if len(str_tvl) == 1:
-                return output
-            if len(str_tvl) == 2:
-                return loads(str_tvl[1])
-            else:
-                return loads("".join(str_tvl[1:]))
-        except CalledProcessError as exc:
-            return str(exc) + '\n\n' + exc.output
-        except Exception as exc:
-            return str(exc)
-
-
-class ProtonPythonShim(Shim):
-    """
-    Shim for qpid-proton Python client
-    """
-    NAME = 'ProtonPython'
-    SHIM_LOC = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'src')
-    SEND = [path.join(SHIM_LOC, 'TypesSenderShim.py')]
-    RECEIVE = [path.join(SHIM_LOC, 'TypesReceiverShim.py')]
-
-
-class ProtonCppShim(Shim):
-    """
-    Shim for qpid-proton C++ client
-    """
-    NAME = 'ProtonCpp'
-    SHIM_LOC = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'build', 'src')
-    SEND = [path.join(SHIM_LOC, 'AmqpSender')]
-    RECEIVE = [path.join(SHIM_LOC, 'AmqpReceiver')]
-
-
-class QpidJmsShim(Shim):
-    """
-    Shim for qpid-jms JMS client
-    """
-    NAME = 'QpidJms'
-
-    # Installed qpid versions
-    QPID_JMS_VER = '0.4.0-SNAPSHOT'
-    QPID_PROTON_J_VER = '0.10-SNAPSHOT'
-
-    # Classpath components
-    QPID_INTEROP_TEST_SHIM_JAR = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-jms', 'target', 'qpid-jms-shim.jar')
-    MAVEN_REPO_PATH = path.join(getenv('HOME'), '.m2', 'repository')
-    JMS_API_JAR = path.join(MAVEN_REPO_PATH, 'org', 'apache', 'geronimo', 'specs', 'geronimo-jms_1.1_spec', '1.1.1',
-                            'geronimo-jms_1.1_spec-1.1.1.jar')
-    JMS_IMPL_JAR = path.join(MAVEN_REPO_PATH, 'org', 'apache', 'qpid', 'qpid-jms-client', QPID_JMS_VER,
-                             'qpid-jms-client-' + QPID_JMS_VER + '.jar')
-    LOGGER_API_JAR = path.join(MAVEN_REPO_PATH, 'org', 'slf4j', 'slf4j-api', '1.5.6', 'slf4j-api-1.5.6.jar')
-    LOGGER_IMPL_JAR = path.join(QPID_INTEROP_TEST_HOME, 'jars', 'slf4j-nop-1.5.6.jar')
-    PROTON_J_JAR = path.join(MAVEN_REPO_PATH, 'org', 'apache', 'qpid', 'proton-j', QPID_PROTON_J_VER,
-                             'proton-j-' + QPID_PROTON_J_VER + '.jar')
-    NETTY_JAR = path.join(MAVEN_REPO_PATH, 'io', 'netty', 'netty-all', '4.0.17.Final', 'netty-all-4.0.17.Final.jar')
-
-    CLASSPATH = ':'.join([QPID_INTEROP_TEST_SHIM_JAR,
-                          JMS_API_JAR,
-                          JMS_IMPL_JAR,
-                          LOGGER_API_JAR,
-                          LOGGER_IMPL_JAR,
-                          PROTON_J_JAR,
-                          NETTY_JAR])
-    JAVA_HOME = getenv('JAVA_HOME', '/usr/bin') # Default only works in Linux
-    JAVA_EXEC = path.join(JAVA_HOME, 'java')
-    SEND = [JAVA_EXEC, '-cp', CLASSPATH, 'org.apache.qpid.interop_test.shim.AmqpSender']
-    RECEIVE = [JAVA_EXEC, '-cp', CLASSPATH, 'org.apache.qpid.interop_test.shim.AmqpReceiver']
-
-
 # SHIM_MAP contains an instance of each client language shim that is to be tested as a part of this test. For
 # every shim in this list, a test is dynamically constructed which tests it against itself as well as every
 # other shim in the list.
 #
 # As new shims are added, add them into this map to have them included in the test cases.
-#SHIM_MAP = {ProtonPythonShim.NAME: ProtonPythonShim()}
-#SHIM_MAP = {ProtonPythonShim.NAME: ProtonCppShim()}
-SHIM_MAP = {ProtonCppShim.NAME: ProtonCppShim(),
-            ProtonPythonShim.NAME: ProtonPythonShim()
+PROTON_CPP_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'build', 'src',
+                                     'AmqpReceiver')
+PROTON_CPP_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'build', 'src',
+                                   'AmqpSender')
+PROTON_PYTHON_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'src',
+                                        'TypesReceiverShim.py')
+PROTON_PYTHON_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'src',
+                                      'TypesSenderShim.py')
+
+SHIM_MAP = {shims.ProtonCppShim.NAME: shims.ProtonCppShim(PROTON_CPP_SENDER_SHIM, PROTON_CPP_RECEIVER_SHIM),
+            shims.ProtonPythonShim.NAME: shims.ProtonPythonShim(PROTON_PYTHON_SENDER_SHIM, PROTON_PYTHON_RECEIVER_SHIM),
            }
 
 
@@ -454,7 +373,7 @@ class TestOptions(object):
                             sorted(AmqpPrimitiveTypes.TYPE_MAP.keys()))
 #        shim_group = test_group.add_mutually_exclusive_group()
 #        shim_group.add_argument('--include-shim', action='append', metavar='SHIM-NAME',
-#                                help='Name of shim to include. Supported shims:\n%s' % SHIM_NAMES)
+#                                help='Name of shim to include. Supported shims:\n%s' % sorted(SHIM_MAP.keys()))
         parser.add_argument('--exclude-shim', action='append', metavar='SHIM-NAME',
                             help='Name of shim to exclude. Supported shims:\n%s' % sorted(SHIM_MAP.keys()))
         self.args = parser.parse_args()
@@ -511,4 +430,3 @@ if __name__ == '__main__':
     RES = unittest.TextTestRunner(verbosity=2).run(TEST_SUITE)
     if not RES.wasSuccessful():
         sys.exit(1) # Errors or failures present
-

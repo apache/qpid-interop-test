@@ -28,13 +28,13 @@ import sys
 import unittest
 
 from itertools import product
-from json import dumps, loads
+from json import dumps
 from os import getenv, path
-from subprocess import check_output, CalledProcessError
 
+import broker_properties
+import shims
 from proton import symbol
 from test_type_map import TestTypeMap
-import broker_properties
 
 
 # TODO: propose a sensible default when installation details are worked out
@@ -42,6 +42,7 @@ QPID_INTEROP_TEST_HOME = getenv('QPID_INTEROP_TEST_HOME')
 if QPID_INTEROP_TEST_HOME is None:
     print 'ERROR: Environment variable QPID_INTEROP_TEST_HOME is not set'
     sys.exit(1)
+MAVEN_REPO_PATH = getenv('MAVEN_REPO_PATH', path.join(getenv('HOME'), '.m2', 'repository'))
 
 class JmsMessageTypes(TestTypeMap):
     """
@@ -253,43 +254,67 @@ class JmsMessageTypeTestCase(unittest.TestCase):
         """
         queue_name = 'jms.queue.qpid-interop.jms_message_type_tests.%s.%s.%s' % (jms_message_type, send_shim.NAME,
                                                                                  receive_shim.NAME)
-        send_error_text = send_shim.send(broker_addr,
-                                         queue_name,
-                                         jms_message_type,
-                                         dumps([test_values, msg_hdrs, msg_props]))
-        if len(send_error_text) > 0:
-            self.fail('Send shim \'%s\':\n%s' % (send_shim.NAME, send_error_text))
 
+        # First create a map containing the numbers of expected mesasges for each JMS message type
         num_test_values_map = {}
         if len(test_values) > 0:
             for index in test_values.keys():
                 num_test_values_map[index] = len(test_values[index])
+        # Create a map of flags which indicate to the receiver the details of some of the messages so that it can
+        # be correctly handled (as these require some prior knowledge)
         flags_map = {}
         if 'JMS_CORRELATIONID_HEADER' in msg_hdrs and 'bytes' in msg_hdrs['JMS_CORRELATIONID_HEADER']:
             flags_map['JMS_CORRELATIONID_AS_BYTES'] = True
         if 'JMS_REPLYTO_HEADER' in msg_hdrs and 'topic' in msg_hdrs['JMS_REPLYTO_HEADER']:
             flags_map['JMS_REPLYTO_AS_TOPIC'] = True
-        receive_text = receive_shim.receive(broker_addr,
-                                            queue_name,
-                                            jms_message_type,
-                                            dumps([num_test_values_map, flags_map]))
-        if isinstance(receive_text, str):
-            self.fail(receive_text)
+        # Start the receiver shim
+        receiver = receive_shim.create_receiver(broker_addr, queue_name, jms_message_type,
+                                                dumps([num_test_values_map, flags_map]))
+        receiver.start()
+
+        # Start the send shim
+        sender = send_shim.create_sender(broker_addr, queue_name, jms_message_type,
+                                         dumps([test_values, msg_hdrs, msg_props]))
+        sender.start()
+
+        # Wait for both shims to finish
+        sender.join(shims.THREAD_TIMEOUT)
+        if sender.isAlive():
+            print 'Sender thread %s timed out' % sender.getName()
+        receiver.join(shims.THREAD_TIMEOUT)
+        if receiver.isAlive():
+            print 'Receiver thread %s timed out' % receiver.getName()
+
+        # Process return string from sender
+        send_obj = sender.get_return_object()
+        if send_obj is not None:
+            if isinstance(send_obj, str) and len(send_obj) > 0:
+                self.fail('Send shim \'%s\':\n%s' % (send_shim.NAME, send_obj))
+            else:
+                self.fail('Send shim \'%s\':\n%s' % str(send_obj))
+
+        # Process return string from receiver
+        receive_obj = receiver.get_return_object()
+        if receive_obj is None:
+            self.fail('JmsReceiver shim returned None')
         else:
-            # receive_text is 4-tuple
-            return_jms_message_type, return_test_values, return_msg_hdrs, return_msg_props = receive_text
-            self.assertEqual(return_jms_message_type, jms_message_type,
-                             msg='JMS message type error:\n\n    sent:%s\n\n    received:%s' % \
-                             (jms_message_type, return_jms_message_type))
-            self.assertEqual(return_test_values, test_values,
-                             msg='JMS message body error:\n\n    sent:%s\n\n    received:%s' % \
-                             (test_values, return_test_values))
-            self.assertEqual(return_msg_hdrs, msg_hdrs,
-                             msg='JMS message headers error:\n\n    sent:%s\n\n    received:%s' % \
-                             (msg_hdrs, return_msg_hdrs))
-            self.assertEqual(return_msg_props, msg_props,
-                             msg='JMS message properties error:\n\n    sent:%s\n\n    received:%s' % \
-                             (msg_props, return_msg_props))
+            if isinstance(receive_obj, tuple):
+                if len(receive_obj) == 4:
+                    return_jms_message_type, return_test_values, return_msg_hdrs, return_msg_props = receive_obj
+                    self.assertEqual(return_jms_message_type, jms_message_type,
+                                     msg='JMS message type error:\n\n    sent:%s\n\n    received:%s' % \
+                                     (jms_message_type, return_jms_message_type))
+                    self.assertEqual(return_test_values, test_values,
+                                     msg='JMS message body error:\n\n    sent:%s\n\n    received:%s' % \
+                                     (test_values, return_test_values))
+                    self.assertEqual(return_msg_hdrs, msg_hdrs,
+                                     msg='JMS message headers error:\n\n    sent:%s\n\n    received:%s' % \
+                                     (msg_hdrs, return_msg_hdrs))
+                    self.assertEqual(return_msg_props, msg_props,
+                                     msg='JMS message properties error:\n\n    sent:%s\n\n    received:%s' % \
+                                     (msg_props, return_msg_props))
+            else:
+                self.fail(str(receive_obj))
 
 
 def create_testcase_class(broker_name, types, broker_addr, jms_message_type, shim_product):
@@ -382,143 +407,36 @@ def create_testcase_class(broker_name, types, broker_addr, jms_message_type, shi
     return new_class
 
 
-class Shim(object):
-    """
-    Abstract shim class, parent of all shims.
-    """
-    NAME = None
-    USE_SHELL = False
+PROTON_CPP_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'build', 'src',
+                                     'JmsReceiver')
+PROTON_CPP_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'build', 'src',
+                                   'JmsSender')
+PROTON_PYTHON_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'src',
+                                        'JmsReceiverShim.py')
+PROTON_PYTHON_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'src',
+                                      'JmsSenderShim.py')
+QIT_JMS_CLASSPATH_FILE = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-jms', 'cp.txt')
+with open(QIT_JMS_CLASSPATH_FILE, 'r') as classpath_file:
+    QIT_JMS_CLASSPATH = classpath_file.read()
+QPID_JMS_RECEIVER_SHIM = 'org.apache.qpid.interop_test.shim.JmsReceiverShim'
+QPID_JMS_SENDER_SHIM = 'org.apache.qpid.interop_test.shim.JmsSenderShim'
 
-    def __init__(self, args):
-        self.args = args
-        self.sender = None
-        self.receiver = None
-
-
-    def send(self, broker_addr, queue_name, jms_message_type, json_send_params_str):
-        """
-        Send the values of type jms_message_type in json_test_values_str to queue queue_name.
-        Return output (if any) from stdout.
-        """
-        arg_list = []
-        arg_list.extend(self.sender)
-        arg_list.extend([broker_addr, queue_name, jms_message_type])
-        arg_list.append(json_send_params_str)
-
-        try:
-            # Debug print statements: - these are helpful to see what is being sent to the send shims
-            #print '\n*** msg_hdr_list (%d): %s' % (msg_hdr_list_size, json_msg_hdr_list_str)
-            #print '\n*** msg_props_list (%d): %s' % (msg_props_list_size, json_msg_props_list_str)
-            #print '\n>>>', arg_list # DEBUG - useful to see command-line sent to shim
-            return check_output(arg_list, shell=self.USE_SHELL)
-        except CalledProcessError as exc:
-            return str(exc) + '\n\nOutput:\n' + exc.output
-        except Exception as exc:
-            return str(exc)
-
-
-    def receive(self, broker_addr, queue_name, jms_message_type, json_receive_params_str):
-        """
-        Receive json_test_num_values_str messages containing type jms_message_type from queue queue_name.
-        If the first line returned from stdout is the AMQP type, then the rest is assumed to be the returned
-        test value list. Otherwise error output is assumed.
-        """
-        output = ''
-        try:
-            arg_list = []
-            arg_list.extend(self.receiver)
-            arg_list.extend([broker_addr, queue_name, jms_message_type])
-            arg_list.append(json_receive_params_str)
-            # Debug print statement: this is useful to see what is being sent to the receive shims
-            #print '\n>>>', arg_list # DEBUG - useful to see command-line sent to shim
-            output = check_output(arg_list)
-            # Debug print statement: this is useful to see what is being returned from the receive shims
-            #print '<<<', output # DEBUG- useful to see text received from shim
-            str_tvl = output.split('\n')
-            if str_tvl[-1] == '': # Trailing \n, added by some versions of jsoncpp
-                str_tvl = str_tvl[:-1] # remove last empty string caused by trailing /n
-            if len(str_tvl) == 1:
-                return output
-            if len(str_tvl) == 4:
-                return (str_tvl[0], loads(str_tvl[1]), loads(str_tvl[2]), loads(str_tvl[3]))
-            return str_tvl
-        except CalledProcessError as exc:
-            return str(exc) + '\n\n' + exc.output
-        except Exception as exc:
-            return str(exc)
-
-
-class ProtonPythonShim(Shim):
-    """
-    Shim for qpid-proton Python client
-    """
-    NAME = 'ProtonPython'
-    SHIM_LOC = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'src')
-
-    def __init__(self, args):
-        super(ProtonPythonShim, self).__init__(args)
-        self.sender = [path.join(self.SHIM_LOC, 'JmsSenderShim.py')]
-        self.receiver = [path.join(self.SHIM_LOC, 'JmsReceiverShim.py')]
-
-
-class ProtonCppShim(Shim):
-    """
-    Shim for qpid-proton Python client
-    """
-    NAME = 'ProtonCpp'
-    SHIM_LOC = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'build', 'src')
-
-    def __init__(self, args):
-        super(ProtonCppShim, self).__init__(args)
-        self.sender = [path.join(self.SHIM_LOC, 'JmsSender')]
-        self.receiver = [path.join(self.SHIM_LOC, 'JmsReceiver')]
-
-
-class QpidJmsShim(Shim):
-    """
-    Shim for qpid-jms JMS client
-    """
-    NAME = 'QpidJms'
-
-    # Classpath components
-    MAVEN_REPO_PATH = getenv('MAVEN_REPO_PATH', path.join(getenv('HOME'), '.m2', 'repository'))
-    QPID_INTEROP_TEST_SHIM_JAR = path.join(MAVEN_REPO_PATH, 'org', 'apache', 'qpid', 'qpid-interop-test-jms-shim',
-                                           '0.1.0-SNAPSHOT', 'qpid-interop-test-jms-shim-0.1.0-SNAPSHOT.jar')
-
-    JAVA_HOME = getenv('JAVA_HOME', '/usr/lib/jvm/java') # Default only works in Linux
-    JAVA_EXEC = path.join(JAVA_HOME, 'bin/java')
-
-    def __init__(self, args):
-        super(QpidJmsShim, self).__init__(args)
-        dep_classpath_file = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-jms', 'cp.txt')
-        with open(dep_classpath_file, 'r') as dcpfile:
-            self.classpath = dcpfile.read().replace('\n', '')
-        if QpidJmsShim.jar_exists(self.QPID_INTEROP_TEST_SHIM_JAR):
-            self.classpath += ':' + self.QPID_INTEROP_TEST_SHIM_JAR
-        else:
-            print '*** ERROR: Cannot find jar file "%s"' % self.QPID_INTEROP_TEST_SHIM_JAR
-
-        self.sender = [self.JAVA_EXEC, '-cp', self.classpath, 'org.apache.qpid.interop_test.shim.JmsSenderShim']
-        self.receiver = [self.JAVA_EXEC, '-cp', self.classpath, 'org.apache.qpid.interop_test.shim.JmsReceiverShim']
-
-    @staticmethod
-    def jar_exists(jar_path):
-        """ Check if jar in attribute jar_path exists """
-        try:
-            jar_file = open(jar_path, 'rb')
-            jar_file.close()
-            return True
-        except IOError:
-            pass
-        return False
-
+# SHIM_MAP contains an instance of each client language shim that is to be tested as a part of this test. For
+# every shim in this list, a test is dynamically constructed which tests it against itself as well as every
+# other shim in the list.
+#
+# As new shims are added, add them into this map to have them included in the test cases.
+SHIM_MAP = {shims.ProtonCppShim.NAME: shims.ProtonCppShim(PROTON_CPP_SENDER_SHIM, PROTON_CPP_RECEIVER_SHIM),
+            shims.ProtonPythonShim.NAME: shims.ProtonPythonShim(PROTON_PYTHON_SENDER_SHIM, PROTON_PYTHON_RECEIVER_SHIM),
+            shims.QpidJmsShim.NAME: shims.QpidJmsShim(QIT_JMS_CLASSPATH, QPID_JMS_SENDER_SHIM, QPID_JMS_RECEIVER_SHIM),
+           }
 
 # TODO: Complete the test options to give fine control over running tests
 class TestOptions(object):
     """
     Class controlling command-line arguments used to control the test.
     """
-    def __init__(self, shims):
+    def __init__(self,):
         parser = argparse.ArgumentParser(description='Qpid-interop AMQP client interoparability test suite '
                                          'for JMS message types')
         parser.add_argument('--broker', action='store', default='localhost:5672', metavar='BROKER:PORT',
@@ -537,30 +455,17 @@ class TestOptions(object):
                             sorted(JmsMessageTypes.TYPE_MAP.keys()))
 #        shim_group = test_group.add_mutually_exclusive_group()
 #        shim_group.add_argument('--include-shim', action='append', metavar='SHIM-NAME',
-#                                help='Name of shim to include. Supported shims:\n%s' % SHIM_NAMES)
+#                                help='Name of shim to include. Supported shims:\n%s' % sorted(SHIM_MAP.keys()))
         parser.add_argument('--exclude-shim', action='append', metavar='SHIM-NAME',
-                            help='Name of shim to exclude. Supported shims:\n%s' % sorted(shims))
+                            help='Name of shim to exclude. Supported shims:\n%s' % sorted(SHIM_MAP.keys()))
         self.args = parser.parse_args()
 
 
 #--- Main program start ---
 
 if __name__ == '__main__':
-
-    SHIMS = [ProtonCppShim.NAME, QpidJmsShim.NAME, ProtonPythonShim.NAME]
-
-    ARGS = TestOptions(SHIMS).args
+    ARGS = TestOptions().args
     #print 'ARGS:', ARGS # debug
-
-    # SHIM_MAP contains an instance of each client language shim that is to be tested as a part of this test. For
-    # every shim in this list, a test is dynamically constructed which tests it against itself as well as every
-    # other shim in the list.
-    #
-    # As new shims are added, add them into this map to have them included in the test cases.
-    SHIM_MAP = {ProtonCppShim.NAME: ProtonCppShim(ARGS),
-                QpidJmsShim.NAME: QpidJmsShim(ARGS),
-                ProtonPythonShim.NAME: ProtonPythonShim(ARGS)
-               }
 
     # Connect to broker to find broker type
     CONNECTION_PROPS = broker_properties.getBrokerProperties(ARGS.broker)
@@ -606,4 +511,3 @@ if __name__ == '__main__':
     RES = unittest.TextTestRunner(verbosity=2).run(TEST_SUITE)
     if not RES.wasSuccessful():
         sys.exit(1)
-

@@ -75,46 +75,52 @@ namespace qpidit
         }
 
         void JmsReceiver::on_message(proton::delivery &d, proton::message &m) {
-            if (_received < _expected) {
-                switch (m.message_annotations().get(proton::symbol("x-opt-jms-msg-type")).get<int8_t>()) {
-                case JMS_MESSAGE_TYPE:
-                    receiveJmsMessage(m);
-                    break;
-                case JMS_OBJECTMESSAGE_TYPE:
-                    receiveJmsObjectMessage(m);
-                    break;
-                case JMS_MAPMESSAGE_TYPE:
-                    receiveJmsMapMessage(m);
-                    break;
-                case JMS_BYTESMESSAGE_TYPE:
-                    receiveJmsBytesMessage(m);
-                    break;
-                case JMS_STREAMMESSAGE_TYPE:
-                    receiveJmsStreamMessage(m);
-                    break;
-                case JMS_TEXTMESSAGE_TYPE:
-                    receiveJmsTextMessage(m);
-                    break;
-                default:;
-                    // TODO: handle error - no known JMS message type
-                }
+            try {
+                if (_received < _expected) {
+                    switch (m.message_annotations().get(proton::symbol("x-opt-jms-msg-type")).get<int8_t>()) {
+                    case JMS_MESSAGE_TYPE:
+                        receiveJmsMessage(m);
+                        break;
+                    case JMS_OBJECTMESSAGE_TYPE:
+                        receiveJmsObjectMessage(m);
+                        break;
+                    case JMS_MAPMESSAGE_TYPE:
+                        receiveJmsMapMessage(m);
+                        break;
+                    case JMS_BYTESMESSAGE_TYPE:
+                        receiveJmsBytesMessage(m);
+                        break;
+                    case JMS_STREAMMESSAGE_TYPE:
+                        receiveJmsStreamMessage(m);
+                        break;
+                    case JMS_TEXTMESSAGE_TYPE:
+                        receiveJmsTextMessage(m);
+                        break;
+                    default:;
+                        // TODO: handle error - no known JMS message type
+                    }
 
-                processMessageHeaders(m);
-                processMessageProperties(m);
+                    processMessageHeaders(m);
+                    processMessageProperties(m);
 
-                std::string subType(_subTypeList[_subTypeIndex]);
-                // Increment the subtype if the required number of messages have been received
-                if (_receivedSubTypeList.size() >= _testNumberMap[subType].asInt() &&
-                                _subTypeIndex < _testNumberMap.size()) {
-                    _receivedValueMap[subType] = _receivedSubTypeList;
-                    _receivedSubTypeList.clear();
-                    ++_subTypeIndex;
+                    std::string subType(_subTypeList[_subTypeIndex]);
+                    // Increment the subtype if the required number of messages have been received
+                    if (_receivedSubTypeList.size() >= _testNumberMap[subType].asInt() &&
+                                    _subTypeIndex < _testNumberMap.size()) {
+                        _receivedValueMap[subType] = _receivedSubTypeList;
+                        _receivedSubTypeList.clear();
+                        ++_subTypeIndex;
+                    }
+                    _received++;
+                    if (_received >= _expected) {
+                        d.receiver().close();
+                        d.connection().close();
+                    }
                 }
-                _received++;
-                if (_received >= _expected) {
-                    d.receiver().close();
-                    d.connection().close();
-                }
+            } catch (const std::exception&) {
+                d.receiver().close();
+                d.connection().close();
+                throw;
             }
         }
 
@@ -415,8 +421,6 @@ int main(int argc, char** argv) {
         std::cout << fw.write(receiver.getReceivedHeadersMap());
         std::cout << fw.write(receiver.getReceivedPropertiesMap());
     } catch (const std::exception& e) {
-        std::cerr << "JmsReceiver error: " << e.what() << std::endl;
-        exit(1);
+        std::cout << "JmsReceiver error: " << e.what() << std::endl;
     }
-    exit(0);
 }

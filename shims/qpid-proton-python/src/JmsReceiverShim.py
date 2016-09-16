@@ -95,6 +95,15 @@ class JmsReceiverShim(MessagingHandler):
                 event.receiver.close()
                 event.connection.close()
 
+    def on_connection_error(self, event):
+        print 'JmsReceiverShim.on_connection_error'
+
+    def on_session_error(self, event):
+        print 'JmsReceiverShim.on_session_error'
+
+    def on_link_error(self, event):
+        print 'JmsReceiverShim.on_link_error'
+
     def _handle_message(self, message):
         """Handles the analysis of a received message"""
         if self.jms_msg_type == 'JMS_MESSAGE_TYPE':

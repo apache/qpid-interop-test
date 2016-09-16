@@ -482,8 +482,6 @@ int main(int argc, char** argv) {
         qpidit::shim::JmsSender sender(oss.str(), argv[3], testParams);
         proton::default_container(sender).run();
     } catch (const std::exception& e) {
-        std::cerr << "JmsSender error: " << e.what() << std::endl;
-        exit(1);
+        std::cout << "JmsSender error: " << e.what() << std::endl;
     }
-    exit(0);
 }
