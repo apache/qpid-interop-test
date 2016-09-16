@@ -312,28 +312,30 @@ class JmsReceiverShim(MessagingHandler):
         """"Checks the supplied message for JMS message properties and decodes them"""
         if message.properties is not None:
             for jms_property_name in message.properties:
-                jms_property_type = jms_property_name[0:jms_property_name.index('_')]
-                value = message.properties[jms_property_name]
-                if jms_property_type == 'boolean':
-                    self.jms_property_map[jms_property_name] = {'boolean': str(value)}
-                elif jms_property_type == 'byte':
-                    self.jms_property_map[jms_property_name] = {'byte': hex(value)}
-                elif jms_property_type == 'double':
-                    self.jms_property_map[jms_property_name] = {'double': '0x%016x' %
-                                                                          unpack('!Q', pack('!d', value))[0]}
-                elif jms_property_type == 'float':
-                    self.jms_property_map[jms_property_name] = {'float': '0x%08x' %
-                                                                         unpack('!L', pack('!f', value))[0]}
-                elif jms_property_type == 'int':
-                    self.jms_property_map[jms_property_name] = {'int': hex(value)}
-                elif jms_property_type == 'long':
-                    self.jms_property_map[jms_property_name] = {'long': hex(int(value))}
-                elif jms_property_type == 'short':
-                    self.jms_property_map[jms_property_name] = {'short': hex(value)}
-                elif jms_property_type == 'string':
-                    self.jms_property_map[jms_property_name] = {'string': str(value)}
-                else:
-                    pass # Ignore any other properties, brokers can add them and we don't know what they may be
+                underscore_index = jms_property_name.find('_')
+                if underscore_index >= 0: # Ignore any other properties without '_'
+                    jms_property_type = jms_property_name[0:underscore_index]
+                    value = message.properties[jms_property_name]
+                    if jms_property_type == 'boolean':
+                        self.jms_property_map[jms_property_name] = {'boolean': str(value)}
+                    elif jms_property_type == 'byte':
+                        self.jms_property_map[jms_property_name] = {'byte': hex(value)}
+                    elif jms_property_type == 'double':
+                        self.jms_property_map[jms_property_name] = {'double': '0x%016x' %
+                                                                              unpack('!Q', pack('!d', value))[0]}
+                    elif jms_property_type == 'float':
+                        self.jms_property_map[jms_property_name] = {'float': '0x%08x' %
+                                                                             unpack('!L', pack('!f', value))[0]}
+                    elif jms_property_type == 'int':
+                        self.jms_property_map[jms_property_name] = {'int': hex(value)}
+                    elif jms_property_type == 'long':
+                        self.jms_property_map[jms_property_name] = {'long': hex(int(value))}
+                    elif jms_property_type == 'short':
+                        self.jms_property_map[jms_property_name] = {'short': hex(value)}
+                    elif jms_property_type == 'string':
+                        self.jms_property_map[jms_property_name] = {'string': str(value)}
+                    else:
+                        pass # Ignore any other properties, brokers can add them and we don't know what they may be
 
 
 # --- main ---
