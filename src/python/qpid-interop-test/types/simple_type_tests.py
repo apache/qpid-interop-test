@@ -200,25 +200,26 @@ class AmqpPrimitiveTypes(TestTypeMap):
                   'short:8',
                   'short:9'] * 10
                 ],
-        'map': [# Enpty map
-                {},
-                # Map with string keys
-                {'string:one': 'ubyte:1',
-                 'string:two': 'ushort:2'},
-                # Map with other AMQP simple types as keys
-                {'none:': 'string:None',
-                 'string:None': 'none:',
-                 'string:One': 'long:-1234567890',
-                 'short:2': 'int:2',
-                 'boolean:True': 'string:True',
-                 'string:False': 'boolean:False',
-                 #['string:AAA', 'ushort:5951']: 'string:list value',
-                 #{'byte:-55': 'ubyte:200',
-                 # 'boolean:True': 'string:Hello, world!'}: 'symbol:map.value',
-                 #'string:list': [],
-                 'string:map': {'char:A': 'int:1',
-                                'char:B': 'int:2'}},
-               ],
+        'map': [
+            # Enpty map
+            {},
+            # Map with string keys
+            {'string:one': 'ubyte:1',
+             'string:two': 'ushort:2'},
+            # Map with other AMQP simple types as keys
+            {'none:': 'string:None',
+             'string:None': 'none:',
+             'string:One': 'long:-1234567890',
+             'short:2': 'int:2',
+             'boolean:True': 'string:True',
+             'string:False': 'boolean:False',
+             #['string:AAA', 'ushort:5951']: 'string:list value',
+             #{'byte:-55': 'ubyte:200',
+             # 'boolean:True': 'string:Hello, world!'}: 'symbol:map.value',
+             #'string:list': [],
+             'string:map': {'char:A': 'int:1',
+                            'char:B': 'int:2'}},
+            ],
         # TODO: Support all AMQP types in array (including keys)
         #'array': [[],
         #          [1, 2, 3],

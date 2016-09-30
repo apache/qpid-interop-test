@@ -23,6 +23,7 @@ Module containing worker thread classes and shims
 from json import loads
 from os import getenv, path
 from subprocess import Popen, PIPE, CalledProcessError
+from sys import stdout
 from threading import Thread
 from time import sleep
 
@@ -43,32 +44,55 @@ class ShimWorkerThread(Thread):
         return self.return_obj
 
     def join_or_kill(self, timeout):
+        """
+        Wait for thread to join after timeout (seconds). If still alive, it is then terminated, then if still alive,
+        killed
+        """
         self.join(timeout)
         if self.is_alive():
-            print '\n  Thread %s (pid=%d) alive after timeout, terminating...' % (self.name, self.proc.pid),
-            self.proc.terminate()
-            sleep(1)
-            if self.is_alive():
-                print '  Thread %s (pid=%d) alive after terminate, killing...' % (self.name, self.proc.pid),
-                self.proc.kill()
-                sleep(1)
-                if self.is_alive():
-                    print '  ERROR: Thread %s (pid=%d) alive after kill' % (self.name, self.proc.pid)
+            if self._terminate_loop():
+                if self._kill_loop():
+                    print '\n  ERROR: Thread %s (pid=%d) alive after kill' % (self.name, self.proc.pid)
+                    stdout.flush()
                 else:
                     print 'Killed'
+                    stdout.flush()
             else:
                 print 'Terminated'
+                stdout.flush()
+
+    def _terminate_loop(self, num_attempts=2, wait_time=2):
+        cnt = 0
+        while cnt < num_attempts and self.is_alive():
+            cnt += 1
+            print '\n  Thread %s (pid=%d) alive after timeout, terminating (try #%d)...' % (self.name, self.proc.pid,
+                                                                                            cnt),
+            stdout.flush()
+            self.proc.terminate()
+            sleep(wait_time)
+        return self.is_alive()
+
+    def _kill_loop(self, num_attempts=5, wait_time=5):
+        cnt = 0
+        while cnt < num_attempts and self.is_alive():
+            cnt += 1
+            print '\n  Thread %s (pid=%d) alive after terminate, killing (try #%d)...' % (self.name, self.proc.pid,
+                                                                                          cnt),
+            stdout.flush()
+            self.proc.kill()
+            sleep(wait_time)
+        return self.is_alive()
 
 
 class Sender(ShimWorkerThread):
     """Sender class for multi-threaded send"""
-    def __init__(self, use_shell_flag, send_shim_args, broker_addr, queue_name, type, json_test_str):
-        super(Sender, self).__init__('sender_thread')
+    def __init__(self, use_shell_flag, send_shim_args, broker_addr, queue_name, msg_type, json_test_str):
+        super(Sender, self).__init__('sender_thread_%s' % queue_name)
         if send_shim_args is None:
             print 'ERROR: Sender: send_shim_args == None'
         self.use_shell_flag = use_shell_flag
         self.arg_list.extend(send_shim_args)
-        self.arg_list.extend([broker_addr, queue_name, type, json_test_str])
+        self.arg_list.extend([broker_addr, queue_name, msg_type, json_test_str])
 
     def run(self):
         """Thread starts here"""
@@ -84,12 +108,12 @@ class Sender(ShimWorkerThread):
 
 class Receiver(ShimWorkerThread):
     """Receiver class for multi-threaded receive"""
-    def __init__(self, receive_shim_args, broker_addr, queue_name, type, json_test_str):
+    def __init__(self, receive_shim_args, broker_addr, queue_name, msg_type, json_test_str):
         super(Receiver, self).__init__('receiver_thread')
         if receive_shim_args is None:
             print 'ERROR: Receiver: receive_shim_args == None'
         self.arg_list.extend(receive_shim_args)
-        self.arg_list.extend([broker_addr, queue_name, type, json_test_str])
+        self.arg_list.extend([broker_addr, queue_name, msg_type, json_test_str])
 
     def run(self):
         """Thread starts here"""
@@ -124,13 +148,13 @@ class Shim(object):
         self.receive_params = None
         self.use_shell_flag = False
 
-    def create_sender(self, broker_addr, queue_name, type, json_test_str):
+    def create_sender(self, broker_addr, queue_name, msg_type, json_test_str):
         """Create a new sender instance"""
-        return Sender(self.use_shell_flag, self.send_params, broker_addr, queue_name, type, json_test_str)
+        return Sender(self.use_shell_flag, self.send_params, broker_addr, queue_name, msg_type, json_test_str)
 
-    def create_receiver(self, broker_addr, queue_name, type, json_test_str):
+    def create_receiver(self, broker_addr, queue_name, msg_type, json_test_str):
         """Create a new receiver instance"""
-        return Receiver(self.receive_params, broker_addr, queue_name, type, json_test_str)
+        return Receiver(self.receive_params, broker_addr, queue_name, msg_type, json_test_str)
 
 class ProtonPythonShim(Shim):
     """Shim for qpid-proton Python client"""
