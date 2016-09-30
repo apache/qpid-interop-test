@@ -30,6 +30,7 @@ import unittest
 from itertools import product
 from json import dumps
 from os import getenv, path
+from sys import stdout
 from time import mktime, time
 from uuid import UUID, uuid4
 
@@ -401,6 +402,7 @@ if __name__ == '__main__':
                           else '<platform not found>'
         print 'Test Broker: %s v.%s on %s' % (BROKER, BROKER_VERSION, BROKER_PLATFORM)
         print
+        stdout.flush()
 
     TYPES = AmqpPrimitiveTypes()
 

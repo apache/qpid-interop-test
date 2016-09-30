@@ -21,7 +21,8 @@ Module containing worker thread classes and shims
 #
 
 from json import loads
-from os import getenv, path
+from os import getenv, kill, path
+from signal import SIGKILL
 from subprocess import Popen, PIPE, CalledProcessError
 from sys import stdout
 from threading import Thread
@@ -52,8 +53,11 @@ class ShimWorkerThread(Thread):
         if self.is_alive():
             if self._terminate_loop():
                 if self._kill_loop():
-                    print '\n  ERROR: Thread %s (pid=%d) alive after kill' % (self.name, self.proc.pid)
-                    stdout.flush()
+                    if self._os_kill():
+                        print '\n  ERROR: Thread %s (pid=%d) alive after kill' % (self.name, self.proc.pid)
+                        stdout.flush()
+                    else:
+                        print 'Killed by os'
                 else:
                     print 'Killed'
                     stdout.flush()
@@ -72,7 +76,7 @@ class ShimWorkerThread(Thread):
             sleep(wait_time)
         return self.is_alive()
 
-    def _kill_loop(self, num_attempts=5, wait_time=5):
+    def _kill_loop(self, num_attempts=2, wait_time=5):
         cnt = 0
         while cnt < num_attempts and self.is_alive():
             cnt += 1
@@ -80,6 +84,14 @@ class ShimWorkerThread(Thread):
                                                                                           cnt),
             stdout.flush()
             self.proc.kill()
+            sleep(wait_time)
+        return self.is_alive()
+
+    def _os_kill(self, wait_time=5):
+        if self.is_alive():
+            print '\n  Thread %s (pid=%d) alive after kill, using os kill...' % (self.name, self.proc.pid),
+            stdout.flush()
+            kill(self.proc.pid, SIGKILL)
             sleep(wait_time)
         return self.is_alive()
 
