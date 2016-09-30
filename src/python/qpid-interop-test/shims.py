@@ -121,7 +121,7 @@ class Sender(ShimWorkerThread):
 class Receiver(ShimWorkerThread):
     """Receiver class for multi-threaded receive"""
     def __init__(self, receive_shim_args, broker_addr, queue_name, msg_type, json_test_str):
-        super(Receiver, self).__init__('receiver_thread')
+        super(Receiver, self).__init__('receiver_thread_%s' % queue_name)
         if receive_shim_args is None:
             print 'ERROR: Receiver: receive_shim_args == None'
         self.arg_list.extend(receive_shim_args)
