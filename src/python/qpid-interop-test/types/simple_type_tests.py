@@ -279,8 +279,8 @@ class AmqpTypeTestCase(unittest.TestCase):
             sender.start()
 
             # Wait for both shims to finish
-            sender.join(shims.THREAD_TIMEOUT)
-            receiver.join(shims.THREAD_TIMEOUT)
+            sender.join_or_kill(shims.THREAD_TIMEOUT)
+            receiver.join_or_kill(shims.THREAD_TIMEOUT)
 
             # Process return string from sender
             send_obj = sender.get_return_object()
@@ -288,7 +288,7 @@ class AmqpTypeTestCase(unittest.TestCase):
                 if isinstance(send_obj, str) and len(send_obj) > 0:
                     self.fail('Send shim \'%s\':\n%s' % (send_shim.NAME, send_obj))
                 else:
-                    self.fail(str(send_obj))
+                    self.fail('Sender error: %s' % str(send_obj))
 
             # Process return string from receiver
             receive_obj = receiver.get_return_object()
@@ -296,7 +296,7 @@ class AmqpTypeTestCase(unittest.TestCase):
                 self.assertEqual(receive_obj, test_value_list, msg='\n    sent:%s\nreceived:%s' % \
                                  (test_value_list, receive_obj))
             else:
-                self.fail(receive_obj)
+                self.fail('Receiver error: %s' % str(receive_obj))
 
 def create_testcase_class(broker_name, types, broker_addr, amqp_type, shim_product):
     """

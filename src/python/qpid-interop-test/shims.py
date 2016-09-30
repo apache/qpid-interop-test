@@ -22,11 +22,12 @@ Module containing worker thread classes and shims
 
 from json import loads
 from os import getenv, path
-from subprocess import check_output, CalledProcessError
+from subprocess import Popen, PIPE, CalledProcessError
 from threading import Thread
+from time import sleep
 
 
-THREAD_TIMEOUT = 15.0 # seconds to complete before join is forced
+THREAD_TIMEOUT = 10.0 # seconds to complete before join is forced
 
 
 class ShimWorkerThread(Thread):
@@ -35,10 +36,28 @@ class ShimWorkerThread(Thread):
         super(ShimWorkerThread, self).__init__(name=thread_name)
         self.arg_list = []
         self.return_obj = None
+        self.proc = None
 
     def get_return_object(self):
         """Get the return object from the completed thread"""
         return self.return_obj
+
+    def join_or_kill(self, timeout):
+        self.join(timeout)
+        if self.is_alive():
+            print '\n  Thread %s (pid=%d) alive after timeout, terminating...' % (self.name, self.proc.pid),
+            self.proc.terminate()
+            sleep(1)
+            if self.is_alive():
+                print '  Thread %s (pid=%d) alive after terminate, killing...' % (self.name, self.proc.pid),
+                self.proc.kill()
+                sleep(1)
+                if self.is_alive():
+                    print '  ERROR: Thread %s (pid=%d) alive after kill' % (self.name, self.proc.pid)
+                else:
+                    print 'Killed'
+            else:
+                print 'Terminated'
 
 
 class Sender(ShimWorkerThread):
@@ -55,9 +74,10 @@ class Sender(ShimWorkerThread):
         """Thread starts here"""
         try:
             #print '\n>>>', self.arg_list # DEBUG - useful to see command-line sent to shim
-            return_str = check_output(self.arg_list, shell=self.use_shell_flag)
-            if len(return_str) > 0:
-                self.return_obj = return_str
+            self.proc = Popen(self.arg_list, stdout=PIPE, stderr=PIPE, shell=self.use_shell_flag)
+            (stdoutdata, stderrdata) = self.proc.communicate()
+            if len(stdoutdata) > 0 or len(stderrdata) > 0:
+                self.return_obj = (stdoutdata, stderrdata)
         except CalledProcessError as exc:
             self.return_obj = str(exc) + '\n\nOutput:\n' + exc.output
 
@@ -75,18 +95,22 @@ class Receiver(ShimWorkerThread):
         """Thread starts here"""
         try:
             #print '\n>>>', self.arg_list # DEBUG - useful to see command-line sent to shim
-            output = check_output(self.arg_list)
-            #print '<<<', output # DEBUG - useful to see text received from shim
-            str_tvl = output.split('\n')[0:-1] # remove trailing \n
-            #if len(str_tvl) == 1:
-            #    self.return_obj = output
-            if len(str_tvl) == 2: # AMQP type test return
-                self.return_obj = loads(str_tvl[1])
-            elif len(str_tvl) == 4: # JMS test return
-                self.return_obj = (str_tvl[0], loads(str_tvl[1]), loads(str_tvl[2]), loads(str_tvl[3]))
-            else: # Make a single line of all the bits and return that
-                #self.return_obj = loads("".join(str_tvl[1:]))
-                self.return_obj = output
+            self.proc = Popen(self.arg_list, stdout=PIPE, stderr=PIPE)
+            (stdoutdata, stderrdata) = self.proc.communicate()
+            if len(stderrdata) > 0:
+                self.return_obj = (stdoutdata, stderrdata)
+            else:
+                #print '<<<', stdoutdata # DEBUG - useful to see text received from shim
+                str_tvl = stdoutdata.split('\n')[0:-1] # remove trailing \n
+                #if len(str_tvl) == 1:
+                #    self.return_obj = output
+                if len(str_tvl) == 2: # AMQP type test return
+                    self.return_obj = loads(str_tvl[1])
+                elif len(str_tvl) == 4: # JMS test return
+                    self.return_obj = (str_tvl[0], loads(str_tvl[1]), loads(str_tvl[2]), loads(str_tvl[3]))
+                else: # Make a single line of all the bits and return that
+                    #self.return_obj = loads("".join(str_tvl[1:]))
+                    self.return_obj = stdoutdata
         except CalledProcessError as exc:
             self.return_obj = str(exc) + '\n\n' + exc.output
 

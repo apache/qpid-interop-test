@@ -278,12 +278,8 @@ class JmsMessageTypeTestCase(unittest.TestCase):
         sender.start()
 
         # Wait for both shims to finish
-        sender.join(shims.THREAD_TIMEOUT)
-        if sender.isAlive():
-            print 'Sender thread %s timed out' % sender.getName()
-        receiver.join(shims.THREAD_TIMEOUT)
-        if receiver.isAlive():
-            print 'Receiver thread %s timed out' % receiver.getName()
+        sender.join_or_kill(shims.THREAD_TIMEOUT)
+        receiver.join_or_kill(shims.THREAD_TIMEOUT)
 
         # Process return string from sender
         send_obj = sender.get_return_object()

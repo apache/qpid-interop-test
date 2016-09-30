@@ -77,7 +77,13 @@ namespace qpidit
         void JmsReceiver::on_message(proton::delivery &d, proton::message &m) {
             try {
                 if (_received < _expected) {
-                    switch (m.message_annotations().get(proton::symbol("x-opt-jms-msg-type")).get<int8_t>()) {
+                    int8_t t = JMS_MESSAGE_TYPE;
+                    try {t = m.message_annotations().get(proton::symbol("x-opt-jms-msg-type")).get<int8_t>();}
+                    catch (const std::exception& e) {
+                        std::cout << "JmsReceiver::on_message(): Missing annotation \"x-opt-jms-msg-type\"" << std::endl;
+                        throw;
+                    }
+                    switch (t) {
                     case JMS_MESSAGE_TYPE:
                         receiveJmsMessage(m);
                         break;
