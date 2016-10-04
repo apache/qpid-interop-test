@@ -71,7 +71,7 @@ class ShimWorkerThread(Thread):
             print '\n  Thread %s (pid=%d) alive after timeout, terminating (try #%d)...' % (self.name, self.proc.pid,
                                                                                             cnt),
             stdout.flush()
-            killpg(os.getpgid(self.proc.pid), SIGTERM)
+            killpg(getpgid(self.proc.pid), SIGTERM)
             sleep(wait_time)
         return self.is_alive()
 
@@ -82,7 +82,7 @@ class ShimWorkerThread(Thread):
             print '\n  Thread %s (pid=%d) alive after terminate, killing (try #%d)...' % (self.name, self.proc.pid,
                                                                                           cnt),
             stdout.flush()
-            killpg(os.getpgid(self.proc.pid), SIGKILL)
+            killpg(getpgid(self.proc.pid), SIGKILL)
             sleep(wait_time)
         return self.is_alive()
 
