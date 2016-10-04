@@ -21,8 +21,8 @@ Module containing worker thread classes and shims
 #
 
 from json import loads
-from os import getenv, kill, path
-from signal import SIGKILL
+from os import getenv, getpgid, killpg, path, setsid
+from signal import SIGKILL, SIGTERM
 from subprocess import Popen, PIPE, CalledProcessError
 from sys import stdout
 from threading import Thread
@@ -51,47 +51,38 @@ class ShimWorkerThread(Thread):
         """
         self.join(timeout)
         if self.is_alive():
-            if self._terminate_loop():
-                if self._kill_loop():
-                    if self._os_kill():
+            if self.proc is not None:
+                if self._terminate_pg_loop():
+                    if self._kill_pg_loop():
                         print '\n  ERROR: Thread %s (pid=%d) alive after kill' % (self.name, self.proc.pid)
-                        stdout.flush()
                     else:
-                        print 'Killed by os'
+                        print 'Killed'
+                        stdout.flush()
                 else:
-                    print 'Killed'
+                    print 'Terminated'
                     stdout.flush()
             else:
-                print 'Terminated'
-                stdout.flush()
+                print 'ERROR: shims.join_or_kill(): Process joined and is alive, yet proc is None.'
 
-    def _terminate_loop(self, num_attempts=2, wait_time=2):
+    def _terminate_pg_loop(self, num_attempts=2, wait_time=2):
         cnt = 0
         while cnt < num_attempts and self.is_alive():
             cnt += 1
             print '\n  Thread %s (pid=%d) alive after timeout, terminating (try #%d)...' % (self.name, self.proc.pid,
                                                                                             cnt),
             stdout.flush()
-            self.proc.terminate()
+            killpg(os.getpgid(self.proc.pid), SIGTERM)
             sleep(wait_time)
         return self.is_alive()
 
-    def _kill_loop(self, num_attempts=2, wait_time=5):
+    def _kill_pg_loop(self, num_attempts=2, wait_time=5):
         cnt = 0
         while cnt < num_attempts and self.is_alive():
             cnt += 1
             print '\n  Thread %s (pid=%d) alive after terminate, killing (try #%d)...' % (self.name, self.proc.pid,
                                                                                           cnt),
             stdout.flush()
-            self.proc.kill()
-            sleep(wait_time)
-        return self.is_alive()
-
-    def _os_kill(self, wait_time=5):
-        if self.is_alive():
-            print '\n  Thread %s (pid=%d) alive after kill, using os kill...' % (self.name, self.proc.pid),
-            stdout.flush()
-            kill(self.proc.pid, SIGKILL)
+            killpg(os.getpgid(self.proc.pid), SIGKILL)
             sleep(wait_time)
         return self.is_alive()
 
@@ -110,7 +101,7 @@ class Sender(ShimWorkerThread):
         """Thread starts here"""
         try:
             #print '\n>>>', self.arg_list # DEBUG - useful to see command-line sent to shim
-            self.proc = Popen(self.arg_list, stdout=PIPE, stderr=PIPE, shell=self.use_shell_flag)
+            self.proc = Popen(self.arg_list, stdout=PIPE, stderr=PIPE, shell=self.use_shell_flag, preexec_fn=setsid)
             (stdoutdata, stderrdata) = self.proc.communicate()
             if len(stdoutdata) > 0 or len(stderrdata) > 0:
                 self.return_obj = (stdoutdata, stderrdata)
@@ -131,7 +122,7 @@ class Receiver(ShimWorkerThread):
         """Thread starts here"""
         try:
             #print '\n>>>', self.arg_list # DEBUG - useful to see command-line sent to shim
-            self.proc = Popen(self.arg_list, stdout=PIPE, stderr=PIPE)
+            self.proc = Popen(self.arg_list, stdout=PIPE, stderr=PIPE, preexec_fn=setsid)
             (stdoutdata, stderrdata) = self.proc.communicate()
             if len(stderrdata) > 0:
                 self.return_obj = (stdoutdata, stderrdata)
