@@ -404,19 +404,19 @@ def create_testcase_class(broker_name, types, broker_addr, jms_message_type, shi
     return new_class
 
 
-PROTON_CPP_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'build', 'src',
-                                     'JmsReceiver')
-PROTON_CPP_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'build', 'src',
-                                   'JmsSender')
-PROTON_PYTHON_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'src',
-                                        'JmsReceiverShim.py')
-PROTON_PYTHON_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'src',
-                                      'JmsSenderShim.py')
+PROTON_CPP_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'build', 'jms_messages_test',
+                                     'Receiver')
+PROTON_CPP_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'build', 'jms_messages_test',
+                                   'Sender')
+PROTON_PYTHON_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'src', 'jms_messages_test',
+                                        'Receiver.py')
+PROTON_PYTHON_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'src', 'jms_messages_test',
+                                      'Sender.py')
 QIT_JMS_CLASSPATH_FILE = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-jms', 'cp.txt')
 with open(QIT_JMS_CLASSPATH_FILE, 'r') as classpath_file:
     QIT_JMS_CLASSPATH = classpath_file.read()
-QPID_JMS_RECEIVER_SHIM = 'org.apache.qpid.interop_test.shim.JmsReceiverShim'
-QPID_JMS_SENDER_SHIM = 'org.apache.qpid.interop_test.shim.JmsSenderShim'
+QPID_JMS_RECEIVER_SHIM = 'org.apache.qpid.interop_test.jms_messages_test.Receiver'
+QPID_JMS_SENDER_SHIM = 'org.apache.qpid.interop_test.jms_messages_test.Sender'
 
 # SHIM_MAP contains an instance of each client language shim that is to be tested as a part of this test. For
 # every shim in this list, a test is dynamically constructed which tests it against itself as well as every

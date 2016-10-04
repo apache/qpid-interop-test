@@ -19,12 +19,12 @@
  *
  */
 
-#ifndef SRC_QPIDIT_SHIM_JMSDEFINTIONS_HPP_
-#define SRC_QPIDIT_SHIM_JMSDEFINTIONS_HPP_
+#ifndef SRC_QPIDIT_JMS_MESSAGES_TEST_JMSDEFINTIONS_HPP_
+#define SRC_QPIDIT_JMS_MESSAGES_TEST_JMSDEFINTIONS_HPP_
 
 namespace qpidit
 {
-    namespace shim
+    namespace jms_messages_test
     {
         typedef enum {JMS_QUEUE = 0,
                       JMS_TOPIC,
@@ -43,4 +43,4 @@ namespace qpidit
     }
 }
 
-#endif /* SRC_QPIDIT_SHIM_JMSDEFINTIONS_HPP_ */
+#endif /* SRC_QPIDIT_JMS_MESSAGES_TEST_JMSDEFINTIONS_HPP_ */

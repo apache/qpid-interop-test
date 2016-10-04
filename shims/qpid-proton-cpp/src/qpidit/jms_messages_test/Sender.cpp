@@ -19,7 +19,7 @@
  *
  */
 
-#include "qpidit/shim/JmsSender.hpp"
+#include "qpidit/jms_messages_test/Sender.hpp"
 
 #include <cerrno>
 #include <iomanip>
@@ -33,15 +33,15 @@
 
 namespace qpidit
 {
-    namespace shim
+    namespace jms_messages_test
     {
         //static
-        proton::symbol JmsSender::s_jmsMessageTypeAnnotationKey("x-opt-jms-msg-type");
-        std::map<std::string, int8_t>JmsSender::s_jmsMessageTypeAnnotationValues = initializeJmsMessageTypeAnnotationMap();
+        proton::symbol Sender::s_jmsMessageTypeAnnotationKey("x-opt-jms-msg-type");
+        std::map<std::string, int8_t>Sender::s_jmsMessageTypeAnnotationValues = initializeJmsMessageTypeAnnotationMap();
 
-        JmsSender::JmsSender(const std::string& brokerUrl,
-                             const std::string& jmsMessageType,
-                             const Json::Value& testParams) :
+        Sender::Sender(const std::string& brokerUrl,
+                       const std::string& jmsMessageType,
+                       const Json::Value& testParams) :
                 _brokerUrl(brokerUrl),
                 _jmsMessageType(jmsMessageType),
                 _testValueMap(testParams[0]),
@@ -56,13 +56,13 @@ namespace qpidit
             }
         }
 
-        JmsSender::~JmsSender() {}
+        Sender::~Sender() {}
 
-        void JmsSender::on_container_start(proton::container &c) {
+        void Sender::on_container_start(proton::container &c) {
             c.open_sender(_brokerUrl);
         }
 
-        void JmsSender::on_sendable(proton::sender &s) {
+        void Sender::on_sendable(proton::sender &s) {
             if (_totalMsgs == 0) {
                 s.connection().close();
             } else if (_msgsSent == 0) {
@@ -74,40 +74,40 @@ namespace qpidit
             }
         }
 
-        void JmsSender::on_tracker_accept(proton::tracker &t) {
+        void Sender::on_tracker_accept(proton::tracker &t) {
             _msgsConfirmed++;
             if (_msgsConfirmed == _totalMsgs) {
                 t.connection().close();
             }
         }
 
-        void JmsSender::on_transport_close(proton::transport &t) {
+        void Sender::on_transport_close(proton::transport &t) {
             _msgsSent = _msgsConfirmed;
         }
 
-        void JmsSender::on_connection_error(proton::connection &c) {
+        void Sender::on_connection_error(proton::connection &c) {
             std::cerr << "JmsSender::on_connection_error(): " << c.error() << std::endl;
         }
 
-        void JmsSender::on_sender_error(proton::sender &s) {
+        void Sender::on_sender_error(proton::sender &s) {
             std::cerr << "JmsSender::on_sender_error(): " << s.error() << std::endl;
         }
 
-        void JmsSender::on_session_error(proton::session &s) {
+        void Sender::on_session_error(proton::session &s) {
             std::cerr << "JmsSender::on_session_error(): " << s.error() << std::endl;
         }
 
-        void JmsSender::on_transport_error(proton::transport &t) {
+        void Sender::on_transport_error(proton::transport &t) {
             std::cerr << "JmsSender::on_transport_error(): " << t.error() << std::endl;
         }
 
-        void JmsSender::on_error(const proton::error_condition &ec) {
+        void Sender::on_error(const proton::error_condition &ec) {
             std::cerr << "JmsSender::on_error(): " << ec << std::endl;
         }
 
         // protected
 
-        void JmsSender::sendMessages(proton::sender &s, const std::string& subType, const Json::Value& testValues) {
+        void Sender::sendMessages(proton::sender &s, const std::string& subType, const Json::Value& testValues) {
             uint32_t valueNumber = 0;
             for (Json::Value::const_iterator i=testValues.begin(); i!=testValues.end(); ++i) {
                 if (s.credit()) {
@@ -137,7 +137,7 @@ namespace qpidit
 
         }
 
-        proton::message& JmsSender::setMessage(proton::message& msg, const std::string& subType, const std::string& testValueStr) {
+        proton::message& Sender::setMessage(proton::message& msg, const std::string& subType, const std::string& testValueStr) {
             if (subType.compare("none") != 0) {
                 throw qpidit::UnknownJmsMessageSubTypeError(subType);
             }
@@ -149,7 +149,7 @@ namespace qpidit
             return msg;
         }
 
-        proton::message& JmsSender::setBytesMessage(proton::message& msg, const std::string& subType, const std::string& testValueStr) {
+        proton::message& Sender::setBytesMessage(proton::message& msg, const std::string& subType, const std::string& testValueStr) {
             proton::binary bin;
             if (subType.compare("boolean") == 0) {
                 if (testValueStr.compare("False") == 0) bin.push_back(char(0));
@@ -214,7 +214,7 @@ namespace qpidit
             return msg;
         }
 
-        proton::message& JmsSender::setMapMessage(proton::message& msg, const std::string& subType, const std::string& testValueStr, uint32_t valueNumber) {
+        proton::message& Sender::setMapMessage(proton::message& msg, const std::string& subType, const std::string& testValueStr, uint32_t valueNumber) {
             std::ostringstream oss;
             oss << subType << std::setw(3) << std::setfill('0') << valueNumber;
             std::string mapKey(oss.str());
@@ -256,7 +256,7 @@ namespace qpidit
             return msg;
         }
 
-        proton::message& JmsSender::setObjectMessage(proton::message& msg, const std::string& subType, const Json::Value& testValue) {
+        proton::message& Sender::setObjectMessage(proton::message& msg, const std::string& subType, const Json::Value& testValue) {
             msg.body(getJavaObjectBinary(subType, testValue.asString()));
             msg.inferred(true);
             msg.content_type(proton::symbol("application/x-java-serialized-object"));
@@ -264,7 +264,7 @@ namespace qpidit
             return msg;
         }
 
-        proton::message& JmsSender::setStreamMessage(proton::message& msg, const std::string& subType, const std::string& testValueStr) {
+        proton::message& Sender::setStreamMessage(proton::message& msg, const std::string& subType, const std::string& testValueStr) {
             std::vector<proton::value> l;
             if (subType.compare("boolean") == 0) {
                 if (testValueStr.compare("False") == 0) l.push_back(false);
@@ -303,14 +303,14 @@ namespace qpidit
             return msg;
        }
 
-        proton::message& JmsSender::setTextMessage(proton::message& msg, const Json::Value& testValue) {
+        proton::message& Sender::setTextMessage(proton::message& msg, const Json::Value& testValue) {
             msg.body(testValue.asString());
             msg.inferred(false);
             msg.message_annotations().put(proton::symbol("x-opt-jms-msg-type"), s_jmsMessageTypeAnnotationValues["JMS_TEXTMESSAGE_TYPE"]);
             return msg;
         }
 
-        proton::message& JmsSender::addMessageHeaders(proton::message& msg) {
+        proton::message& Sender::addMessageHeaders(proton::message& msg) {
             Json::Value::Members headerNames = _testHeadersMap.getMemberNames();
             for (std::vector<std::string>::const_iterator i=headerNames.begin(); i!=headerNames.end(); ++i) {
                 const Json::Value _subMap = _testHeadersMap[*i];
@@ -334,13 +334,13 @@ namespace qpidit
         }
 
         //static
-        proton::message& JmsSender::setJmsTypeHeader(proton::message& msg, const std::string& t) {
+        proton::message& Sender::setJmsTypeHeader(proton::message& msg, const std::string& t) {
             msg.subject(t);
             return msg;
         }
 
         //static
-        proton::message& JmsSender::setJmsCorrelationId(proton::message& msg, const std::string& cid) {
+        proton::message& Sender::setJmsCorrelationId(proton::message& msg, const std::string& cid) {
             proton::message_id mid(cid);
             msg.correlation_id(mid);
             msg.message_annotations().put(proton::symbol("x-opt-app-correlation-id"), true);
@@ -348,7 +348,7 @@ namespace qpidit
         }
 
         //static
-        proton::message& JmsSender::setJmsCorrelationId(proton::message& msg, const proton::binary cid) {
+        proton::message& Sender::setJmsCorrelationId(proton::message& msg, const proton::binary cid) {
             proton::message_id mid(cid);
             msg.correlation_id(cid);
             msg.message_annotations().put(proton::symbol("x-opt-app-correlation-id"), true);
@@ -356,7 +356,7 @@ namespace qpidit
         }
 
         //static
-        proton::message& JmsSender::setJmsReplyTo(proton::message& msg, const std::string& dts, const std::string& d) {
+        proton::message& Sender::setJmsReplyTo(proton::message& msg, const std::string& dts, const std::string& d) {
             if (dts.compare("queue") == 0) {
                 msg.reply_to(/*std::string("queue://") + */d);
                 msg.message_annotations().put(proton::symbol("x-opt-jms-reply-to"), int8_t(JMS_QUEUE));
@@ -375,7 +375,7 @@ namespace qpidit
             return msg;
         }
 
-        proton::message& JmsSender::addMessageProperties(proton::message& msg) {
+        proton::message& Sender::addMessageProperties(proton::message& msg) {
             Json::Value::Members propertyNames = _testPropertiesMap.getMemberNames();
             for (std::vector<std::string>::const_iterator i=propertyNames.begin(); i!=propertyNames.end(); ++i) {
                 const Json::Value _subMap = _testPropertiesMap[*i];
@@ -407,7 +407,7 @@ namespace qpidit
         }
 
         //static
-        proton::binary JmsSender::getJavaObjectBinary(const std::string& javaClassName, const std::string& valAsString) {
+        proton::binary Sender::getJavaObjectBinary(const std::string& javaClassName, const std::string& valAsString) {
             proton::binary javaObjectBinary;
             char buf[1024];
             int bytesRead;
@@ -425,7 +425,7 @@ namespace qpidit
         }
 
         // static
-        uint32_t JmsSender::getTotalNumMessages(const Json::Value& testValueMap) {
+        uint32_t Sender::getTotalNumMessages(const Json::Value& testValueMap) {
             uint32_t tot = 0;
             for (Json::Value::const_iterator i = testValueMap.begin(); i != testValueMap.end(); ++i) {
                 tot += (*i).size();
@@ -434,7 +434,7 @@ namespace qpidit
         }
 
         //static
-        std::map<std::string, int8_t> JmsSender::initializeJmsMessageTypeAnnotationMap() {
+        std::map<std::string, int8_t> Sender::initializeJmsMessageTypeAnnotationMap() {
             std::map<std::string, int8_t> m;
             m["JMS_MESSAGE_TYPE"] = JMS_MESSAGE_TYPE;
             m["JMS_OBJECTMESSAGE_TYPE"] = JMS_OBJECTMESSAGE_TYPE;
@@ -445,7 +445,7 @@ namespace qpidit
             return m;
         }
 
-    } /* namespace shim */
+    } /* namespace jms_messages_test */
 } /* namespace qpidit */
 
 
@@ -479,7 +479,7 @@ int main(int argc, char** argv) {
             throw qpidit::JsonParserError(jsonReader);
         }
 
-        qpidit::shim::JmsSender sender(oss.str(), argv[3], testParams);
+        qpidit::jms_messages_test::Sender sender(oss.str(), argv[3], testParams);
         proton::default_container(sender).run();
     } catch (const std::exception& e) {
         std::cout << "JmsSender error: " << e.what() << std::endl;

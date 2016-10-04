@@ -19,7 +19,7 @@
  *
  */
 
-#include "qpidit/shim/AmqpReceiver.hpp"
+#include "qpidit/amqp_types_test/Receiver.hpp"
 
 #include <iostream>
 #include <json/json.h>
@@ -32,12 +32,12 @@
 
 namespace qpidit
 {
-    namespace shim
+    namespace amqp_types_test
     {
 
-        AmqpReceiver::AmqpReceiver(const std::string& brokerUrl,
-                                   const std::string& amqpType,
-                                   uint32_t expected) :
+        Receiver::Receiver(const std::string& brokerUrl,
+                           const std::string& amqpType,
+                           uint32_t expected) :
                         _brokerUrl(brokerUrl),
                         _amqpType(amqpType),
                         _expected(expected),
@@ -45,17 +45,17 @@ namespace qpidit
                         _receivedValueList(Json::arrayValue)
         {}
 
-        AmqpReceiver::~AmqpReceiver() {}
+        Receiver::~Receiver() {}
 
-        Json::Value& AmqpReceiver::getReceivedValueList() {
+        Json::Value& Receiver::getReceivedValueList() {
             return _receivedValueList;
         }
 
-        void AmqpReceiver::on_container_start(proton::container &c) {
+        void Receiver::on_container_start(proton::container &c) {
             c.open_receiver(_brokerUrl);
         }
 
-        void AmqpReceiver::on_message(proton::delivery &d, proton::message &m) {
+        void Receiver::on_message(proton::delivery &d, proton::message &m) {
             if (proton::get<uint64_t>(m.id()) < _received) return; // ignore duplicate
             if (_received < _expected) {
                 if (_amqpType.compare("null") == 0) {
@@ -155,37 +155,37 @@ namespace qpidit
             }
         }
 
-        void AmqpReceiver::on_connection_error(proton::connection &c) {
+        void Receiver::on_connection_error(proton::connection &c) {
             std::cerr << "AmqpReceiver::on_connection_error(): " << c.error() << std::endl;
         }
 
-        void AmqpReceiver::on_receiver_error(proton::receiver& r) {
+        void Receiver::on_receiver_error(proton::receiver& r) {
             std::cerr << "AmqpReceiver::on_receiver_error(): " << r.error() << std::endl;
         }
 
-        void AmqpReceiver::on_session_error(proton::session &s) {
+        void Receiver::on_session_error(proton::session &s) {
             std::cerr << "AmqpReceiver::on_session_error(): " << s.error() << std::endl;
         }
 
-        void AmqpReceiver::on_transport_error(proton::transport &t) {
+        void Receiver::on_transport_error(proton::transport &t) {
             std::cerr << "AmqpReceiver::on_transport_error(): " << t.error() << std::endl;
         }
 
-        void AmqpReceiver::on_error(const proton::error_condition &ec) {
+        void Receiver::on_error(const proton::error_condition &ec) {
             std::cerr << "AmqpReceiver::on_error(): " << ec << std::endl;
         }
 
         // protected
 
         //static
-        void AmqpReceiver::checkMessageType(const proton::message& msg, proton::type_id amqpType) {
+        void Receiver::checkMessageType(const proton::message& msg, proton::type_id amqpType) {
             if (msg.body().type() != amqpType) {
                 throw qpidit::IncorrectMessageBodyTypeError(amqpType, msg.body().type());
             }
         }
 
         //static
-        Json::Value& AmqpReceiver::getMap(Json::Value& jsonMap, const proton::value& val) {
+        Json::Value& Receiver::getMap(Json::Value& jsonMap, const proton::value& val) {
             std::map<proton::value, proton::value> msgMap;
             val.get(msgMap);
             for (std::map<proton::value, proton::value>::const_iterator i = msgMap.begin(); i != msgMap.end(); ++i) {
@@ -215,7 +215,7 @@ namespace qpidit
         }
 
         //static
-        Json::Value& AmqpReceiver::getSequence(Json::Value& jsonList, const proton::value& val) {
+        Json::Value& Receiver::getSequence(Json::Value& jsonList, const proton::value& val) {
             std::vector<proton::value> msgList;
             val.get(msgList);
             for (std::vector<proton::value>::const_iterator i=msgList.begin(); i!=msgList.end(); ++i) {
@@ -245,7 +245,7 @@ namespace qpidit
         }
 
         //static
-        std::string AmqpReceiver::stringToHexStr(const std::string& str) {
+        std::string Receiver::stringToHexStr(const std::string& str) {
             std::ostringstream oss;
             oss << "0x" << std::hex;
             for (std::string::const_iterator i=str.begin(); i!=str.end(); ++i) {
@@ -254,7 +254,7 @@ namespace qpidit
             return oss.str();
         }
 
-    } /* namespace shim */
+    } /* namespace amqp_types_test */
 } /* namespace qpidit */
 
 
@@ -276,7 +276,7 @@ int main(int argc, char** argv) {
     oss << argv[1] << "/" << argv[2];
 
     try {
-        qpidit::shim::AmqpReceiver receiver(oss.str(), argv[3], std::strtoul(argv[4], NULL, 0));
+        qpidit::amqp_types_test::Receiver receiver(oss.str(), argv[3], std::strtoul(argv[4], NULL, 0));
         proton::default_container(receiver).run();
 
         std::cout << argv[3] << std::endl;

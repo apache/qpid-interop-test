@@ -19,22 +19,22 @@
  *
  */
 
-#ifndef SRC_QPIDIT_SHIM_JMSRECEIVER_HPP_
-#define SRC_QPIDIT_SHIM_JMSRECEIVER_HPP_
+#ifndef SRC_QPIDIT_JMS_MESSAGES_TEST_RECEIVER_HPP_
+#define SRC_QPIDIT_JMS_MESSAGES_TEST_RECEIVER_HPP_
 
 #include <iomanip>
 #include <json/value.h>
 #include "proton/messaging_handler.hpp"
 #include "proton/types.hpp"
-#include "qpidit/shim/JmsDefinitions.hpp"
+#include "qpidit/jms_messages_test/JmsDefinitions.hpp"
 #include <sstream>
 
 namespace qpidit
 {
-    namespace shim
+    namespace jms_messages_test
     {
 
-        class JmsReceiver : public proton::messaging_handler
+        class Receiver : public proton::messaging_handler
         {
         protected:
             static proton::symbol s_jmsMessageTypeAnnotationKey;
@@ -53,11 +53,11 @@ namespace qpidit
             Json::Value _receivedHeadersMap;
             Json::Value _receivedPropertiesMap;
         public:
-            JmsReceiver(const std::string& brokerUrl,
-                        const std::string& jmsMessageType,
-                        const Json::Value& testNumberMap,
-                        const Json::Value& flagMap);
-            virtual ~JmsReceiver();
+            Receiver(const std::string& brokerUrl,
+                     const std::string& jmsMessageType,
+                     const Json::Value& testNumberMap,
+                     const Json::Value& flagMap);
+            virtual ~Receiver();
             Json::Value& getReceivedValueMap();
             Json::Value& getReceivedHeadersMap();
             Json::Value& getReceivedPropertiesMap();
@@ -105,7 +105,7 @@ namespace qpidit
             }
         };
 
-    } /* namespace shim */
+    } /* namespace jms_messages_test */
 } /* namespace qpidit */
 
-#endif /* SRC_QPIDIT_SHIM_JMSRECEIVER_HPP_ */
+#endif /* SRC_QPIDIT_JMS_MESSAGES_TEST_RECEIVER_HPP_ */

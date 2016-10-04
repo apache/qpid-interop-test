@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.qpid.interop_test.shim;
+package org.apache.qpid.interop_test.jms_messages_test;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -50,7 +50,7 @@ import javax.json.JsonReader;
 import javax.json.JsonWriter;
 import org.apache.qpid.jms.JmsConnectionFactory;
 
-public class JmsReceiverShim {
+public class Receiver {
     private static final String USER = "guest";
     private static final String PASSWORD = "guest";
     private static final int TIMEOUT = 1000;
@@ -100,11 +100,11 @@ public class JmsReceiverShim {
         JsonObject numTestValuesMap = testParamsList.getJsonObject(0);
         JsonObject flagMap = testParamsList.getJsonObject(1);
         
-        JmsReceiverShim shim = new JmsReceiverShim(brokerAddress, queueName);
+        Receiver shim = new Receiver(brokerAddress, queueName);
         shim.run(jmsMessageType, numTestValuesMap, flagMap);
     }
 
-    public JmsReceiverShim(String brokerAddress, String queueName) {
+    public Receiver(String brokerAddress, String queueName) {
         try {
             _connection = null;
             ConnectionFactory factory = (ConnectionFactory)new JmsConnectionFactory(brokerAddress);

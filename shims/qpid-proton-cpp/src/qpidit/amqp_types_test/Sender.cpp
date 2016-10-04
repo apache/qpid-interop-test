@@ -19,7 +19,7 @@
  *
  */
 
-#include "qpidit/shim/AmqpSender.hpp"
+#include "qpidit/amqp_types_test/Sender.hpp"
 
 #include <iostream>
 #include <json/json.h>
@@ -31,12 +31,12 @@
 
 namespace qpidit
 {
-    namespace shim
+    namespace amqp_types_test
     {
 
-        AmqpSender::AmqpSender(const std::string& brokerUrl,
-                               const std::string& amqpType,
-                               const Json::Value& testValues) :
+        Sender::Sender(const std::string& brokerUrl,
+                       const std::string& amqpType,
+                       const Json::Value& testValues) :
                         _brokerUrl(brokerUrl),
                         _amqpType(amqpType),
                         _testValues(testValues),
@@ -45,13 +45,13 @@ namespace qpidit
                         _totalMsgs(testValues.size())
         {}
 
-        AmqpSender::~AmqpSender() {}
+        Sender::~Sender() {}
 
-        void AmqpSender::on_container_start(proton::container &c) {
+        void Sender::on_container_start(proton::container &c) {
             c.open_sender(_brokerUrl);
         }
 
-        void AmqpSender::on_sendable(proton::sender &s) {
+        void Sender::on_sendable(proton::sender &s) {
             if (_totalMsgs == 0) {
                 s.connection().close();
             } else if (_msgsSent == 0) {
@@ -67,40 +67,40 @@ namespace qpidit
             }
         }
 
-        void AmqpSender::on_tracker_accept(proton::tracker &t) {
+        void Sender::on_tracker_accept(proton::tracker &t) {
             _msgsConfirmed++;
             if (_msgsConfirmed == _totalMsgs) {
                 t.connection().close();
             }
         }
 
-        void AmqpSender::on_transport_close(proton::transport &t) {
+        void Sender::on_transport_close(proton::transport &t) {
             _msgsSent = _msgsConfirmed;
         }
 
-        void AmqpSender::on_connection_error(proton::connection &c) {
+        void Sender::on_connection_error(proton::connection &c) {
             std::cerr << "AmqpSender::on_connection_error(): " << c.error() << std::endl;
         }
 
-        void AmqpSender::on_sender_error(proton::sender &s) {
+        void Sender::on_sender_error(proton::sender &s) {
             std::cerr << "AmqpSender::on_sender_error(): " << s.error() << std::endl;
         }
 
-        void AmqpSender::on_session_error(proton::session &s) {
+        void Sender::on_session_error(proton::session &s) {
             std::cerr << "AmqpSender::on_session_error(): " << s.error() << std::endl;
         }
 
-        void AmqpSender::on_transport_error(proton::transport &t) {
+        void Sender::on_transport_error(proton::transport &t) {
             std::cerr << "AmqpSender::on_transport_error(): " << t.error() << std::endl;
         }
 
-        void AmqpSender::on_error(const proton::error_condition &ec) {
+        void Sender::on_error(const proton::error_condition &ec) {
             std::cerr << "AmqpSender::on_error(): " << ec << std::endl;
         }
 
         // protected
 
-        proton::message& AmqpSender::setMessage(proton::message& msg, const Json::Value& testValue) {
+        proton::message& Sender::setMessage(proton::message& msg, const Json::Value& testValue) {
             msg.id(_msgsSent + 1);
             if (_amqpType.compare("null") == 0) {
                 std::string testValueStr(testValue.asString());
@@ -208,7 +208,7 @@ namespace qpidit
         }
 
         //static
-        std::string AmqpSender::bytearrayToHexStr(const char* src, int len) {
+        std::string Sender::bytearrayToHexStr(const char* src, int len) {
             std::ostringstream oss;
             oss << "0x" << std::hex;
             for (int i=0; i<len; ++i) {
@@ -218,7 +218,7 @@ namespace qpidit
         }
 
         //static
-        proton::value AmqpSender::extractProtonValue(const Json::Value& val) {
+        proton::value Sender::extractProtonValue(const Json::Value& val) {
             switch (val.type()) {
             case Json::nullValue:
             {
@@ -249,7 +249,7 @@ namespace qpidit
 //        }
 
         //static
-        void AmqpSender::processArray(std::vector<proton::value>& array, const Json::Value& testValues) {
+        void Sender::processArray(std::vector<proton::value>& array, const Json::Value& testValues) {
             for (Json::Value::const_iterator i = testValues.begin(); i != testValues.end(); ++i) {
                 if ((*i).isArray()) {
                     std::vector<proton::value> subArray;
@@ -281,7 +281,7 @@ namespace qpidit
         }
 
         //static
-        void AmqpSender::processList(std::vector<proton::value>& list, const Json::Value& testValues) {
+        void Sender::processList(std::vector<proton::value>& list, const Json::Value& testValues) {
             for (Json::Value::const_iterator i = testValues.begin(); i != testValues.end(); ++i) {
                 if ((*i).isArray()) {
                     std::vector<proton::value> subList;
@@ -299,7 +299,7 @@ namespace qpidit
         }
 
         //static
-        void AmqpSender::processMap(std::map<std::string, proton::value>& map, const Json::Value& testValues) {
+        void Sender::processMap(std::map<std::string, proton::value>& map, const Json::Value& testValues) {
             Json::Value::Members keys = testValues.getMemberNames();
             for (std::vector<std::string>::const_iterator i=keys.begin(); i!=keys.end(); ++i) {
                 Json::Value mapVal = testValues[*i];
@@ -318,19 +318,19 @@ namespace qpidit
         }
 
         //static
-        void AmqpSender::revMemcpy(char* dest, const char* src, int n) {
+        void Sender::revMemcpy(char* dest, const char* src, int n) {
             for (int i = 0; i < n; ++i) {
                 *(dest + i) = *(src + n - i - 1);
             }
         }
 
         //static
-        void AmqpSender::uint64ToChar16(char* dest, uint64_t upper, uint64_t lower) {
+        void Sender::uint64ToChar16(char* dest, uint64_t upper, uint64_t lower) {
             revMemcpy(dest, (const char*)&upper, sizeof(uint64_t));
             revMemcpy(dest + 8, (const char*)&lower, sizeof(uint64_t));
         }
 
-    } /* namespace shim */
+    } /* namespace amqp_types_test */
 } /* namespace qpidit */
 
 
@@ -358,7 +358,7 @@ int main(int argc, char** argv) {
             throw qpidit::JsonParserError(jsonReader);
         }
 
-        qpidit::shim::AmqpSender sender(oss.str(), argv[3], testValues);
+        qpidit::amqp_types_test::Sender sender(oss.str(), argv[3], testValues);
         proton::default_container(sender).run();
     } catch (const std::exception& e) {
         std::cerr << "AmqpSender error: " << e.what() << std::endl;

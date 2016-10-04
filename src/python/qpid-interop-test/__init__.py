@@ -19,6 +19,7 @@
 
 import broker_properties
 import interop_test_errors
+import shims
 import test_type_map
 import types
 import jms

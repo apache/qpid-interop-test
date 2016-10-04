@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.qpid.interop_test.shim;
+package org.apache.qpid.interop_test.jms_messages_test;
 
 import java.io.Serializable;
 import java.io.StringReader;
@@ -43,7 +43,7 @@ import javax.json.JsonObject;
 import javax.json.JsonReader;
 import org.apache.qpid.jms.JmsConnectionFactory;
 
-public class JmsSenderShim {
+public class Sender {
     private static final String USER = "guest";
     private static final String PASSWORD = "guest";
     private static final String[] SUPPORTED_JMS_MESSAGE_TYPES = {"JMS_MESSAGE_TYPE",
@@ -90,11 +90,11 @@ public class JmsSenderShim {
         JsonObject testHeadersMap = testParamsList.getJsonObject(1);
         JsonObject testPropertiesMap = testParamsList.getJsonObject(2);
 
-        JmsSenderShim shim = new JmsSenderShim(brokerAddress, queueName);
+        Sender shim = new Sender(brokerAddress, queueName);
         shim.runTests(jmsMessageType, testValuesMap, testHeadersMap, testPropertiesMap);
     }
 
-    public JmsSenderShim(String brokerAddress, String queueName) {
+    public Sender(String brokerAddress, String queueName) {
         try {
             ConnectionFactory factory = (ConnectionFactory)new JmsConnectionFactory(brokerAddress);
 

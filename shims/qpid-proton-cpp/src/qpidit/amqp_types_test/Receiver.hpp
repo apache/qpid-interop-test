@@ -19,8 +19,8 @@
  *
  */
 
-#ifndef SRC_QPIDIT_SHIM_AMQP_RECEIVER_HPP_
-#define SRC_QPIDIT_SHIM_AMQP_RECEIVER_HPP_
+#ifndef SRC_QPIDIT_AMQP_TYPES_TEST_RECEIVER_HPP_
+#define SRC_QPIDIT_AMQP_TYPES_TEST_RECEIVER_HPP_
 
 #include <iomanip>
 #include <json/value.h>
@@ -30,10 +30,10 @@
 
 namespace qpidit
 {
-    namespace shim
+    namespace amqp_types_test
     {
 
-        class AmqpReceiver : public proton::messaging_handler
+        class Receiver : public proton::messaging_handler
         {
         protected:
             const std::string _brokerUrl;
@@ -42,8 +42,8 @@ namespace qpidit
             uint32_t _received;
             Json::Value _receivedValueList;
         public:
-            AmqpReceiver(const std::string& brokerUrl, const std::string& amqpType, uint32_t exptected);
-            virtual ~AmqpReceiver();
+            Receiver(const std::string& brokerUrl, const std::string& amqpType, uint32_t exptected);
+            virtual ~Receiver();
             Json::Value& getReceivedValueList();
             void on_container_start(proton::container &c);
             void on_message(proton::delivery &d, proton::message &m);
@@ -79,7 +79,7 @@ namespace qpidit
             }
         };
 
-    } /* namespace shim */
+    } /* namespace amqp_types_test */
 } /* namespace qpidit */
 
-#endif /* SRC_QPIDIT_SHIM_AMQP_RECEIVER_HPP_ */
+#endif /* SRC_QPIDIT_AMQP_TYPES_TEST_RECEIVER_HPP_ */

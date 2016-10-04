@@ -19,8 +19,8 @@
  *
  */
 
-#ifndef SRC_QPIDIT_SHIM_AMQPSENDER_HPP_
-#define SRC_QPIDIT_SHIM_AMQPSENDER_HPP_
+#ifndef SRC_QPIDIT_AMQP_TYPES_TEST_SENDER_HPP_
+#define SRC_QPIDIT_AMQP_TYPES_TEST_SENDER_HPP_
 
 #include <iomanip>
 #include <json/value.h>
@@ -30,10 +30,10 @@
 
 namespace qpidit
 {
-    namespace shim
+    namespace amqp_types_test
     {
 
-        class AmqpSender : public proton::messaging_handler
+        class Sender : public proton::messaging_handler
         {
         protected:
             const std::string _brokerUrl;
@@ -43,8 +43,8 @@ namespace qpidit
             uint32_t _msgsConfirmed;
             uint32_t _totalMsgs;
         public:
-            AmqpSender(const std::string& brokerUrl, const std::string& amqpType, const Json::Value& testValues);
-            virtual ~AmqpSender();
+            Sender(const std::string& brokerUrl, const std::string& amqpType, const Json::Value& testValues);
+            virtual ~Sender();
             void on_container_start(proton::container &c);
             void on_sendable(proton::sender &s);
             void on_tracker_accept(proton::tracker &t);
@@ -98,7 +98,7 @@ namespace qpidit
             }
         };
 
-    } /* namespace shim */
+    } /* namespace amqp_types_test */
 } /* namespace qpidit */
 
-#endif /* SRC_QPIDIT_SHIM_AMQPSENDER_HPP_ */
+#endif /* SRC_QPIDIT_AMQP_TYPES_TEST_SENDER_HPP_ */

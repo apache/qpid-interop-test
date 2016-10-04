@@ -14,19 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.qpid.interop_test.shim;
+package org.apache.qpid.interop_test.amqp_types_test;
 
-import java.math.BigDecimal;
+import java.math.BigDecimal; 
+import java.math.BigInteger; 
+import java.math.MathContext; 
+import java.util.Arrays;
 import java.util.UUID;
-import java.util.Vector;
 import javax.jms.BytesMessage;
 import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
+import javax.jms.DeliveryMode;
 import javax.jms.ExceptionListener;
 import javax.jms.JMSException;
 import javax.jms.MapMessage;
 import javax.jms.Message;
-import javax.jms.MessageConsumer;
+import javax.jms.MessageProducer;
 import javax.jms.ObjectMessage;
 import javax.jms.Queue;
 import javax.jms.Session;
@@ -36,10 +39,9 @@ import javax.naming.Context;
 import javax.naming.InitialContext;
 import org.apache.qpid.jms.JmsConnectionFactory;
 
-public class AmqpReceiver {
+public class Sender {
     private static final String USER = "guest";
     private static final String PASSWORD = "guest";
-    private static final int TIMEOUT = 1000;
     private static final String[] SUPPORTED_AMQP_TYPES = {"null",
                                                           "boolean",
                                                           "ubyte",
@@ -67,20 +69,19 @@ public class AmqpReceiver {
 
     public static void main(String[] args) throws Exception {
         if (args.length < 4) {
-            System.out.println("AmqpReceiver: Insufficient number of arguments");
-            System.out.println("AmqpReceiver: Expected arguments: broker_address, queue_name, amqp_type, num_test_values");
+            System.out.println("AmqpSender: Insufficient number of arguments");
+            System.out.println("AmqpSender: Expected arguments: broker_address, queue_name, amqp_type, test_val, test_val, ...");
             System.exit(1);
         }
         String brokerAddress = "amqp://" + args[0];
         String queueName = args[1];
         String amqpType = args[2];
-        int numTestValues = Integer.parseInt(args[3]);
-        Connection connection = null;
+        String[] testValueList = Arrays.copyOfRange(args, 3, args.length); // Use remaining args as test values
 
         try {
             ConnectionFactory factory = (ConnectionFactory)new JmsConnectionFactory(brokerAddress);
 
-            connection = factory.createConnection(USER, PASSWORD);
+            Connection connection = factory.createConnection();
             connection.setExceptionListener(new MyExceptionListener());
             connection.start();
 
@@ -88,136 +89,130 @@ public class AmqpReceiver {
             
             Queue queue = session.createQueue(queueName);
 
-            MessageConsumer messageConsumer = session.createConsumer(queue);
-            
-            Vector<String> outList = new Vector<String>();
-            outList.add(amqpType);
+            MessageProducer messageProducer = session.createProducer(queue);
+
             if (isSupportedAmqpType(amqpType)) {
-                int actualCount = 0;
                 Message message = null;
-                for (int i = 1; i <= numTestValues; i++, actualCount++) {
-                    message = messageConsumer.receive(TIMEOUT);
-                    if (message == null)
-                        break;
+                for (String testValueStr : testValueList) {
                     switch (amqpType) {
                     case "null":
-                        long bodyLength = ((BytesMessage)message).getBodyLength();
-                        if (bodyLength == 0L) {
-                            outList.add("None");
-                        } else {
-                            throw new Exception("AmqpReceiver: JMS BytesMessage size error: Expected 0 bytes, read " + bodyLength);
-                        }
+                        message = session.createBytesMessage();
                         break;
                     case "boolean":
-                        String bs = String.valueOf(((BytesMessage)message).readBoolean());
-                        outList.add(Character.toUpperCase(bs.charAt(0)) + bs.substring(1));
+                        message = session.createBytesMessage();
+                        ((BytesMessage)message).writeBoolean(Boolean.parseBoolean(testValueStr));
                         break;
                     case "ubyte":
-                        byte byteValue = ((BytesMessage)message).readByte();
-                        short ubyteValue = (short)(byteValue & 0xff);
-                        outList.add(String.valueOf(ubyteValue));
+                    {
+                        byte testValue = (byte)Short.parseShort(testValueStr);
+                        message = session.createBytesMessage();
+                        ((BytesMessage)message).writeByte(testValue);
                         break;
+                    }
                     case "ushort":
                     {
+                        int testValue = Integer.parseInt(testValueStr);
                         byte[] byteArray = new byte[2];
-                        int numBytes = ((BytesMessage)message).readBytes(byteArray);
-                        if (numBytes != 2) {
-                            // TODO: numBytes == -1 means no more bytes in stream - add error message for this case?
-                            throw new Exception("AmqpReceiver: JMS BytesMessage size error: Exptected 2 bytes, read " + numBytes);
-                        }
-                        int ushortValue = 0;
-                        for (int j=0; j<byteArray.length; j++) {
-                            ushortValue = (ushortValue << 8) + (byteArray[j] & 0xff);
-                        }
-                        outList.add(String.valueOf(ushortValue));
+                        byteArray[0] = (byte)(testValue >> 8);
+                        byteArray[1] = (byte)(testValue);
+                        message = session.createBytesMessage();
+                        ((BytesMessage)message).writeBytes(byteArray);
                         break;
                     }
                     case "uint":
                     {
+                        long testValue = Long.parseLong(testValueStr);
                         byte[] byteArray = new byte[4];
-                        int numBytes = ((BytesMessage)message).readBytes(byteArray);
-                        if (numBytes != 4) {
-                            // TODO: numBytes == -1 means no more bytes in stream - add error message for this case?
-                            throw new Exception("AmqpReceiver: JMS BytesMessage size error: Exptected 4 bytes, read " + numBytes);
-                        }
-                        long uintValue = 0;
-                        for (int j=0; j<byteArray.length; j++) {
-                            uintValue = (uintValue << 8) + (byteArray[j] & 0xff);
-                        }
-                        outList.add(String.valueOf(uintValue));
+                        byteArray[0] = (byte)(testValue >> 24);
+                        byteArray[1] = (byte)(testValue >> 16);
+                        byteArray[2] = (byte)(testValue >> 8);
+                        byteArray[3] = (byte)(testValue);
+                        message = session.createBytesMessage();
+                        ((BytesMessage)message).writeBytes(byteArray);
                         break;
                     }
                     case "ulong":
-                    case "timestamp":
                     {
                         // TODO: Tidy this ugliness up - perhaps use of vector<byte>?
-                        byte[] byteArray = new byte[8];
-                        int numBytes = ((BytesMessage)message).readBytes(byteArray);
-                        if (numBytes != 8) {
-                            // TODO: numBytes == -1 means no more bytes in stream - add error message for this case?
-                            throw new Exception("AmqpReceiver: JMS BytesMessage size error: Exptected 8 bytes, read " + numBytes);
-                        }
-                        // TODO: shortcut in use here - this byte array should go through a Java type that can represent this as a number - such as BigInteger.
-                        outList.add(String.format("0x%02x%02x%02x%02x%02x%02x%02x%02x", byteArray[0], byteArray[1],
-                                byteArray[2], byteArray[3], byteArray[4], byteArray[5], byteArray[6], byteArray[7]));
+                        BigInteger testValue = new BigInteger(testValueStr);
+                        byte[] bigIntArray =  testValue.toByteArray(); // may be 1 to 9 bytes depending on number
+                        byte[] byteArray = {0, 0, 0, 0, 0, 0, 0, 0};
+                        int effectiveBigIntArrayLen = bigIntArray.length > 8 ? 8 : bigIntArray.length; // Cap length at 8
+                        int bigIntArrayOffs = bigIntArray.length > 8 ? bigIntArray.length - 8 : 0; // Offset when length > 8
+                        for (int i=0; i<bigIntArray.length && i < 8; i++)
+                            byteArray[8 - effectiveBigIntArrayLen + i] = bigIntArray[bigIntArrayOffs + i];
+                        message = session.createBytesMessage();
+                        ((BytesMessage)message).writeBytes(byteArray);
                         break;
                     }
                     case "byte":
-                        outList.add(String.valueOf(((BytesMessage)message).readByte()));
+                        message = session.createBytesMessage();
+                        ((BytesMessage)message).writeByte(Byte.parseByte(testValueStr));
                         break;
                     case "short":
-                        outList.add(String.valueOf(((BytesMessage)message).readShort()));
+                        message = session.createBytesMessage();
+                        ((BytesMessage)message).writeShort(Short.parseShort(testValueStr));
                         break;
                     case "int":
-                        outList.add(String.valueOf(((BytesMessage)message).readInt()));
+                        message = session.createBytesMessage();
+                        ((BytesMessage)message).writeInt(Integer.parseInt(testValueStr));
                         break;
                     case "long":
-                        outList.add(String.valueOf(((BytesMessage)message).readLong()));
+                    case "timestamp":
+                        message = session.createBytesMessage();
+                        ((BytesMessage)message).writeLong(Long.parseLong(testValueStr));
                         break;
                     case "float":
-                        float f = ((BytesMessage)message).readFloat();
-                        int i0 = Float.floatToRawIntBits(f);
-                        outList.add(String.format("0x%8s", Integer.toHexString(i0)).replace(' ', '0'));
+                        Long i = Long.parseLong(testValueStr.substring(2), 16);
+                        message = session.createBytesMessage();
+                        ((BytesMessage)message).writeFloat(Float.intBitsToFloat(i.intValue()));
                         break;
                     case "double":
-                        double d = ((BytesMessage)message).readDouble();
-                        long l = Double.doubleToRawLongBits(d);
-                        outList.add(String.format("0x%16s", Long.toHexString(l)).replace(' ', '0'));
+                        Long l1 = Long.parseLong(testValueStr.substring(2, 3), 16) << 60;
+                        Long l2 = Long.parseLong(testValueStr.substring(3), 16);
+                        message = session.createBytesMessage();
+                        ((BytesMessage)message).writeDouble(Double.longBitsToDouble(l1 | l2));
                         break;
                     case "decimal32":
-                        BigDecimal bd32 = (BigDecimal)((ObjectMessage)message).getObject();
-                        outList.add(bd32.toString());
+                        BigDecimal bd32 = new BigDecimal(testValueStr, MathContext.DECIMAL32);
+                        message = session.createObjectMessage();
+                        ((ObjectMessage)message).setObject(bd32);
                         break;
                     case "decimal64":
-                        BigDecimal bd64 = (BigDecimal)((ObjectMessage)message).getObject();
-                        outList.add(bd64.toString());
+                        BigDecimal bd64 = new BigDecimal(testValueStr, MathContext.DECIMAL64);
+                        message = session.createObjectMessage();
+                        ((ObjectMessage)message).setObject(bd64);
                         break;
                     case "decimal128":
-                        BigDecimal bd128 = (BigDecimal)((ObjectMessage)message).getObject();
-                        outList.add(bd128.toString());
+                        BigDecimal bd128 = new BigDecimal(testValueStr, MathContext.DECIMAL128);
+                        message = session.createObjectMessage();
+                        ((ObjectMessage)message).setObject(bd128);
                         break;
                     case "char":
-                        outList.add(String.format("%c", ((BytesMessage)message).readChar()));
+                        char c = 0;
+                        if (testValueStr.length() == 1) // Single char
+                            c = testValueStr.charAt(0);
+                        else if (testValueStr.length() == 6) // unicode format
+                            c = (char)Integer.parseInt(testValueStr, 16);
+                        message = session.createBytesMessage();
+                        ((BytesMessage)message).writeChar(c);
                         break;
                     case "uuid":
-                        UUID uuid = (UUID)((ObjectMessage)message).getObject();
-                        outList.add(uuid.toString());
+                        UUID uuid = UUID.fromString(testValueStr);
+                        message = session.createObjectMessage();
+                        ((ObjectMessage)message).setObject(uuid);
                         break;
                     case "binary":
-                        BytesMessage bm = (BytesMessage)message;
-                        int msgLen = (int)bm.getBodyLength();
-                        byte[] ba = new byte[msgLen];
-                        if (bm.readBytes(ba) == msgLen) {
-                            outList.add(new String(ba));
-                        } else {
-                            // TODO: Raise exception or error here: size mismatch
-                        }
+                        message = session.createBytesMessage();
+                        byte[] byteArray = testValueStr.getBytes();
+                        ((BytesMessage)message).writeBytes(byteArray, 0, byteArray.length);
                         break;
                     case "string":
-                        outList.add(((TextMessage)message).getText());
+                        message = session.createTextMessage(testValueStr);
                         break;
                     case "symbol":
-                        outList.add(((BytesMessage)message).readUTF());
+                        message = session.createBytesMessage();
+                        ((BytesMessage)message).writeUTF(testValueStr);
                         break;
                     case "list":
                         break;
@@ -228,24 +223,18 @@ public class AmqpReceiver {
                     default:
                         // Internal error, should never happen if SUPPORTED_AMQP_TYPES matches this case stmt
                         connection.close();
-                        throw new Exception("AmqpReceiver: Internal error: unsupported AMQP type \"" + amqpType + "\"");
+                        throw new Exception("AmqpSender: Internal error: unsupported AMQP type \"" + amqpType + "\"");
                     }
+                    messageProducer.send(message, DeliveryMode.NON_PERSISTENT, Message.DEFAULT_PRIORITY, Message.DEFAULT_TIME_TO_LIVE);
                 }
             } else {
-                System.out.println("ERROR: AmqpReceiver: AMQP type \"" + amqpType + "\" is not supported");
+                System.out.println("ERROR: AmqpSender: AMQP type \"" + amqpType + "\" is not supported");
                 connection.close();
                 System.exit(1);
             }
-
+            
             connection.close();
-
-            // No exception, print results
-            for (int i=0; i<outList.size(); i++) {
-                System.out.println(outList.get(i));
-            }
         } catch (Exception exp) {
-            if (connection != null)
-                connection.close();
             System.out.println("Caught exception, exiting.");
             exp.printStackTrace(System.out);
             System.exit(1);

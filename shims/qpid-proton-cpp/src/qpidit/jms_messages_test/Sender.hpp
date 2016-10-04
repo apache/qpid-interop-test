@@ -19,14 +19,14 @@
  *
  */
 
-#ifndef SRC_QPIDIT_SHIM_JMSSENDER_HPP_
-#define SRC_QPIDIT_SHIM_JMSSENDER_HPP_
+#ifndef SRC_QPIDIT_JMS_MESSAGES_TEST_SENDER_HPP_
+#define SRC_QPIDIT_JMS_MESSAGES_TEST_SENDER_HPP_
 
 #include "json/value.h"
 #include "proton/message.hpp"
 #include "proton/messaging_handler.hpp"
 #include "qpidit/QpidItErrors.hpp"
-#include "qpidit/shim/JmsDefinitions.hpp"
+#include "qpidit/jms_messages_test/JmsDefinitions.hpp"
 #include <typeinfo>
 
 namespace proton {
@@ -35,10 +35,10 @@ namespace proton {
 
 namespace qpidit
 {
-    namespace shim
+    namespace jms_messages_test
     {
 
-        class JmsSender : public proton::messaging_handler
+        class Sender : public proton::messaging_handler
         {
         protected:
             static proton::symbol s_jmsMessageTypeAnnotationKey;
@@ -53,8 +53,8 @@ namespace qpidit
             uint32_t _msgsConfirmed;
             uint32_t _totalMsgs;
         public:
-            JmsSender(const std::string& brokerUrl, const std::string& jmsMessageType, const Json::Value& testParams);
-            virtual ~JmsSender();
+            Sender(const std::string& brokerUrl, const std::string& jmsMessageType, const Json::Value& testParams);
+            virtual ~Sender();
 
             void on_container_start(proton::container &c);
             void on_sendable(proton::sender &s);
@@ -114,7 +114,7 @@ namespace qpidit
             }
         };
 
-    } /* namespace shim */
+    } /* namespace jms_messages_test */
 } /* namespace qpidit */
 
-#endif /* SRC_QPIDIT_SHIM_JMSSENDER_HPP_ */
+#endif /* SRC_QPIDIT_JMS_MESSAGES_TEST_SENDER_HPP_ */

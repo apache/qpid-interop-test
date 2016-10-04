@@ -36,46 +36,73 @@ set(Common_LIBS
     jsoncpp
 )
 
-# --- AmqpSender ---
 
-set(AmqpSender_SOURCES
+# -----------------------
+# --- amqp_types_test ---
+# -----------------------
+
+# --- Sender ---
+
+set(amqp_types_test_Sender_SOURCES
     ${Common_SOURCES}
-    qpidit/shim/AmqpSender.hpp
-    qpidit/shim/AmqpSender.cpp
+    qpidit/amqp_types_test/Sender.hpp
+    qpidit/amqp_types_test/Sender.cpp
 )
 
-add_executable(AmqpSender ${AmqpSender_SOURCES})
-target_link_libraries(AmqpSender ${Common_LIBS})
-
-# --- AmqpReceiver ---
-
-set(AmqpReceiver_SOURCES
-    ${Common_SOURCES}
-    qpidit/shim/AmqpReceiver.hpp
-    qpidit/shim/AmqpReceiver.cpp
+add_executable(amqp_types_test_Sender ${amqp_types_test_Sender_SOURCES})
+target_link_libraries(amqp_types_test_Sender ${Common_LIBS})
+set_target_properties(amqp_types_test_Sender PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/amqp_types_test"
+    OUTPUT_NAME Sender
 )
 
-add_executable(AmqpReceiver ${AmqpReceiver_SOURCES})
-target_link_libraries(AmqpReceiver ${Common_LIBS})
+# --- Receiver ---
 
-# --- JmsSender ---
-
-set(JmsSender_SOURCES
+set(amqp_types_test_Receiver_SOURCES
     ${Common_SOURCES}
-    qpidit/shim/JmsSender.hpp
-    qpidit/shim/JmsSender.cpp
+    qpidit/amqp_types_test/Receiver.hpp
+    qpidit/amqp_types_test/Receiver.cpp
 )
 
-add_executable(JmsSender ${JmsSender_SOURCES})
-target_link_libraries(JmsSender ${Common_LIBS})
-
-# --- JmsReceiver ---
-
-set(JmsReceiver_SOURCES
-    ${Common_SOURCES}
-    qpidit/shim/JmsReceiver.hpp
-    qpidit/shim/JmsReceiver.cpp
+add_executable(amqp_types_test_Receiver ${amqp_types_test_Receiver_SOURCES})
+target_link_libraries(amqp_types_test_Receiver ${Common_LIBS})
+set_target_properties(amqp_types_test_Receiver PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/amqp_types_test"
+    OUTPUT_NAME Receiver
 )
 
-add_executable(JmsReceiver ${JmsReceiver_SOURCES})
-target_link_libraries(JmsReceiver ${Common_LIBS})
+
+# -------------------------
+# --- jms_messages_test ---
+# -------------------------
+
+# --- Sender ---
+
+set(jms_messages_test_Sender_SOURCES
+    ${Common_SOURCES}
+    qpidit/jms_messages_test/Sender.hpp
+    qpidit/jms_messages_test/Sender.cpp
+)
+
+add_executable(jms_messages_test_Sender ${jms_messages_test_Sender_SOURCES})
+target_link_libraries(jms_messages_test_Sender ${Common_LIBS})
+set_target_properties(jms_messages_test_Sender PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/jms_messages_test"
+    OUTPUT_NAME Sender
+)
+
+# --- Receiver ---
+
+set(jms_messages_test_Receiver_SOURCES
+    ${Common_SOURCES}
+    qpidit/jms_messages_test/Receiver.hpp
+    qpidit/jms_messages_test/Receiver.cpp
+)
+
+add_executable(jms_messages_test_Receiver ${jms_messages_test_Receiver_SOURCES})
+target_link_libraries(jms_messages_test_Receiver ${Common_LIBS})
+set_target_properties(jms_messages_test_Receiver PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/jms_messages_test"
+    OUTPUT_NAME Receiver
+)
+
