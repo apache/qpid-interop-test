@@ -131,10 +131,8 @@ class Receiver(ShimWorkerThread):
                 str_tvl = stdoutdata.split('\n')[0:-1] # remove trailing \n
                 #if len(str_tvl) == 1:
                 #    self.return_obj = output
-                if len(str_tvl) == 2: # AMQP type test return
-                    self.return_obj = loads(str_tvl[1])
-                elif len(str_tvl) == 4: # JMS test return
-                    self.return_obj = (str_tvl[0], loads(str_tvl[1]), loads(str_tvl[2]), loads(str_tvl[3]))
+                if len(str_tvl) == 2:
+                    self.return_obj = (str_tvl[0], loads(str_tvl[1]))
                 else: # Make a single line of all the bits and return that
                     #self.return_obj = loads("".join(str_tvl[1:]))
                     self.return_obj = stdoutdata

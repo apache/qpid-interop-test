@@ -26,13 +26,14 @@ AMQP type test receiver shim for qpid-interop-test
 # Issues:
 # * Capturing errors from client or broker
 
-import sys
 from json import dumps
-from proton.handlers import MessagingHandler
-from proton.reactor import Container
-from traceback import format_exc
 from string import digits, letters, punctuation
 from struct import pack, unpack
+import sys
+from traceback import format_exc
+
+from proton.handlers import MessagingHandler
+from proton.reactor import Container
 
 class AmqpTypesReceiverShim(MessagingHandler):
     """

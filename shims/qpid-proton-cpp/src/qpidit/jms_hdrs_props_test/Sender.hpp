@@ -19,8 +19,8 @@
  *
  */
 
-#ifndef SRC_QPIDIT_JMS_MESSAGES_TEST_SENDER_HPP_
-#define SRC_QPIDIT_JMS_MESSAGES_TEST_SENDER_HPP_
+#ifndef SRC_QPIDIT_JMS_HEADERS_PROPERTIES_TEST_SENDER_HPP_
+#define SRC_QPIDIT_JMS_HEADERS_PROPERTIES_TEST_SENDER_HPP_
 
 #include "json/value.h"
 #include "proton/message.hpp"
@@ -35,7 +35,7 @@ namespace proton {
 
 namespace qpidit
 {
-    namespace jms_messages_test
+    namespace jms_hdrs_props_test
     {
 
         class Sender : public qpidit::JmsTestBase
@@ -44,6 +44,8 @@ namespace qpidit
             const std::string _brokerUrl;
             const std::string _jmsMessageType;
             const Json::Value _testValueMap;
+            const Json::Value _testHeadersMap;
+            const Json::Value _testPropertiesMap;
             uint32_t _msgsSent;
             uint32_t _msgsConfirmed;
             uint32_t _totalMsgs;
@@ -63,6 +65,18 @@ namespace qpidit
             proton::message& setObjectMessage(proton::message& msg, const std::string& subType, const Json::Value& testValue);
             proton::message& setStreamMessage(proton::message& msg, const std::string& subType, const std::string& testValue);
             proton::message& setTextMessage(proton::message& msg, const Json::Value& testValue);
+
+            proton::message& addMessageHeaders(proton::message& msg);
+            static proton::message& setJmsTypeHeader(proton::message& msg, const std::string& t);
+            static proton::message& setJmsCorrelationId(proton::message& msg, const std::string& cid);
+            static proton::message& setJmsCorrelationId(proton::message& msg, const proton::binary cid);
+            static proton::message& setJmsReplyTo(proton::message& msg, const std::string& dt, const std::string& d);
+
+            proton::message& addMessageProperties(proton::message& msg);
+            template<typename T> proton::message& setMessageProperty(proton::message& msg, const std::string& propertyName, T val) {
+                msg.properties().put(propertyName, val);
+                return msg;
+            }
 
             static proton::binary getJavaObjectBinary(const std::string& javaClassName, const std::string& valAsString);
             static uint32_t getTotalNumMessages(const Json::Value& testValueMap);
@@ -89,7 +103,7 @@ namespace qpidit
             }
         };
 
-    } /* namespace jms_messages_test */
+    } /* namespace jms_hdrs_props_test */
 } /* namespace qpidit */
 
-#endif /* SRC_QPIDIT_JMS_MESSAGES_TEST_SENDER_HPP_ */
+#endif /* SRC_QPIDIT_JMS_HEADERS_PROPERTIES_TEST_SENDER_HPP_ */

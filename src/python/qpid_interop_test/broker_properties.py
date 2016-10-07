@@ -35,6 +35,7 @@ class Client(MessagingHandler):
         self.remote_properties = None
 
     def on_connection_remote_open(self, event):
+        """Callback for remote connection open"""
         self.remote_properties = event.connection.remote_properties
         event.connection.close()
 
@@ -47,8 +48,8 @@ class Client(MessagingHandler):
         return self.remote_properties
 
 
-def getBrokerProperties(broker_url):
+def get_broker_properties(broker_url):
     """Start client, then return its connection properties"""
-    MSG_HANDLER = Client(broker_url)
-    Container(MSG_HANDLER).run()
-    return MSG_HANDLER.get_connection_properties()
+    msg_handler = Client(broker_url)
+    Container(msg_handler).run()
+    return msg_handler.get_connection_properties()

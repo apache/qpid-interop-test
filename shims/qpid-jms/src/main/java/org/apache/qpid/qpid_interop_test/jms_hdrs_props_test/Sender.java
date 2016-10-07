@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.qpid.interop_test.jms_messages_test;
+package org.apache.qpid.interop_test.jms_hdrs_props_test;
 
 import java.io.Serializable;
 import java.io.StringReader;
@@ -62,7 +62,7 @@ public class Sender {
     // args[0]: Broker URL
     // args[1]: Queue name
     // args[2]: JMS message type
-    // args[3]: JSON Test parameters containing testValueMap
+    // args[3]: JSON Test parameters containing 3 maps: [testValueMap, testHeadersMap, testPropertiesMap]
     public static void main(String[] args) throws Exception {
         if (args.length != 4) {
             System.out.println("JmsSenderShim: Incorrect number of arguments");
@@ -78,11 +78,20 @@ public class Sender {
         }
 
         JsonReader jsonReader = Json.createReader(new StringReader(args[3]));
-        JsonObject testValuesMap = jsonReader.readObject();
+        JsonArray testParamsList = jsonReader.readArray();
         jsonReader.close();
 
+        if (testParamsList.size() != 3) {
+            System.err.println("ERROR: Incorrect number of JSON parameters: Expected 3, got " + Integer.toString(testParamsList.size()));
+            System.err.println("  JSON parameters found: \"" + testParamsList + "\"");
+            System.exit(1);
+        }
+        JsonObject testValuesMap = testParamsList.getJsonObject(0);
+        JsonObject testHeadersMap = testParamsList.getJsonObject(1);
+        JsonObject testPropertiesMap = testParamsList.getJsonObject(2);
+
         Sender shim = new Sender(brokerAddress, queueName);
-        shim.runTests(jmsMessageType, testValuesMap);
+        shim.runTests(jmsMessageType, testValuesMap, testHeadersMap, testPropertiesMap);
     }
 
     public Sender(String brokerAddress, String queueName) {
@@ -107,7 +116,7 @@ public class Sender {
         }
     }
 
-    public void runTests(String jmsMessageType, JsonObject testValuesMap) throws Exception {
+    public void runTests(String jmsMessageType, JsonObject testValuesMap, JsonObject testHeadersMap, JsonObject testPropertiesMap) throws Exception {
         List<String> testValuesKeyList = new ArrayList<String>(testValuesMap.keySet());
         Collections.sort(testValuesKeyList);
         for (String key: testValuesKeyList) {
@@ -120,6 +129,8 @@ public class Sender {
                 
                 // Send message
                 Message msg = createMessage(jmsMessageType, key, testValue, i);
+                addMessageHeaders(msg, testHeadersMap);
+                addMessageProperties(msg, testPropertiesMap);
                 _messageProducer.send(msg, DeliveryMode.NON_PERSISTENT, Message.DEFAULT_PRIORITY, Message.DEFAULT_TIME_TO_LIVE);
                 _msgsSent++;
             }
@@ -152,6 +163,96 @@ public class Sender {
             throw new Exception("Internal exception: Unexpected JMS message type \"" + jmsMessageType + "\"");
         }
         return message;
+    }
+
+
+    protected void addMessageHeaders(Message msg, JsonObject testHeadersMap) throws Exception, JMSException {
+        List<String> testHeadersKeyList = new ArrayList<String>(testHeadersMap.keySet());
+        for (String key: testHeadersKeyList) {
+            JsonObject subMap = testHeadersMap.getJsonObject(key);
+            List<String> subMapKeyList = new ArrayList<String>(subMap.keySet());
+            String subMapKey = subMapKeyList.get(0); // There is always only one entry in map
+            String subMapVal = subMap.getString(subMapKey);
+            switch (key) {
+            case "JMS_TYPE_HEADER":
+                if (subMapKey.compareTo("string") == 0) {
+                    msg.setJMSType(subMapVal);
+                } else {
+                    throw new Exception("Internal exception: Invalid message header type \"" + subMapKey + "\" for message header \"" + key + "\"");
+                }
+                break;
+            case "JMS_CORRELATIONID_HEADER":
+                if (subMapKey.compareTo("string") == 0) {
+                    msg.setJMSCorrelationID(subMapVal);
+                } else if (subMapKey.compareTo("bytes") == 0) {
+                    msg.setJMSCorrelationIDAsBytes(subMapVal.getBytes());
+                } else {
+                    throw new Exception("Internal exception: Invalid message header type \"" + subMapKey + "\" for message header \"" + key + "\"");
+                }
+                break;
+            case "JMS_REPLYTO_HEADER":
+                switch (subMapKey) {
+                case "queue":
+                    msg.setJMSReplyTo(_session.createQueue(subMapVal));
+                    break;
+                case "temp_queue":
+                    msg.setJMSReplyTo(_session.createTemporaryQueue());
+                    break;
+                case "topic":
+                    msg.setJMSReplyTo(_session.createTopic(subMapVal));
+                    break;
+                case "temp_topic":
+                    msg.setJMSReplyTo(_session.createTemporaryTopic());
+                    break;
+                default:
+                    throw new Exception("Internal exception: Invalid message header type \"" + subMapKey + "\" for message header \"" + key + "\"");
+                }
+                break;
+            default:
+                throw new Exception("Internal exception: Unknown or unsupported message header \"" + key + "\"");
+            }
+        }
+    }
+
+    protected void addMessageProperties(Message msg, JsonObject testPropertiesMap) throws Exception, JMSException {
+        List<String> testPropertiesKeyList = new ArrayList<String>(testPropertiesMap.keySet());
+        for (String key: testPropertiesKeyList) {
+            JsonObject subMap = testPropertiesMap.getJsonObject(key);
+            List<String> subMapKeyList = new ArrayList<String>(subMap.keySet());
+            String subMapKey = subMapKeyList.get(0); // There is always only one entry in map
+            String subMapVal = subMap.getString(subMapKey);
+            switch (subMapKey) {
+            case "boolean":
+                msg.setBooleanProperty(key, Boolean.parseBoolean(subMapVal));
+                break;
+            case "byte":
+                msg.setByteProperty(key, Byte.decode(subMapVal));
+                break;
+            case "double":
+                Long l1 = Long.parseLong(subMapVal.substring(2, 3), 16) << 60;
+                Long l2 = Long.parseLong(subMapVal.substring(3), 16);
+                msg.setDoubleProperty(key, Double.longBitsToDouble(l1 | l2));
+                break;
+            case "float":
+                Long i = Long.parseLong(subMapVal.substring(2), 16);
+                msg.setFloatProperty(key, Float.intBitsToFloat(i.intValue()));
+                break;
+            case "int":
+                msg.setIntProperty(key, Integer.decode(subMapVal));
+                break;
+            case "long":
+                msg.setLongProperty(key, Long.decode(subMapVal));
+                break;
+            case "short":
+                msg.setShortProperty(key, Short.decode(subMapVal));
+                break;
+            case "string":
+                msg.setStringProperty(key, subMapVal);
+                break;
+            default:
+                throw new Exception("Internal exception: Unknown or unsupported message property type \"" + subMapKey + "\"");
+            }
+        }
     }
 
     protected Message createJMSMessage(String testValueType, String testValue) throws Exception, JMSException {

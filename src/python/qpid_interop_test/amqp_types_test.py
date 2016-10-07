@@ -30,14 +30,13 @@ import unittest
 from itertools import product
 from json import dumps
 from os import getenv, path
-from sys import stdout
 from time import mktime, time
 from uuid import UUID, uuid4
 
-import broker_properties
-import shims
 from proton import symbol
-from test_type_map import TestTypeMap
+import qpid_interop_test.broker_properties
+import qpid_interop_test.shims
+from qpid_interop_test.test_type_map import TestTypeMap
 
 # TODO: propose a sensible default when installation details are worked out
 QPID_INTEROP_TEST_HOME = getenv('QPID_INTEROP_TEST_HOME')
@@ -236,14 +235,14 @@ class AmqpPrimitiveTypes(TestTypeMap):
     # As the issues are resolved, these should be removed.
     BROKER_SKIP = {'null': {'ActiveMQ': 'Null type not sent in Proton Python binding: PROTON-1091',
                             'qpid-cpp': 'Null type not sent in Proton Python binding: PROTON-1091',},
-                   'decimal32': {'ActiveMQ': 'decimal32 and decimal64 are sent byte reversed: PROTON-1160',
+                   'decimal32': {'ActiveMQ': 'decimal32 and decimal64 sent byte reversed: PROTON-1160',
                                  'qpid-cpp': 'decimal32 not supported on qpid-cpp broker: QPIDIT-5, QPID-6328',
-                                 'apache-activemq-artemis': 'decimal32 and decimal64 are sent byte reversed: PROTON-1160',
-                                 'qpid-dispatch-router': 'decimal32 and decimal64 are sent byte reversed: PROTON-1160'},
-                   'decimal64': {'ActiveMQ': 'decimal32 and decimal64 are sent byte reversed: PROTON-1160',
+                                 'apache-activemq-artemis': 'decimal32 and decimal64 sent byte reversed: PROTON-1160',
+                                 'qpid-dispatch-router': 'decimal32 and decimal64 sent byte reversed: PROTON-1160'},
+                   'decimal64': {'ActiveMQ': 'decimal32 and decimal64 sent byte reversed: PROTON-1160',
                                  'qpid-cpp': 'decimal64 not supported on qpid-cpp broker: QPIDIT-6, QPID-6328',
-                                 'apache-activemq-artemis': 'decimal32 and decimal64 are sent byte reversed: PROTON-1160',
-                                 'qpid-dispatch-router': 'decimal32 and decimal64 are sent byte reversed: PROTON-1160'},
+                                 'apache-activemq-artemis': 'decimal32 and decimal64 sent byte reversed: PROTON-1160',
+                                 'qpid-dispatch-router': 'decimal32 and decimal64 sent byte reversed: PROTON-1160'},
                    'decimal128': {'qpid-cpp': 'decimal128 not supported on qpid-cpp broker: QPIDIT-3, QPID-6328',},
                    'char': {'qpid-cpp': 'char not supported on qpid-cpp broker: QPIDIT-4, QPID-6328',
                             'apache-activemq-artemis': 'char types > 16 bits truncated on Artemis: ENTMQ-1685'},
@@ -281,8 +280,8 @@ class AmqpTypeTestCase(unittest.TestCase):
             sender.start()
 
             # Wait for both shims to finish
-            sender.join_or_kill(shims.THREAD_TIMEOUT)
-            receiver.join_or_kill(shims.THREAD_TIMEOUT)
+            sender.join_or_kill(qpid_interop_test.shims.THREAD_TIMEOUT)
+            receiver.join_or_kill(qpid_interop_test.shims.THREAD_TIMEOUT)
 
             # Process return string from sender
             send_obj = sender.get_return_object()
@@ -294,11 +293,18 @@ class AmqpTypeTestCase(unittest.TestCase):
 
             # Process return string from receiver
             receive_obj = receiver.get_return_object()
-            if isinstance(receive_obj, list):
-                self.assertEqual(receive_obj, test_value_list, msg='\n    sent:%s\nreceived:%s' % \
-                                 (test_value_list, receive_obj))
+            if isinstance(receive_obj, tuple):
+                if len(receive_obj) == 2:
+                    return_amqp_type, return_test_value_list = receive_obj
+                    self.assertEqual(return_amqp_type, amqp_type,
+                                     msg='AMQP type error:\n\n    sent:%s\n\n    received:%s' % \
+                                     (amqp_type, return_amqp_type))
+                    self.assertEqual(return_test_value_list, test_value_list, msg='\n    sent:%s\nreceived:%s' % \
+                                     (test_value_list, return_test_value_list))
+                else:
+                    self.fail('Received incorrect tuple format: %s' % str(receive_obj))
             else:
-                self.fail('Receiver error: %s' % str(receive_obj))
+                self.fail('Received non-tuple: %s' % str(receive_obj))
 
 def create_testcase_class(broker_name, types, broker_addr, amqp_type, shim_product):
     """
@@ -347,8 +353,10 @@ PROTON_PYTHON_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-p
 PROTON_PYTHON_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'src', 'amqp_types_test',
                                       'Sender.py')
 
-SHIM_MAP = {shims.ProtonCppShim.NAME: shims.ProtonCppShim(PROTON_CPP_SENDER_SHIM, PROTON_CPP_RECEIVER_SHIM),
-            shims.ProtonPythonShim.NAME: shims.ProtonPythonShim(PROTON_PYTHON_SENDER_SHIM, PROTON_PYTHON_RECEIVER_SHIM),
+SHIM_MAP = {qpid_interop_test.shims.ProtonCppShim.NAME: \
+                qpid_interop_test.shims.ProtonCppShim(PROTON_CPP_SENDER_SHIM, PROTON_CPP_RECEIVER_SHIM),
+            qpid_interop_test.shims.ProtonPythonShim.NAME: \
+                qpid_interop_test.shims.ProtonPythonShim(PROTON_PYTHON_SENDER_SHIM, PROTON_PYTHON_RECEIVER_SHIM),
            }
 
 
@@ -389,7 +397,7 @@ if __name__ == '__main__':
     #print 'ARGS:', ARGS # debug
 
     # Connect to broker to find broker type
-    CONNECTION_PROPS = broker_properties.getBrokerProperties(ARGS.broker)
+    CONNECTION_PROPS = qpid_interop_test.broker_properties.get_broker_properties(ARGS.broker)
     if CONNECTION_PROPS is None:
         print 'WARNING: Unable to get connection properties - unknown broker'
         BROKER = 'unknown'
@@ -402,7 +410,7 @@ if __name__ == '__main__':
                           else '<platform not found>'
         print 'Test Broker: %s v.%s on %s' % (BROKER, BROKER_VERSION, BROKER_PLATFORM)
         print
-        stdout.flush()
+        sys.stdout.flush()
 
     TYPES = AmqpPrimitiveTypes()
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-JMS sender shim for qpid-interop-test
+JMS message headers and properties test sender shim for qpid-interop-test
 """
 
 #
@@ -24,8 +24,8 @@ JMS sender shim for qpid-interop-test
 #
 
 from json import loads
-from subprocess import check_output
 from struct import pack, unpack
+from subprocess import check_output
 import sys
 from traceback import format_exc
 
@@ -33,6 +33,7 @@ from proton import byte, char, float32, int32, Message, short, symbol
 from proton.handlers import MessagingHandler
 from proton.reactor import Container
 from qpid_interop_test.interop_test_errors import InteropTestError
+from qpid_interop_test.test_type_map import TestTypeMap
 
 # These values must tie in with the Qpid-JMS client values found in
 # org.apache.qpid.jms.provider.amqp.message.AmqpMessageSupport
@@ -65,7 +66,9 @@ class JmsSenderShim(MessagingHandler):
         self.broker_ip_addr = broker_ip_addr
         self.queue_name = queue_name
         self.jms_msg_type = jms_msg_type
-        self.test_value_map = test_parameters_list
+        self.test_value_map = test_parameters_list[0]
+        self.test_headers_map = test_parameters_list[1]
+        self.test_properties_map = test_parameters_list[2]
         self.sent = 0
         self.confirmed = 0
         self.total = self._get_total_num_msgs()
@@ -115,9 +118,12 @@ class JmsSenderShim(MessagingHandler):
         value_num = 0
         for test_value in test_values:
             if event.sender.credit:
-                message = self._create_message(test_value_type, test_value, value_num)
+                hdr_kwargs, hdr_annotations = self._get_jms_message_header_kwargs()
+                message = self._create_message(test_value_type, test_value, value_num, hdr_kwargs, hdr_annotations)
                 # TODO: set message to address
                 if message is not None:
+                    #self._add_jms_message_headers(message)
+                    self._add_jms_message_properties(message)
                     event.sender.send(message)
                     self.sent += 1
                     value_num += 1
@@ -127,25 +133,26 @@ class JmsSenderShim(MessagingHandler):
         return False
 
     # TODO: Change this to return a list of messages. That way each test can return more than one message
-    def _create_message(self, test_value_type, test_value, value_num):
+    def _create_message(self, test_value_type, test_value, value_num, hdr_kwargs, hdr_annotations):
         """Create a single message of the appropriate JMS message type"""
         if self.jms_msg_type == 'JMS_MESSAGE_TYPE':
-            return self._create_jms_message(test_value_type, test_value)
+            return self._create_jms_message(test_value_type, test_value, hdr_kwargs, hdr_annotations)
         elif self.jms_msg_type == 'JMS_BYTESMESSAGE_TYPE':
-            return self._create_jms_bytesmessage(test_value_type, test_value)
+            return self._create_jms_bytesmessage(test_value_type, test_value, hdr_kwargs, hdr_annotations)
         elif self.jms_msg_type == 'JMS_MAPMESSAGE_TYPE':
-            return self._create_jms_mapmessage(test_value_type, test_value, "%s%03d" % (test_value_type, value_num))
+            return self._create_jms_mapmessage(test_value_type, test_value, "%s%03d" % (test_value_type, value_num),
+                                               hdr_kwargs, hdr_annotations)
         elif self.jms_msg_type == 'JMS_OBJECTMESSAGE_TYPE':
-            return self._create_jms_objectmessage('%s:%s' % (test_value_type, test_value))
+            return self._create_jms_objectmessage('%s:%s' % (test_value_type, test_value), hdr_kwargs, hdr_annotations)
         elif self.jms_msg_type == 'JMS_STREAMMESSAGE_TYPE':
-            return self._create_jms_streammessage(test_value_type, test_value)
+            return self._create_jms_streammessage(test_value_type, test_value, hdr_kwargs, hdr_annotations)
         elif self.jms_msg_type == 'JMS_TEXTMESSAGE_TYPE':
-            return self._create_jms_textmessage(test_value)
+            return self._create_jms_textmessage(test_value, hdr_kwargs, hdr_annotations)
         else:
             print 'jms-send: Unsupported JMS message type "%s"' % self.jms_msg_type
             return None
 
-    def _create_jms_message(self, test_value_type, test_value):
+    def _create_jms_message(self, test_value_type, test_value, hdr_kwargs, hdr_annotations):
         """Create a JMS message type (without message body)"""
         if test_value_type != 'none':
             raise InteropTestError('JmsSenderShim._create_jms_message: Unknown or unsupported subtype "%s"' %
@@ -155,9 +162,11 @@ class JmsSenderShim(MessagingHandler):
                                    (test_value, test_value_type))
         return Message(id=(self.sent+1),
                        content_type='application/octet-stream',
-                       annotations=create_annotation('JMS_MESSAGE_TYPE'))
+                       annotations=TestTypeMap.merge_dicts(create_annotation('JMS_MESSAGE_TYPE'),
+                                                           hdr_annotations),
+                       **hdr_kwargs)
 
-    def _create_jms_bytesmessage(self, test_value_type, test_value):
+    def _create_jms_bytesmessage(self, test_value_type, test_value, hdr_kwargs, hdr_annotations):
         """Create a JMS bytes message"""
         # NOTE: test_value contains all unicode strings u'...' as returned by json
         body_bytes = None
@@ -189,9 +198,11 @@ class JmsSenderShim(MessagingHandler):
                        body=body_bytes,
                        inferred=True,
                        content_type='application/octet-stream',
-                       annotations=create_annotation('JMS_BYTESMESSAGE_TYPE'))
+                       annotations=TestTypeMap.merge_dicts(create_annotation('JMS_BYTESMESSAGE_TYPE'),
+                                                           hdr_annotations),
+                       **hdr_kwargs)
 
-    def _create_jms_mapmessage(self, test_value_type, test_value, name):
+    def _create_jms_mapmessage(self, test_value_type, test_value, name, hdr_kwargs, hdr_annotations):
         """Create a JMS map message"""
         if test_value_type == 'boolean':
             value = test_value == 'True'
@@ -219,16 +230,20 @@ class JmsSenderShim(MessagingHandler):
         return Message(id=(self.sent+1),
                        body={name: value},
                        inferred=False,
-                       annotations=create_annotation('JMS_MAPMESSAGE_TYPE'))
+                       annotations=TestTypeMap.merge_dicts(create_annotation('JMS_MAPMESSAGE_TYPE'),
+                                                           hdr_annotations),
+                       **hdr_kwargs)
 
-    def _create_jms_objectmessage(self, test_value):
+    def _create_jms_objectmessage(self, test_value, hdr_kwargs, hdr_annotations):
         """Create a JMS object message"""
         java_binary = self._s_get_java_obj_binary(test_value)
         return Message(id=(self.sent+1),
                        body=java_binary,
                        inferred=True,
                        content_type='application/x-java-serialized-object',
-                       annotations=create_annotation('JMS_OBJECTMESSAGE_TYPE'))
+                       annotations=TestTypeMap.merge_dicts(create_annotation('JMS_MAPMESSAGE_TYPE'),
+                                                           hdr_annotations),
+                       **hdr_kwargs)
 
     @staticmethod
     def _s_get_java_obj_binary(java_class_str):
@@ -244,7 +259,7 @@ class JmsSenderShim(MessagingHandler):
                                    out_str)
         return out_str_list[1].decode('hex')
 
-    def _create_jms_streammessage(self, test_value_type, test_value):
+    def _create_jms_streammessage(self, test_value_type, test_value, hdr_kwargs, hdr_annotations):
         """Create a JMS stream message"""
         if test_value_type == 'boolean':
             body_list = [test_value == 'True']
@@ -272,14 +287,88 @@ class JmsSenderShim(MessagingHandler):
         return Message(id=(self.sent+1),
                        body=body_list,
                        inferred=True,
-                       annotations=create_annotation('JMS_STREAMMESSAGE_TYPE'))
+                       annotations=TestTypeMap.merge_dicts(create_annotation('JMS_STREAMMESSAGE_TYPE'),
+                                                           hdr_annotations),
+                       **hdr_kwargs)
 
-    def _create_jms_textmessage(self, test_value_text):
+    def _create_jms_textmessage(self, test_value_text, hdr_kwargs, hdr_annotations):
         """Create a JMS text message"""
         return Message(id=(self.sent+1),
                        body=unicode(test_value_text),
-                       annotations=create_annotation('JMS_TEXTMESSAGE_TYPE'))
+                       annotations=TestTypeMap.merge_dicts(create_annotation('JMS_TEXTMESSAGE_TYPE'),
+                                                           hdr_annotations),
+                       **hdr_kwargs)
 
+    def _get_jms_message_header_kwargs(self):
+        hdr_kwargs = {}
+        hdr_annotations = {}
+        for jms_header in self.test_headers_map.iterkeys():
+            value_map = self.test_headers_map[jms_header]
+            value_type = value_map.keys()[0] # There is only ever one value in map
+            value = value_map[value_type]
+            if jms_header == 'JMS_TYPE_HEADER':
+                if value_type == 'string':
+                    hdr_kwargs['subject'] = value
+                else:
+                    raise InteropTestError('JmsSenderShim._get_jms_message_header_kwargs(): ' +
+                                           'JMS_TYPE_HEADER requires value type "string", type "%s" found' %
+                                           value_type)
+            elif jms_header == 'JMS_CORRELATIONID_HEADER':
+                if value_type == 'string':
+                    hdr_kwargs['correlation_id'] = value
+                elif value_type == 'bytes':
+                    hdr_kwargs['correlation_id'] = str(value)
+                else:
+                    raise InteropTestError('JmsSenderShim._get_jms_message_header_kwargs(): ' +
+                                           'JMS_CORRELATIONID_HEADER requires value type "string" or "bytes", ' +
+                                           'type "%s" found' % value_type)
+                hdr_annotations[symbol(u'x-opt-app-correlation-id')] = True
+            elif jms_header == 'JMS_REPLYTO_HEADER':
+                if value_type == 'queue':
+                    hdr_kwargs['reply_to'] = value
+                    hdr_annotations[symbol(u'x-opt-jms-reply-to')] = byte(0)
+                elif value_type == 'topic':
+                    hdr_kwargs['reply_to'] = value
+                    hdr_annotations[symbol(u'x-opt-jms-reply-to')] = byte(1)
+                elif value_type == 'temp_queue' or value_type == 'temp_topic':
+                    raise InteropTestError('JmsSenderShim._get_jms_message_header_kwargs(): ' +
+                                           'JMS_REPLYTO_HEADER type "temp_queue" or "temp_topic" not handled')
+                else:
+                    raise InteropTestError('JmsSenderShim._get_jms_message_header_kwargs(): ' +
+                                           'JMS_REPLYTO_HEADER requires value type "queue" or "topic", ' +
+                                           'type "%s" found' % value_type)
+            else:
+                raise InteropTestError('JmsSenderShim._add_jms_message_headers(): Invalid JMS message header "%s"' %
+                                       jms_header)
+        return (hdr_kwargs, hdr_annotations)
+
+    def _add_jms_message_properties(self, message):
+        """Adds message properties to the supplied message from self.test_properties_map"""
+        for property_name in self.test_properties_map.iterkeys():
+            value_map = self.test_properties_map[property_name]
+            value_type = value_map.keys()[0] # There is only ever one value in map
+            value = value_map[value_type]
+            if message.properties is None:
+                message.properties = {}
+            if value_type == 'boolean':
+                message.properties[property_name] = value == 'True'
+            elif value_type == 'byte':
+                message.properties[property_name] = byte(int(value, 16))
+            elif value_type == 'double':
+                message.properties[property_name] = unpack('!d', value[2:].decode('hex'))[0]
+            elif value_type == 'float':
+                message.properties[property_name] = float32(unpack('!f', value[2:].decode('hex'))[0])
+            elif value_type == 'int':
+                message.properties[property_name] = int(value, 16)
+            elif value_type == 'long':
+                message.properties[property_name] = long(value, 16)
+            elif value_type == 'short':
+                message.properties[property_name] = short(int(value, 16))
+            elif value_type == 'string':
+                message.properties[property_name] = value
+            else:
+                raise InteropTestError('JmsSenderShim._add_jms_message_properties: ' +
+                                       'Unknown or unhandled message property type ?%s"' % value_type)
 
 
 

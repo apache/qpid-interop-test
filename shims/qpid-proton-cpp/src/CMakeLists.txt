@@ -31,6 +31,11 @@ set(Common_SOURCES
     qpidit/QpidItErrors.cpp
 )
 
+set(Common_Jms_SOURCES
+    qpidit/JmsTestBase.hpp
+    qpidit/JmsTestBase.cpp
+)
+
 set(Common_LIBS
     qpid-proton-cpp
     jsoncpp
@@ -72,6 +77,43 @@ set_target_properties(amqp_types_test_Receiver PROPERTIES
 )
 
 
+# ---------------------------
+# --- jms_hdrs_props_test ---
+# ---------------------------
+
+# --- Sender ---
+
+set(jms_hdrs_props_test_Sender_SOURCES
+    ${Common_SOURCES}
+    ${Common_Jms_SOURCES}
+    qpidit/jms_hdrs_props_test/Sender.hpp
+    qpidit/jms_hdrs_props_test/Sender.cpp
+)
+
+add_executable(jms_hdrs_props_test_Sender ${jms_hdrs_props_test_Sender_SOURCES})
+target_link_libraries(jms_hdrs_props_test_Sender ${Common_LIBS})
+set_target_properties(jms_hdrs_props_test_Sender PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/jms_hdrs_props_test"
+    OUTPUT_NAME Sender
+)
+
+# --- Receiver ---
+
+set(jms_hdrs_props_test_Receiver_SOURCES
+    ${Common_SOURCES}
+    ${Common_Jms_SOURCES}
+    qpidit/jms_hdrs_props_test/Receiver.hpp
+    qpidit/jms_hdrs_props_test/Receiver.cpp
+)
+
+add_executable(jms_hdrs_props_test_Receiver ${jms_hdrs_props_test_Receiver_SOURCES})
+target_link_libraries(jms_hdrs_props_test_Receiver ${Common_LIBS})
+set_target_properties(jms_hdrs_props_test_Receiver PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/jms_hdrs_props_test"
+    OUTPUT_NAME Receiver
+)
+
+
 # -------------------------
 # --- jms_messages_test ---
 # -------------------------
@@ -80,6 +122,7 @@ set_target_properties(amqp_types_test_Receiver PROPERTIES
 
 set(jms_messages_test_Sender_SOURCES
     ${Common_SOURCES}
+    ${Common_Jms_SOURCES}
     qpidit/jms_messages_test/Sender.hpp
     qpidit/jms_messages_test/Sender.cpp
 )
@@ -95,6 +138,7 @@ set_target_properties(jms_messages_test_Sender PROPERTIES
 
 set(jms_messages_test_Receiver_SOURCES
     ${Common_SOURCES}
+    ${Common_Jms_SOURCES}
     qpidit/jms_messages_test/Receiver.hpp
     qpidit/jms_messages_test/Receiver.cpp
 )

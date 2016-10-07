@@ -19,7 +19,7 @@
  *
  */
 
-#include "qpidit/jms_messages_test/Sender.hpp"
+#include "qpidit/jms_hdrs_props_test/Sender.hpp"
 
 #include <cerrno>
 #include <iomanip>
@@ -33,14 +33,16 @@
 
 namespace qpidit
 {
-    namespace jms_messages_test
+    namespace jms_hdrs_props_test
     {
         Sender::Sender(const std::string& brokerUrl,
                        const std::string& jmsMessageType,
                        const Json::Value& testParams) :
                 _brokerUrl(brokerUrl),
                 _jmsMessageType(jmsMessageType),
-                _testValueMap(testParams),
+                _testValueMap(testParams[0]),
+                _testHeadersMap(testParams[1]),
+                _testPropertiesMap(testParams[2]),
                 _msgsSent(0),
                 _msgsConfirmed(0),
                 _totalMsgs(getTotalNumMessages(_testValueMap))
@@ -101,6 +103,8 @@ namespace qpidit
                     } else {
                         throw qpidit::UnknownJmsMessageTypeError(_jmsMessageType);
                     }
+                    addMessageHeaders(msg);
+                    addMessageProperties(msg);
                     s.send(msg);
                     _msgsSent += 1;
                     valueNumber += 1;
@@ -282,6 +286,102 @@ namespace qpidit
             return msg;
         }
 
+        proton::message& Sender::addMessageHeaders(proton::message& msg) {
+            Json::Value::Members headerNames = _testHeadersMap.getMemberNames();
+            for (std::vector<std::string>::const_iterator i=headerNames.begin(); i!=headerNames.end(); ++i) {
+                const Json::Value _subMap = _testHeadersMap[*i];
+                const std::string headerValueType = _subMap.getMemberNames()[0]; // There is always only one entry in map
+                std::string val = _subMap[headerValueType].asString();
+                if (i->compare("JMS_TYPE_HEADER") == 0) {
+                    setJmsTypeHeader(msg, val);
+                } else if (i->compare("JMS_CORRELATIONID_HEADER") == 0) {
+                    if (headerValueType.compare("bytes") == 0) {
+                        setJmsCorrelationId(msg, proton::binary(val));
+                    } else {
+                        setJmsCorrelationId(msg, val);
+                    }
+                } else if (i->compare("JMS_REPLYTO_HEADER") == 0) {
+                    setJmsReplyTo(msg, headerValueType, val);
+                } else {
+                    throw qpidit::UnknownJmsHeaderTypeError(*i);
+                }
+            }
+            return msg;
+        }
+
+        //static
+        proton::message& Sender::setJmsTypeHeader(proton::message& msg, const std::string& t) {
+            msg.subject(t);
+            return msg;
+        }
+
+        //static
+        proton::message& Sender::setJmsCorrelationId(proton::message& msg, const std::string& cid) {
+            proton::message_id mid(cid);
+            msg.correlation_id(mid);
+            msg.message_annotations().put(proton::symbol("x-opt-app-correlation-id"), true);
+            return msg;
+        }
+
+        //static
+        proton::message& Sender::setJmsCorrelationId(proton::message& msg, const proton::binary cid) {
+            proton::message_id mid(cid);
+            msg.correlation_id(cid);
+            msg.message_annotations().put(proton::symbol("x-opt-app-correlation-id"), true);
+            return msg;
+        }
+
+        //static
+        proton::message& Sender::setJmsReplyTo(proton::message& msg, const std::string& dts, const std::string& d) {
+            if (dts.compare("queue") == 0) {
+                msg.reply_to(/*std::string("queue://") + */d);
+                msg.message_annotations().put(proton::symbol("x-opt-jms-reply-to"), int8_t(qpidit::JMS_QUEUE));
+            } else if (dts.compare("temp_queue") == 0) {
+                msg.reply_to(/*std::string("queue://") + */d);
+                msg.message_annotations().put(proton::symbol("x-opt-jms-reply-to"), int8_t(qpidit::JMS_TMEP_QUEUE));
+            } else if (dts.compare("topic") == 0) {
+                msg.reply_to(/*std::string("topic://") + */d);
+                msg.message_annotations().put(proton::symbol("x-opt-jms-reply-to"), int8_t(qpidit::JMS_TOPIC));
+            } else if (dts.compare("temp_topic") == 0) {
+                msg.reply_to(/*std::string("topic://") + */d);
+                msg.message_annotations().put(proton::symbol("x-opt-jms-reply-to"), int8_t(qpidit::JMS_TEMP_TOPIC));
+            } else {
+                throw qpidit::UnknownJmsDestinationTypeError(dts);
+            }
+            return msg;
+        }
+
+        proton::message& Sender::addMessageProperties(proton::message& msg) {
+            Json::Value::Members propertyNames = _testPropertiesMap.getMemberNames();
+            for (std::vector<std::string>::const_iterator i=propertyNames.begin(); i!=propertyNames.end(); ++i) {
+                const Json::Value _subMap = _testPropertiesMap[*i];
+                const std::string propertyValueType = _subMap.getMemberNames()[0]; // There is always only one entry in map
+                std::string val = _subMap[propertyValueType].asString();
+                if (propertyValueType.compare("boolean") == 0) {
+                    if (val.compare("False") == 0) setMessageProperty(msg, *i, false);
+                    else if (val.compare("True") == 0) setMessageProperty(msg, *i, true);
+                    else throw InvalidTestValueError(propertyValueType, val);
+                } else if (propertyValueType.compare("byte") == 0) {
+                    setMessageProperty(msg, *i, getIntegralValue<int8_t>(val));
+                } else if (propertyValueType.compare("double") == 0) {
+                    setMessageProperty(msg, *i, getFloatValue<double, uint64_t>(val));
+                } else if (propertyValueType.compare("float") == 0) {
+                    setMessageProperty(msg, *i, getFloatValue<float, uint64_t>(val));
+                } else if (propertyValueType.compare("int") == 0) {
+                    setMessageProperty(msg, *i, getIntegralValue<int32_t>(val));
+                } else if (propertyValueType.compare("long") == 0) {
+                    setMessageProperty(msg, *i, getIntegralValue<int64_t>(val));
+                } else if (propertyValueType.compare("short") == 0) {
+                    setMessageProperty(msg, *i, getIntegralValue<int16_t>(val));
+                } else if (propertyValueType.compare("string") == 0) {
+                    setMessageProperty(msg, *i, val);
+                } else {
+                    throw qpidit::UnknownJmsPropertyTypeError(propertyValueType);
+                }
+            }
+            return msg;
+        }
+
         //static
         proton::binary Sender::getJavaObjectBinary(const std::string& javaClassName, const std::string& valAsString) {
             proton::binary javaObjectBinary;
@@ -309,7 +409,7 @@ namespace qpidit
             return tot;
         }
 
-    } /* namespace jms_messages_test */
+    } /* namespace jms_hdrs_props_test */
 } /* namespace qpidit */
 
 
@@ -343,7 +443,7 @@ int main(int argc, char** argv) {
             throw qpidit::JsonParserError(jsonReader);
         }
 
-        qpidit::jms_messages_test::Sender sender(oss.str(), argv[3], testParams);
+        qpidit::jms_hdrs_props_test::Sender sender(oss.str(), argv[3], testParams);
         proton::default_container(sender).run();
     } catch (const std::exception& e) {
         std::cout << "JmsSender error: " << e.what() << std::endl;

@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.qpid.interop_test.jms_messages_test;
+package org.apache.qpid.interop_test.jms_hdrs_props_test;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -67,11 +67,13 @@ public class Receiver {
     Queue _queue;
     MessageConsumer _messageConsumer;
     JsonObjectBuilder _jsonTestValueMapBuilder;
+    JsonObjectBuilder _jsonMessageHeaderMapBuilder;
+    JsonObjectBuilder _jsonMessagePropertiesMapBuilder;
     
     // args[0]: Broker URL
     // args[1]: Queue name
     // args[2]: JMS message type
-    // args[3]: JSON Test parameters containing testValuesMap
+    // args[3]: JSON Test parameters containing 2 maps: [testValuesMap, flagMap]
     public static void main(String[] args) throws Exception {
         if (args.length != 4) {
             System.out.println("JmsReceiverShim: Incorrect number of arguments");
@@ -87,11 +89,19 @@ public class Receiver {
         }
 
         JsonReader jsonReader = Json.createReader(new StringReader(args[3]));
-        JsonObject numTestValuesMap = jsonReader.readObject();
+        JsonArray testParamsList = jsonReader.readArray();
         jsonReader.close();
+
+        if (testParamsList.size() != 2) {
+            System.err.println("ERROR: Incorrect number of JSON parameters: Expected 2, got " + Integer.toString(testParamsList.size()));
+            System.exit(1);
+        }
+
+        JsonObject numTestValuesMap = testParamsList.getJsonObject(0);
+        JsonObject flagMap = testParamsList.getJsonObject(1);
         
         Receiver shim = new Receiver(brokerAddress, queueName);
-        shim.run(jmsMessageType, numTestValuesMap);
+        shim.run(jmsMessageType, numTestValuesMap, flagMap);
     }
 
     public Receiver(String brokerAddress, String queueName) {
@@ -109,6 +119,8 @@ public class Receiver {
             _messageConsumer = _session.createConsumer(_queue);
 
             _jsonTestValueMapBuilder = Json.createObjectBuilder();
+            _jsonMessageHeaderMapBuilder = Json.createObjectBuilder();
+            _jsonMessagePropertiesMapBuilder = Json.createObjectBuilder();
         } catch (Exception exc) {
             if (_connection != null)
                 try { _connection.close(); } catch (JMSException e) {}
@@ -118,7 +130,7 @@ public class Receiver {
         }
     }
     
-    public void run(String jmsMessageType, JsonObject numTestValuesMap) {
+    public void run(String jmsMessageType, JsonObject numTestValuesMap, JsonObject flagMap) {
         try {
             List<String> subTypeKeyList = new ArrayList<String>(numTestValuesMap.keySet());
             Collections.sort(subTypeKeyList);
@@ -153,6 +165,9 @@ public class Receiver {
                         _connection.close();
                         throw new Exception("JmsReceiverShim: Internal error: Unknown or unsupported JMS message type \"" + jmsMessageType + "\"");
                     }
+                    
+                    processMessageHeaders(message, flagMap);
+                    processMessageProperties(message);
                 }
                 _jsonTestValueMapBuilder.add(subType, jasonTestValuesArrayBuilder);
             }
@@ -160,7 +175,11 @@ public class Receiver {
     
             System.out.println(jmsMessageType);
             StringWriter out = new StringWriter();
-            writeJsonObject(_jsonTestValueMapBuilder, out);
+            JsonArrayBuilder returnList = Json.createArrayBuilder();
+            returnList.add(_jsonTestValueMapBuilder);
+            returnList.add(_jsonMessageHeaderMapBuilder);
+            returnList.add(_jsonMessagePropertiesMapBuilder);
+            writeJsonArray(returnList, out);
             System.out.println(out.toString());        
         } catch (Exception exp) {
             try { _connection.close(); } catch (JMSException e) {}
@@ -338,9 +357,108 @@ public class Receiver {
         jasonTestValuesArrayBuilder.add(((TextMessage)message).getText());
     }
 
-    protected static void writeJsonObject(JsonObjectBuilder builder, StringWriter out) {
+    protected void processMessageHeaders(Message message, JsonObject flagMap) throws Exception, JMSException {
+        addMessageHeaderString("JMS_TYPE_HEADER", message.getJMSType());
+        if (flagMap.containsKey("JMS_CORRELATIONID_AS_BYTES") && flagMap.getBoolean("JMS_CORRELATIONID_AS_BYTES")) {
+            addMessageHeaderByteArray("JMS_CORRELATIONID_HEADER", message.getJMSCorrelationIDAsBytes());
+        } else {
+            addMessageHeaderString("JMS_CORRELATIONID_HEADER", message.getJMSCorrelationID());
+        }
+        if (flagMap.containsKey("JMS_REPLYTO_AS_TOPIC") && flagMap.getBoolean("JMS_REPLYTO_AS_TOPIC")) {
+            addMessageHeaderDestination("JMS_REPLYTO_HEADER", JMS_DESTINATION_TYPE.JMS_TOPIC, message.getJMSReplyTo());
+        } else {
+            addMessageHeaderDestination("JMS_REPLYTO_HEADER", JMS_DESTINATION_TYPE.JMS_QUEUE, message.getJMSReplyTo());
+        }
+    }
+
+    protected void addMessageHeaderString(String headerName, String value) {
+        if (value != null) {
+            JsonObjectBuilder valueMap = Json.createObjectBuilder();
+            valueMap.add("string", value);
+            _jsonMessageHeaderMapBuilder.add(headerName, valueMap);
+        }
+    }
+
+    protected void addMessageHeaderByteArray(String headerName, byte[] value) {
+        if (value != null) {
+            JsonObjectBuilder valueMap = Json.createObjectBuilder();
+            valueMap.add("bytes", new String(value));
+            _jsonMessageHeaderMapBuilder.add(headerName, valueMap);
+        }        
+    }
+
+    protected void addMessageHeaderDestination(String headerName, JMS_DESTINATION_TYPE destinationType, Destination destination) throws Exception {
+        if (destination != null) {
+            JsonObjectBuilder valueMap = Json.createObjectBuilder();
+            switch (destinationType) {
+            case JMS_QUEUE:
+                valueMap.add("queue", ((Queue)destination).getQueueName());
+                break;
+            case JMS_TOPIC:
+                valueMap.add("topic", ((Topic)destination).getTopicName());
+                break;
+            default:
+                throw new Exception("Internal error: JMSDestination type not supported");
+            }
+            _jsonMessageHeaderMapBuilder.add(headerName, valueMap);
+        }
+    }
+
+    protected void processMessageProperties(Message message) throws Exception, JMSException {
+        Enumeration<String> propertyNames = message.getPropertyNames(); 
+        while (propertyNames.hasMoreElements()) {
+            JsonObjectBuilder valueMap = Json.createObjectBuilder();
+            String propertyName = propertyNames.nextElement();
+            int underscoreIndex = propertyName.indexOf('_');
+            if (underscoreIndex >= 0) {
+                String propType = propertyName.substring(0, underscoreIndex);
+                switch (propType) {
+                case "boolean":
+                    valueMap.add(propType, message.getBooleanProperty(propertyName) ? "True" : "False");
+                    _jsonMessagePropertiesMapBuilder.add(propertyName, valueMap);
+                    break;
+                case "byte":
+                    valueMap.add(propType, formatByte(message.getByteProperty(propertyName)));
+                    _jsonMessagePropertiesMapBuilder.add(propertyName, valueMap);
+                    break;
+                case "double":
+                    long l = Double.doubleToRawLongBits(message.getDoubleProperty(propertyName));
+                    valueMap.add(propType, String.format("0x%16s", Long.toHexString(l)).replace(' ', '0'));
+                    _jsonMessagePropertiesMapBuilder.add(propertyName, valueMap);
+                    break;
+                case "float":
+                    int i = Float.floatToRawIntBits(message.getFloatProperty(propertyName));
+                    valueMap.add(propType, String.format("0x%8s", Integer.toHexString(i)).replace(' ', '0'));
+                    _jsonMessagePropertiesMapBuilder.add(propertyName, valueMap);
+                    break;
+                case "int":
+                    valueMap.add(propType, formatInt(message.getIntProperty(propertyName)));
+                    _jsonMessagePropertiesMapBuilder.add(propertyName, valueMap);
+                    break;
+                case "long":
+                    valueMap.add(propType, formatLong(message.getLongProperty(propertyName)));
+                    _jsonMessagePropertiesMapBuilder.add(propertyName, valueMap);
+                    break;
+                case "short":
+                    valueMap.add(propType, formatShort(message.getShortProperty(propertyName)));
+                    _jsonMessagePropertiesMapBuilder.add(propertyName, valueMap);
+                    break;
+                case "string":
+                    valueMap.add(propType, message.getStringProperty(propertyName));
+                    _jsonMessagePropertiesMapBuilder.add(propertyName, valueMap);
+                    break;
+                default:
+                    ; // Ignore any other property the broker may add
+                }
+            } else {
+                // TODO: handle other non-test properties that might exist here
+            }
+        }
+    }
+
+    protected static void writeJsonArray(JsonArrayBuilder builder, StringWriter out) {
         JsonWriter jsonWriter = Json.createWriter(out);
-        jsonWriter.writeObject(builder.build());
+        jsonWriter.writeArray(builder.build());
         jsonWriter.close();        
     }
 

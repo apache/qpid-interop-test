@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-Module to test JMS message types across different APIs
+Module to test JMS headers and properties
 """
 
 #
@@ -30,12 +30,11 @@ import unittest
 from itertools import product
 from json import dumps
 from os import getenv, path
-from sys import stdout
 
-import broker_properties
-import shims
 from proton import symbol
-from test_type_map import TestTypeMap
+import qpid_interop_test.broker_properties
+import qpid_interop_test.shims
+from qpid_interop_test.test_type_map import TestTypeMap
 
 
 # TODO: propose a sensible default when installation details are worked out
@@ -279,8 +278,8 @@ class JmsMessageTypeTestCase(unittest.TestCase):
         sender.start()
 
         # Wait for both shims to finish
-        sender.join_or_kill(shims.THREAD_TIMEOUT)
-        receiver.join_or_kill(shims.THREAD_TIMEOUT)
+        sender.join_or_kill(qpid_interop_test.shims.THREAD_TIMEOUT)
+        receiver.join_or_kill(qpid_interop_test.shims.THREAD_TIMEOUT)
 
         # Process return string from sender
         send_obj = sender.get_return_object()
@@ -288,7 +287,7 @@ class JmsMessageTypeTestCase(unittest.TestCase):
             if isinstance(send_obj, str) and len(send_obj) > 0:
                 self.fail('Send shim \'%s\':\n%s' % (send_shim.NAME, send_obj))
             else:
-                self.fail('Send shim \'%s\':\n%s' % str(send_obj))
+                self.fail('Send shim \'%s\':\n%s' % (send_shim.NAME, str(send_obj)))
 
         # Process return string from receiver
         receive_obj = receiver.get_return_object()
@@ -296,20 +295,27 @@ class JmsMessageTypeTestCase(unittest.TestCase):
             self.fail('JmsReceiver shim returned None')
         else:
             if isinstance(receive_obj, tuple):
-                if len(receive_obj) == 4:
-                    return_jms_message_type, return_test_values, return_msg_hdrs, return_msg_props = receive_obj
-                    self.assertEqual(return_jms_message_type, jms_message_type,
-                                     msg='JMS message type error:\n\n    sent:%s\n\n    received:%s' % \
-                                     (jms_message_type, return_jms_message_type))
-                    self.assertEqual(return_test_values, test_values,
-                                     msg='JMS message body error:\n\n    sent:%s\n\n    received:%s' % \
-                                     (test_values, return_test_values))
-                    self.assertEqual(return_msg_hdrs, msg_hdrs,
-                                     msg='JMS message headers error:\n\n    sent:%s\n\n    received:%s' % \
-                                     (msg_hdrs, return_msg_hdrs))
-                    self.assertEqual(return_msg_props, msg_props,
-                                     msg='JMS message properties error:\n\n    sent:%s\n\n    received:%s' % \
-                                     (msg_props, return_msg_props))
+                if len(receive_obj) == 2:
+                    return_jms_message_type, return_list = receive_obj
+                    if (len(return_list) == 3):
+                        return_test_values = return_list[0]
+                        return_msg_hdrs = return_list[1]
+                        return_msg_props = return_list[2]
+                        self.assertEqual(return_jms_message_type, jms_message_type,
+                                         msg='JMS message type error:\n\n    sent:%s\n\n    received:%s' % \
+                                         (jms_message_type, return_jms_message_type))
+                        self.assertEqual(return_test_values, test_values,
+                                         msg='JMS message body error:\n\n    sent:%s\n\n    received:%s' % \
+                                         (test_values, return_test_values))
+                        self.assertEqual(return_msg_hdrs, msg_hdrs,
+                                         msg='JMS message headers error:\n\n    sent:%s\n\n    received:%s' % \
+                                         (msg_hdrs, return_msg_hdrs))
+                        self.assertEqual(return_msg_props, msg_props,
+                                         msg='JMS message properties error:\n\n    sent:%s\n\n    received:%s' % \
+                                         (msg_props, return_msg_props))
+                    else:
+                        self.fail('Return value list needs 3 items, found %d items: %s' % (len(return_list),
+                                                                                           str(return_list)))
             else:
                 self.fail(str(receive_obj))
 
@@ -404,28 +410,31 @@ def create_testcase_class(broker_name, types, broker_addr, jms_message_type, shi
     return new_class
 
 
-PROTON_CPP_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'build', 'jms_messages_test',
+PROTON_CPP_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'build', 'jms_hdrs_props_test',
                                      'Receiver')
-PROTON_CPP_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'build', 'jms_messages_test',
+PROTON_CPP_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'build', 'jms_hdrs_props_test',
                                    'Sender')
-PROTON_PYTHON_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'src', 'jms_messages_test',
-                                        'Receiver.py')
-PROTON_PYTHON_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'src', 'jms_messages_test',
-                                      'Sender.py')
+PROTON_PYTHON_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'src',
+                                        'jms_hdrs_props_test', 'Receiver.py')
+PROTON_PYTHON_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'src',
+                                      'jms_hdrs_props_test', 'Sender.py')
 QIT_JMS_CLASSPATH_FILE = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-jms', 'cp.txt')
 with open(QIT_JMS_CLASSPATH_FILE, 'r') as classpath_file:
     QIT_JMS_CLASSPATH = classpath_file.read()
-QPID_JMS_RECEIVER_SHIM = 'org.apache.qpid.interop_test.jms_messages_test.Receiver'
-QPID_JMS_SENDER_SHIM = 'org.apache.qpid.interop_test.jms_messages_test.Sender'
+QPID_JMS_RECEIVER_SHIM = 'org.apache.qpid.interop_test.jms_hdrs_props_test.Receiver'
+QPID_JMS_SENDER_SHIM = 'org.apache.qpid.interop_test.jms_hdrs_props_test.Sender'
 
 # SHIM_MAP contains an instance of each client language shim that is to be tested as a part of this test. For
 # every shim in this list, a test is dynamically constructed which tests it against itself as well as every
 # other shim in the list.
 #
 # As new shims are added, add them into this map to have them included in the test cases.
-SHIM_MAP = {shims.ProtonCppShim.NAME: shims.ProtonCppShim(PROTON_CPP_SENDER_SHIM, PROTON_CPP_RECEIVER_SHIM),
-            shims.ProtonPythonShim.NAME: shims.ProtonPythonShim(PROTON_PYTHON_SENDER_SHIM, PROTON_PYTHON_RECEIVER_SHIM),
-            shims.QpidJmsShim.NAME: shims.QpidJmsShim(QIT_JMS_CLASSPATH, QPID_JMS_SENDER_SHIM, QPID_JMS_RECEIVER_SHIM),
+SHIM_MAP = {qpid_interop_test.shims.ProtonCppShim.NAME: \
+                qpid_interop_test.shims.ProtonCppShim(PROTON_CPP_SENDER_SHIM, PROTON_CPP_RECEIVER_SHIM),
+            qpid_interop_test.shims.ProtonPythonShim.NAME: \
+                qpid_interop_test.shims.ProtonPythonShim(PROTON_PYTHON_SENDER_SHIM, PROTON_PYTHON_RECEIVER_SHIM),
+            qpid_interop_test.shims.QpidJmsShim.NAME: \
+                qpid_interop_test.shims.QpidJmsShim(QIT_JMS_CLASSPATH, QPID_JMS_SENDER_SHIM, QPID_JMS_RECEIVER_SHIM),
            }
 
 # TODO: Complete the test options to give fine control over running tests
@@ -465,7 +474,7 @@ if __name__ == '__main__':
     #print 'ARGS:', ARGS # debug
 
     # Connect to broker to find broker type
-    CONNECTION_PROPS = broker_properties.getBrokerProperties(ARGS.broker)
+    CONNECTION_PROPS = qpid_interop_test.broker_properties.get_broker_properties(ARGS.broker)
     if CONNECTION_PROPS is None:
         print 'WARNING: Unable to get connection properties - unknown broker'
         BROKER = 'unknown'
@@ -478,7 +487,7 @@ if __name__ == '__main__':
                           else '<platform not found>'
         print 'Test Broker: %s v.%s on %s' % (BROKER, BROKER_VERSION, BROKER_PLATFORM)
         print
-        stdout.flush()
+        sys.stdout.flush()
 
     TYPES = JmsMessageTypes()
 

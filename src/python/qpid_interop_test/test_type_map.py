@@ -24,7 +24,7 @@ class TestTypeMap(object):
     """
     Class which contains all the described types and the test values to be used in testing against those types.
     """
-    
+
     # TYPE_MAP: Map containing all described types as the indecies, and a list of values to be used in testing
     # that type as a list of values.
     #
@@ -79,7 +79,8 @@ class TestTypeMap(object):
 
     @staticmethod
     def merge_dicts(*dict_args):
+        """Static method to merge two or more dictionaries"""
         res = {}
-        for d in dict_args:
-            res.update(d)
+        for this_dict in dict_args:
+            res.update(this_dict)
         return res
