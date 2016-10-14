@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.StringReader;
 import java.io.StringWriter;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -29,6 +30,7 @@ import java.util.List;
 import javax.jms.BytesMessage;
 import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
+import javax.jms.DeliveryMode;
 import javax.jms.Destination;
 import javax.jms.ExceptionListener;
 import javax.jms.JMSException;
@@ -369,6 +371,43 @@ public class Receiver {
         } else {
             addMessageHeaderDestination("JMS_REPLYTO_HEADER", JMS_DESTINATION_TYPE.JMS_QUEUE, message.getJMSReplyTo());
         }
+        if (flagMap.containsKey("JMS_CLIENT_CHECKS") && flagMap.getBoolean("JMS_CLIENT_CHECKS")) {
+            // Get and check message headers which are set by a JMS-compient sender
+            // See: https://docs.oracle.com/cd/E19798-01/821-1841/bnces/index.html
+            // 1. Destination
+            Destination destination = message.getJMSDestination();
+            if (destination.toString().compareTo(_queue.toString()) != 0) {
+                throw new Exception("JMS_DESTINATION header invalid: found \"" + destination.toString() +
+                                    "\"; expected \"" + _queue.toString() + "\"");
+            }
+            // 2. Delivery Mode (persistence)
+            int deliveryMode = message.getJMSDeliveryMode();
+            if (deliveryMode != DeliveryMode.NON_PERSISTENT && deliveryMode != DeliveryMode.PERSISTENT) {
+                throw new Exception("JMS_DELIVERY_MODE header invalid: " + deliveryMode);
+            }
+            // 3. Expiration
+            long expiration = message.getJMSExpiration();
+            if (expiration != 0) {
+                throw new Exception("JMS_EXPIRATION header is non-zero");
+            }
+            // 4. Message ID
+            String message_id = message.getJMSMessageID();
+            // TODO: Find a check for this
+            // 5. Message priority
+            int message_priority = message.getJMSPriority();
+            if (message_priority != 4) { // Default JMS message priority
+                throw new Exception("JMS_PRIORITY header is not default (4): found " + message_priority);
+            }
+            // 6. Message timestamp
+            long timeStamp = message.getJMSTimestamp();
+            long currentTime = System.currentTimeMillis();
+            if (currentTime - timeStamp > 60 * 1000) { // More than 1 minute old
+                SimpleDateFormat df = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss.S z");
+                throw new Exception("JMS_TIMESTAMP header contains suspicious value: found " + timeStamp +
+                                    " (" + df.format(timeStamp) + ") is not within 1 minute of " + currentTime +
+                                    " (" + df.format(currentTime) + ")");
+            }
+        }
     }
 
     protected void addMessageHeaderString(String headerName, String value) {
@@ -409,9 +448,10 @@ public class Receiver {
         while (propertyNames.hasMoreElements()) {
             JsonObjectBuilder valueMap = Json.createObjectBuilder();
             String propertyName = propertyNames.nextElement();
-            int underscoreIndex = propertyName.indexOf('_');
-            if (underscoreIndex >= 0) {
-                String propType = propertyName.substring(0, underscoreIndex);
+            int underscoreIndex1 = propertyName.indexOf('_');
+            int underscoreIndex2 = propertyName.indexOf('_', underscoreIndex1 + 1);
+            if (underscoreIndex1 == 4 && underscoreIndex2 > 5) {
+                String propType = propertyName.substring(underscoreIndex1 + 1, underscoreIndex2);
                 switch (propType) {
                 case "boolean":
                     valueMap.add(propType, message.getBooleanProperty(propertyName) ? "True" : "False");

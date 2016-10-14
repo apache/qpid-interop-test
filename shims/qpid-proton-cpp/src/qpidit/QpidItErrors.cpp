@@ -163,6 +163,15 @@ namespace qpidit
     PopenError::~PopenError() throw() {}
 
 
+    // --- UnexpectedJMSMessageHeader ---
+
+    UnexpectedJMSMessageHeader::UnexpectedJMSMessageHeader(const std::string& jmsMessageHeader, const std::string& errorDescription) :
+                    std::runtime_error(MSG("Unexpected JMS message header: " << jmsMessageHeader << ": " << errorDescription))
+    {}
+
+    UnexpectedJMSMessageHeader::~UnexpectedJMSMessageHeader() throw() {}
+
+
     // --- UnknownAmqpTypeError ---
 
     UnknownAmqpTypeError::UnknownAmqpTypeError(const std::string& amqpType) :

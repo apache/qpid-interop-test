@@ -27,6 +27,7 @@ from json import dumps, loads
 from struct import pack, unpack
 from subprocess import check_output
 import sys
+from time import strftime, time
 from traceback import format_exc
 
 from qpid_interop_test.interop_test_errors import InteropTestError
@@ -45,9 +46,10 @@ class JmsReceiverShim(MessagingHandler):
     applicable, body values, as well as the combinations of JMS headers and properties which may be attached to
     the message are received on the command-line in JSON format when this program is launched.
     """
-    def __init__(self, url, jms_msg_type, test_parameters_list):
+    def __init__(self, url, queue, jms_msg_type, test_parameters_list):
         super(JmsReceiverShim, self).__init__()
         self.url = url
+        self.queue = queue
         self.jms_msg_type = jms_msg_type
         self.expteced_msg_map = test_parameters_list[0]
         self.flag_map = test_parameters_list[1]
@@ -74,7 +76,7 @@ class JmsReceiverShim(MessagingHandler):
 
     def on_start(self, event):
         """Event callback for when the client starts"""
-        event.container.create_receiver(self.url)
+        event.container.create_receiver('%s/%s' % (self.url, self.queue))
 
     def on_message(self, event):
         """Event callback when a message is received by the client"""
@@ -284,12 +286,12 @@ class JmsReceiverShim(MessagingHandler):
     def _process_jms_headers(self, message):
         """"Checks the supplied message for three JMS headers: message type, correlation-id and reply-to"""
         # JMS message type header
-        message_type_header = message._get_subject()
+        message_type_header = message.subject
         if message_type_header is not None:
             self.jms_header_map['JMS_TYPE_HEADER'] = {'string': message_type_header}
 
         # JMS correlation ID
-        correlation_id = message._get_correlation_id()
+        correlation_id = message.correlation_id
         if correlation_id is not None:
             if 'JMS_CORRELATIONID_AS_BYTES' in self.flag_map and self.flag_map['JMS_CORRELATIONID_AS_BYTES']:
                 self.jms_header_map['JMS_CORRELATIONID_HEADER'] = {'bytes': correlation_id}
@@ -297,7 +299,7 @@ class JmsReceiverShim(MessagingHandler):
                 self.jms_header_map['JMS_CORRELATIONID_HEADER'] = {'string': correlation_id}
 
         # JMS reply-to
-        reply_to = message._get_reply_to()
+        reply_to = message.reply_to
         if reply_to is not None:
             if 'JMS_REPLYTO_AS_TOPIC' in self.flag_map and self.flag_map['JMS_REPLYTO_AS_TOPIC']:
                 # Some brokers prepend 'queue://' and 'topic://' to reply_to addresses, strip these when present
@@ -309,13 +311,47 @@ class JmsReceiverShim(MessagingHandler):
                     reply_to = reply_to[8:]
                 self.jms_header_map['JMS_REPLYTO_HEADER'] = {'queue': reply_to}
 
+        # JMS client checks
+        if 'JMS_CLIENT_CHECKS' in self.flag_map and self.flag_map['JMS_CLIENT_CHECKS']:
+            # Get and check message headers which are set by a JMS-compient sender
+            # See: https://docs.oracle.com/cd/E19798-01/821-1841/bnces/index.html
+            # 1. Destination
+            destination = message.address
+            if destination != self.queue:
+                raise InteropTestError('JMS_DESTINATION header invalid: found "' + destination +
+                                       '"; expected "' + self.queue + '"')
+            # 2. Delivery Mode (persistence)
+            if message.durable:
+                raise InteropTestError('JMS_DELIVERY_MODE header invalid: expected NON_PERSISTENT; found PERSISTENT')
+            # 3. Expiration
+            expiration = message.expiry_time
+            if expiration != 0:
+                raise InteropTestError('JMS_EXPIRATION header is non-zero')
+            # 4. Message ID
+            message_id = message.id
+            if (len(message_id) == 0):
+                raise InteropTestError('JMS_MESSAGEID header is empty (zero-length)')
+            # TODO: Find a check for this
+            # 5. Message priority
+            if message.priority != 4:
+                raise InteropTestError('JMS_PRIORITY header is not default (4): found %d' % message.priority)
+            # 6. Message timestamp
+            time_stamp = message.creation_time
+            current_time = time()
+            if current_time - time_stamp > 60 * 1000: # More than 1 minute old
+                raise InteropTestError('JMS_TIMESTAMP header contains suspicious value: ' + \
+                                       'found %d (%s) is not within 1 minute of now %d (%s)' %
+                                       (time_stamp, strftime('%m/%d/%Y %H:%M:%S %Z', time_stamp),
+                                        current_time, strftime('%m/%d/%Y %H:%M:%S %Z', current_time)))
+
     def _process_jms_properties(self, message):
         """"Checks the supplied message for JMS message properties and decodes them"""
         if message.properties is not None:
             for jms_property_name in message.properties:
-                underscore_index = jms_property_name.find('_')
-                if underscore_index >= 0: # Ignore any other properties without '_'
-                    jms_property_type = jms_property_name[0:underscore_index]
+                underscore_index_1 = jms_property_name.find('_')
+                underscore_index_2 = jms_property_name.find('_', underscore_index_1+1)
+                if underscore_index_1 == 4 and underscore_index_2 > 5: # Ignore any other properties without '_'
+                    jms_property_type = jms_property_name[underscore_index_1+1:underscore_index_2]
                     value = message.properties[jms_property_name]
                     if jms_property_type == 'boolean':
                         self.jms_property_map[jms_property_name] = {'boolean': str(value)}
@@ -346,7 +382,7 @@ class JmsReceiverShim(MessagingHandler):
 #       4: JSON Test parameters containing 2 maps: [testValuesMap, flagMap]
 #print '#### sys.argv=%s' % sys.argv
 try:
-    RECEIVER = JmsReceiverShim('%s/%s' % (sys.argv[1], sys.argv[2]), sys.argv[3], loads(sys.argv[4]))
+    RECEIVER = JmsReceiverShim(sys.argv[1], sys.argv[2], sys.argv[3], loads(sys.argv[4]))
     Container(RECEIVER).run()
     print sys.argv[3]
     print dumps([RECEIVER.get_received_value_map(), RECEIVER.get_jms_header_map(), RECEIVER.get_jms_property_map()])

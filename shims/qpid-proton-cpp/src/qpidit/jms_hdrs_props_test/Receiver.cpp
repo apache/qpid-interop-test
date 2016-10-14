@@ -34,10 +34,12 @@ namespace qpidit
     namespace jms_hdrs_props_test
     {
         Receiver::Receiver(const std::string& brokerUrl,
+                           const std::string& queueName,
                            const std::string& jmsMessageType,
                            const Json::Value& testNumberMap,
                            const Json::Value& flagMap):
                             _brokerUrl(brokerUrl),
+                            _queueName(queueName),
                             _jmsMessageType(jmsMessageType),
                             _testNumberMap(testNumberMap),
                             _flagMap(flagMap),
@@ -66,7 +68,9 @@ namespace qpidit
         }
 
         void Receiver::on_container_start(proton::container &c) {
-            c.open_receiver(_brokerUrl);
+            std::ostringstream oss;
+            oss << _brokerUrl << "/" << _queueName;
+            c.open_receiver(oss.str());
         }
 
         void Receiver::on_message(proton::delivery &d, proton::message &m) {
@@ -309,6 +313,49 @@ namespace qpidit
                     addMessageHeaderDestination("JMS_REPLYTO_HEADER", qpidit::JMS_QUEUE, reply_to);
                 }
             }
+
+            if (_flagMap.isMember("JMS_CLIENT_CHECKS") && _flagMap["JMS_CLIENT_CHECKS"].asBool()) {
+                // Get and check message headers which are set by a JMS-compient sender
+                // See: https://docs.oracle.com/cd/E19798-01/821-1841/bnces/index.html
+                // 1. Destination
+                const std::string destination = msg.to();
+                if (destination.compare(_queueName) != 0) {
+                    std::ostringstream oss;
+                    oss << "Invalid header: found \"" << destination << "\"; expected \"" << _queueName << "\"";
+                    throw qpidit::UnexpectedJMSMessageHeader("JMS_DESTINATION", oss.str());
+                }
+                // 2. Delivery Mode (persistence)
+                if (msg.durable()) {
+                    throw qpidit::UnexpectedJMSMessageHeader("JMS_DELIVERY_MODE", "Expected NON_PERSISTENT, found PERSISTENT");
+                }
+                 // 3. Expiration
+                const time_t expiryTime = msg.expiry_time().milliseconds();
+                if (expiryTime != 0) {
+                    std::ostringstream oss;
+                    oss << "Expected expiration time 0, found " << expiryTime << " (" << std::asctime(std::localtime(&expiryTime)) << ")";
+                    throw qpidit::UnexpectedJMSMessageHeader("JMS_EXPIRATION", oss.str());
+                }
+                // 4. Message ID
+                proton::message_id mid = msg.id();
+                // TODO: Find a check for this
+                // 5. Message priority
+                int msgPriority = msg.priority();
+                if (msgPriority != 4) { // Default JMS message priority
+                    std::ostringstream oss;
+                    oss << "Expected default priority (4), found priority " << msgPriority;
+                    throw qpidit::UnexpectedJMSMessageHeader("JMS_PRIORITY", oss.str());
+                }
+                // 6. Message timestamp
+                const time_t creationTime = msg.creation_time().milliseconds();
+                const time_t currentTime = proton::timestamp::now().milliseconds();
+                if (currentTime - creationTime > 60 * 1000) { // More than 1 minute old
+                    std::ostringstream oss;
+                    oss << "Header contains suspicious value: found " << creationTime << " (";
+                    oss << std::asctime(std::localtime(&creationTime)) << ") is not within 1 minute of now ";
+                    oss << currentTime << " (" << std::asctime(std::localtime(&currentTime)) << ")";
+                    throw qpidit::UnexpectedJMSMessageHeader("JMS_TIMESTAMP", oss.str());
+                }
+            }
         }
 
         void Receiver::addMessageHeaderString(const char* headerName, const std::string& value) {
@@ -370,9 +417,6 @@ int main(int argc, char** argv) {
         throw qpidit::ArgumentError("Incorrect number of arguments");
     }
 
-    std::ostringstream oss;
-    oss << argv[1] << "/" << argv[2];
-
     try {
         Json::Value testParams;
         Json::Reader jsonReader;
@@ -380,7 +424,7 @@ int main(int argc, char** argv) {
             throw qpidit::JsonParserError(jsonReader);
         }
 
-        qpidit::jms_hdrs_props_test::Receiver receiver(oss.str(), argv[3], testParams[0], testParams[1]);
+        qpidit::jms_hdrs_props_test::Receiver receiver(argv[1], argv[2], argv[3], testParams[0], testParams[1]);
         proton::default_container(receiver).run();
 
         Json::FastWriter fw;

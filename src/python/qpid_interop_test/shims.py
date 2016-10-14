@@ -129,12 +129,12 @@ class Receiver(ShimWorkerThread):
             else:
                 #print '<<<', stdoutdata # DEBUG - useful to see text received from shim
                 str_tvl = stdoutdata.split('\n')[0:-1] # remove trailing \n
-                #if len(str_tvl) == 1:
-                #    self.return_obj = output
                 if len(str_tvl) == 2:
-                    self.return_obj = (str_tvl[0], loads(str_tvl[1]))
+                    try:
+                        self.return_obj = (str_tvl[0], loads(str_tvl[1]))
+                    except ValueError:
+                        self.return_obj = stdoutdata
                 else: # Make a single line of all the bits and return that
-                    #self.return_obj = loads("".join(str_tvl[1:]))
                     self.return_obj = stdoutdata
         except CalledProcessError as exc:
             self.return_obj = str(exc) + '\n\n' + exc.output
@@ -142,6 +142,7 @@ class Receiver(ShimWorkerThread):
 class Shim(object):
     """Abstract shim class, parent of all shims."""
     NAME = None
+    JMS_CLIENT = False # Enables certain JMS-specific message checks
     def __init__(self, sender_shim, receiver_shim):
         self.sender_shim = sender_shim
         self.receiver_shim = receiver_shim
@@ -178,6 +179,7 @@ class ProtonCppShim(Shim):
 class QpidJmsShim(Shim):
     """Shim for qpid-jms JMS client"""
     NAME = 'QpidJms'
+    JMS_CLIENT = True
 
     # Installed versions
     # TODO: Automate this - it gets out of date quickly

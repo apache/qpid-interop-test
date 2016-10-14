@@ -38,6 +38,7 @@ namespace qpidit
         {
         protected:
             const std::string _brokerUrl;
+            const std::string _queueName;
             const std::string _jmsMessageType;
             const Json::Value _testNumberMap;
             const Json::Value _flagMap;
@@ -51,6 +52,7 @@ namespace qpidit
             Json::Value _receivedPropertiesMap;
         public:
             Receiver(const std::string& brokerUrl,
+                     const std::string& queueName,
                      const std::string& jmsMessageType,
                      const Json::Value& testNumberMap,
                      const Json::Value& flagMap);

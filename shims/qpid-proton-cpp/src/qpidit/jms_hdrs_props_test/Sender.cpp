@@ -446,6 +446,6 @@ int main(int argc, char** argv) {
         qpidit::jms_hdrs_props_test::Sender sender(oss.str(), argv[3], testParams);
         proton::default_container(sender).run();
     } catch (const std::exception& e) {
-        std::cout << "JmsSender error: " << e.what() << std::endl;
+        std::cout << "Sender error: " << e.what() << std::endl;
     }
 }

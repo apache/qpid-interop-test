@@ -133,6 +133,13 @@ namespace qpidit
         virtual ~PopenError() throw();
     };
 
+    class UnexpectedJMSMessageHeader: public std::runtime_error
+    {
+    public:
+        UnexpectedJMSMessageHeader(const std::string& jmsMessageHeader, const std::string& errorDescription);
+        virtual ~UnexpectedJMSMessageHeader() throw();
+    };
+
     class UnknownAmqpTypeError: public std::runtime_error
     {
     public:
