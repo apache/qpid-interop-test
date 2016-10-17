@@ -315,6 +315,8 @@ class JmsHdrsPropsTestReceiver(MessagingHandler):
             # See: https://docs.oracle.com/cd/E19798-01/821-1841/bnces/index.html
             # 1. Destination
             destination = message.address
+            if len(destination) > 8 and (destination[:8] == 'queue://' or destination[:8] == 'topic://'):
+                destination = destination[8:]
             if destination != self.queue_name:
                 raise InteropTestError('JMS_DESTINATION header invalid: found "' + destination +
                                        '"; expected "' + self.queue_name + '"')
