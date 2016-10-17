@@ -29,25 +29,23 @@ from subprocess import check_output
 import sys
 from traceback import format_exc
 
+from qpid_interop_test.jms_types import QPID_JMS_TYPE_ANNOTATION_NAME
 from proton import byte, symbol
 from proton.handlers import MessagingHandler
 from proton.reactor import Container
 from qpid_interop_test.interop_test_errors import InteropTestError
 
-# These values must tie in with the Qpid-JMS client values found in
-# org.apache.qpid.jms.provider.amqp.message.AmqpMessageSupport
-QPID_JMS_TYPE_ANNOTATION_NAME = symbol(u'x-opt-jms-msg-type')
-
-class JmsReceiverShim(MessagingHandler):
+class JmsMessagesTestReceiver(MessagingHandler):
     """
     Receiver shim: This shim receives JMS messages sent by the Sender shim and prints the contents of the received
     messages onto the terminal in JSON format for retrieval by the test harness. The JMS messages type and, where
     applicable, body values, as well as the combinations of JMS headers and properties which may be attached to
     the message are received on the command-line in JSON format when this program is launched.
     """
-    def __init__(self, url, jms_msg_type, test_parameters_list):
-        super(JmsReceiverShim, self).__init__()
-        self.url = url
+    def __init__(self, broker_url, queue_name, jms_msg_type, test_parameters_list):
+        super(JmsMessagesTestReceiver, self).__init__()
+        self.broker_url = broker_url
+        self.queue_name = queue_name
         self.jms_msg_type = jms_msg_type
         self.expteced_msg_map = test_parameters_list
         self.subtype_itr = iter(sorted(self.expteced_msg_map.keys()))
@@ -63,7 +61,7 @@ class JmsReceiverShim(MessagingHandler):
 
     def on_start(self, event):
         """Event callback for when the client starts"""
-        event.container.create_receiver(self.url)
+        event.container.create_receiver('%s/%s' % (self.broker_url, self.queue_name))
 
     def on_message(self, event):
         """Event callback when a message is received by the client"""
@@ -84,13 +82,13 @@ class JmsReceiverShim(MessagingHandler):
                 event.connection.close()
 
     def on_connection_error(self, event):
-        print 'JmsReceiverShim.on_connection_error'
+        print 'JmsMessagesTestReceiver.on_connection_error'
 
     def on_session_error(self, event):
-        print 'JmsReceiverShim.on_session_error'
+        print 'JmsMessagesTestReceiver.on_session_error'
 
     def on_link_error(self, event):
-        print 'JmsReceiverShim.on_link_error'
+        print 'JmsMessagesTestReceiver.on_link_error'
 
     def _handle_message(self, message):
         """Handles the analysis of a received message"""
@@ -277,7 +275,7 @@ class JmsReceiverShim(MessagingHandler):
 #       4: JSON Test parameters containing 2 maps: [testValuesMap, flagMap]
 #print '#### sys.argv=%s' % sys.argv
 try:
-    RECEIVER = JmsReceiverShim('%s/%s' % (sys.argv[1], sys.argv[2]), sys.argv[3], loads(sys.argv[4]))
+    RECEIVER = JmsMessagesTestReceiver(sys.argv[1], sys.argv[2], sys.argv[3], loads(sys.argv[4]))
     Container(RECEIVER).run()
     print sys.argv[3]
     print dumps(RECEIVER.get_received_value_map())

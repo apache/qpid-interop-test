@@ -24,7 +24,6 @@
 
 #include <iomanip>
 #include <json/value.h>
-#include "proton/messaging_handler.hpp"
 #include "proton/types.hpp"
 #include "qpidit/JmsTestBase.hpp"
 #include <sstream>
@@ -78,6 +77,8 @@ namespace qpidit
             void addMessageHeaderByteArray(const std::string& headerName, const proton::binary ba);
             void addMessageHeaderDestination(const std::string& headerName, qpidit::jmsDestinationType_t dt, const std::string& d);
             void processMessageProperties(const proton::message& msg);
+
+            static void stripQueueTopicPrefix(std::string& name);
 
             // Format signed numbers in negative hex format if signedFlag is true, ie -0xNNNN, positive numbers in 0xNNNN format
             template<typename T> static std::string toHexStr(T val, bool fillFlag = false, bool signedFlag = true) {

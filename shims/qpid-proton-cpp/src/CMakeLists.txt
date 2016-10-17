@@ -24,6 +24,79 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 link_directories(${PROTON_INSTALL_DIR}/lib64)
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
+
+
+function(addTest testName)
+# --- Sender ---
+
+set(${testName}_Sender_SOURCES
+    ${Common_SOURCES}
+    qpidit/${testName}/Sender.hpp
+    qpidit/${testName}/Sender.cpp
+)
+
+add_executable(${testName}_Sender ${${testName}_Sender_SOURCES})
+target_link_libraries(${testName}_Sender ${Common_LIBS})
+set_target_properties(${testName}_Sender PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/${testName}"
+    OUTPUT_NAME Sender
+)
+
+# --- Receiver ---
+
+set(${testName}_Receiver_SOURCES
+    ${Common_SOURCES}
+    qpidit/${testName}/Receiver.hpp
+    qpidit/${testName}/Receiver.cpp
+)
+
+add_executable(${testName}_Receiver ${${testName}_Receiver_SOURCES})
+target_link_libraries(${testName}_Receiver ${Common_LIBS})
+set_target_properties(${testName}_Receiver PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/${testName}"
+    OUTPUT_NAME Receiver
+)
+
+endfunction(addTest)
+
+
+
+function(addJMSTest testName)
+# --- Sender ---
+
+set(${testName}_Sender_SOURCES
+    ${Common_SOURCES}
+    ${Common_Jms_SOURCES}
+    qpidit/${testName}/Sender.hpp
+    qpidit/${testName}/Sender.cpp
+)
+
+add_executable(${testName}_Sender ${${testName}_Sender_SOURCES})
+target_link_libraries(${testName}_Sender ${Common_LIBS})
+set_target_properties(${testName}_Sender PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/${testName}"
+    OUTPUT_NAME Sender
+)
+
+# --- Receiver ---
+
+set(${testName}_Receiver_SOURCES
+    ${Common_SOURCES}
+    ${Common_Jms_SOURCES}
+    qpidit/${testName}/Receiver.hpp
+    qpidit/${testName}/Receiver.cpp
+)
+
+add_executable(${testName}_Receiver ${${testName}_Receiver_SOURCES})
+target_link_libraries(${testName}_Receiver ${Common_LIBS})
+set_target_properties(${testName}_Receiver PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/${testName}"
+    OUTPUT_NAME Receiver
+)
+
+endfunction(addJMSTest)
+
+
 # --- Common files and libs ---
 
 set(Common_SOURCES
@@ -42,111 +115,11 @@ set(Common_LIBS
 )
 
 
-# -----------------------
-# --- amqp_types_test ---
-# -----------------------
-
-# --- Sender ---
-
-set(amqp_types_test_Sender_SOURCES
-    ${Common_SOURCES}
-    qpidit/amqp_types_test/Sender.hpp
-    qpidit/amqp_types_test/Sender.cpp
-)
-
-add_executable(amqp_types_test_Sender ${amqp_types_test_Sender_SOURCES})
-target_link_libraries(amqp_types_test_Sender ${Common_LIBS})
-set_target_properties(amqp_types_test_Sender PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/amqp_types_test"
-    OUTPUT_NAME Sender
-)
-
-# --- Receiver ---
-
-set(amqp_types_test_Receiver_SOURCES
-    ${Common_SOURCES}
-    qpidit/amqp_types_test/Receiver.hpp
-    qpidit/amqp_types_test/Receiver.cpp
-)
-
-add_executable(amqp_types_test_Receiver ${amqp_types_test_Receiver_SOURCES})
-target_link_libraries(amqp_types_test_Receiver ${Common_LIBS})
-set_target_properties(amqp_types_test_Receiver PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/amqp_types_test"
-    OUTPUT_NAME Receiver
-)
-
-
-# ---------------------------
-# --- jms_hdrs_props_test ---
-# ---------------------------
-
-# --- Sender ---
-
-set(jms_hdrs_props_test_Sender_SOURCES
-    ${Common_SOURCES}
-    ${Common_Jms_SOURCES}
-    qpidit/jms_hdrs_props_test/Sender.hpp
-    qpidit/jms_hdrs_props_test/Sender.cpp
-)
-
-add_executable(jms_hdrs_props_test_Sender ${jms_hdrs_props_test_Sender_SOURCES})
-target_link_libraries(jms_hdrs_props_test_Sender ${Common_LIBS})
-set_target_properties(jms_hdrs_props_test_Sender PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/jms_hdrs_props_test"
-    OUTPUT_NAME Sender
-)
-
-# --- Receiver ---
-
-set(jms_hdrs_props_test_Receiver_SOURCES
-    ${Common_SOURCES}
-    ${Common_Jms_SOURCES}
-    qpidit/jms_hdrs_props_test/Receiver.hpp
-    qpidit/jms_hdrs_props_test/Receiver.cpp
-)
-
-add_executable(jms_hdrs_props_test_Receiver ${jms_hdrs_props_test_Receiver_SOURCES})
-target_link_libraries(jms_hdrs_props_test_Receiver ${Common_LIBS})
-set_target_properties(jms_hdrs_props_test_Receiver PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/jms_hdrs_props_test"
-    OUTPUT_NAME Receiver
-)
-
-
-# -------------------------
-# --- jms_messages_test ---
-# -------------------------
-
-# --- Sender ---
-
-set(jms_messages_test_Sender_SOURCES
-    ${Common_SOURCES}
-    ${Common_Jms_SOURCES}
-    qpidit/jms_messages_test/Sender.hpp
-    qpidit/jms_messages_test/Sender.cpp
-)
-
-add_executable(jms_messages_test_Sender ${jms_messages_test_Sender_SOURCES})
-target_link_libraries(jms_messages_test_Sender ${Common_LIBS})
-set_target_properties(jms_messages_test_Sender PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/jms_messages_test"
-    OUTPUT_NAME Sender
-)
-
-# --- Receiver ---
-
-set(jms_messages_test_Receiver_SOURCES
-    ${Common_SOURCES}
-    ${Common_Jms_SOURCES}
-    qpidit/jms_messages_test/Receiver.hpp
-    qpidit/jms_messages_test/Receiver.cpp
-)
-
-add_executable(jms_messages_test_Receiver ${jms_messages_test_Receiver_SOURCES})
-target_link_libraries(jms_messages_test_Receiver ${Common_LIBS})
-set_target_properties(jms_messages_test_Receiver PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/jms_messages_test"
-    OUTPUT_NAME Receiver
-)
-
+addTest(amqp_types_test)
+addTest(amqp_features_test)
+addTest(amqp_large_content_test)
+addTest(amqp_dtx_test)
+addJMSTest(jms_messages_test)
+addJMSTest(jms_hdrs_props_test)
+addJMSTest(jms_large_content_test)
+addJMSTest(jms_dtx_test)

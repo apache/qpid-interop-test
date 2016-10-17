@@ -29,27 +29,13 @@ from struct import pack, unpack
 import sys
 from traceback import format_exc
 
+from qpid_interop_test.jms_types import create_annotation
 from proton import byte, char, float32, int32, Message, short, symbol
 from proton.handlers import MessagingHandler
 from proton.reactor import Container
 from qpid_interop_test.interop_test_errors import InteropTestError
 
-# These values must tie in with the Qpid-JMS client values found in
-# org.apache.qpid.jms.provider.amqp.message.AmqpMessageSupport
-QPID_JMS_TYPE_ANNOTATION_NAME = symbol(u'x-opt-jms-msg-type')
-QPID_JMS_TYPE_ANNOTATIONS = {
-    'JMS_MESSAGE_TYPE': byte(0),
-    'JMS_BYTESMESSAGE_TYPE': byte(3),
-    'JMS_MAPMESSAGE_TYPE': byte(2),
-    'JMS_OBJECTMESSAGE_TYPE': byte(1),
-    'JMS_STREAMMESSAGE_TYPE': byte(4),
-    'JMS_TEXTMESSAGE_TYPE': byte(5)
-    }
-def create_annotation(jms_msg_type):
-    """Function which creates a message annotation for JMS message type as used by the Qpid JMS client"""
-    return {QPID_JMS_TYPE_ANNOTATION_NAME: QPID_JMS_TYPE_ANNOTATIONS[jms_msg_type]}
-
-class JmsSenderShim(MessagingHandler):
+class JmsMessagesTestSender(MessagingHandler):
     """
     This shim sends JMS messages of a particular JMS message type according to the test parameters list. This list
     contains three maps:
@@ -61,7 +47,7 @@ class JmsSenderShim(MessagingHandler):
     with (or without) JMS headers and properties.
     """
     def __init__(self, broker_ip_addr, queue_name, jms_msg_type, test_parameters_list):
-        super(JmsSenderShim, self).__init__()
+        super(JmsMessagesTestSender, self).__init__()
         self.broker_ip_addr = broker_ip_addr
         self.queue_name = queue_name
         self.jms_msg_type = jms_msg_type
@@ -83,13 +69,13 @@ class JmsSenderShim(MessagingHandler):
                     return
 
     def on_connection_error(self, event):
-        print 'JmsSenderShim.on_connection_error'
+        print 'JmsMessagesTestSender.on_connection_error'
 
     def on_session_error(self, event):
-        print 'JmsSenderShim.on_session_error'
+        print 'JmsMessagesTestSender.on_session_error'
 
     def on_link_error(self, event):
-        print 'JmsSenderShim.on_link_error'
+        print 'JmsMessagesTestSender.on_link_error'
 
     def on_accepted(self, event):
         """Event callback for when a sent message is accepted by the broker"""
@@ -142,16 +128,16 @@ class JmsSenderShim(MessagingHandler):
         elif self.jms_msg_type == 'JMS_TEXTMESSAGE_TYPE':
             return self._create_jms_textmessage(test_value)
         else:
-            print 'jms-send: Unsupported JMS message type "%s"' % self.jms_msg_type
+            print 'JmsMessagesTestSender: Unsupported JMS message type "%s"' % self.jms_msg_type
             return None
 
     def _create_jms_message(self, test_value_type, test_value):
         """Create a JMS message type (without message body)"""
         if test_value_type != 'none':
-            raise InteropTestError('JmsSenderShim._create_jms_message: Unknown or unsupported subtype "%s"' %
+            raise InteropTestError('JmsMessagesTestSender._create_jms_message: Unknown or unsupported subtype "%s"' %
                                    test_value_type)
         if test_value is not None:
-            raise InteropTestError('JmsSenderShim._create_jms_message: Invalid value "%s" for subtype "%s"' %
+            raise InteropTestError('JmsMessagesTestSender._create_jms_message: Invalid value "%s" for subtype "%s"' %
                                    (test_value, test_value_type))
         return Message(id=(self.sent+1),
                        content_type='application/octet-stream',
@@ -183,7 +169,7 @@ class JmsSenderShim(MessagingHandler):
             test_value_str = str(test_value) # remove unicode
             body_bytes = pack('!H', len(test_value_str)) + test_value_str
         else:
-            raise InteropTestError('JmsSenderShim._create_jms_bytesmessage: Unknown or unsupported subtype "%s"' %
+            raise InteropTestError('JmsMessagesTestSender._create_jms_bytesmessage: Unknown or unsupported subtype "%s"' %
                                    test_value_type)
         return Message(id=(self.sent+1),
                        body=body_bytes,
@@ -214,7 +200,7 @@ class JmsSenderShim(MessagingHandler):
         elif test_value_type == 'string':
             value = test_value
         else:
-            raise InteropTestError('JmsSenderShim._create_jms_mapmessage: Unknown or unsupported subtype "%s"' %
+            raise InteropTestError('JmsMessagesTestSender._create_jms_mapmessage: Unknown or unsupported subtype "%s"' %
                                    test_value_type)
         return Message(id=(self.sent+1),
                        body={name: value},
@@ -240,7 +226,7 @@ class JmsSenderShim(MessagingHandler):
                                 java_class_str])
         out_str_list = out_str.split('\n')[:-1] # remove trailing \n
         if out_str_list[0] != java_class_str:
-            raise InteropTestError('JmsSenderShim._s_get_java_obj_binary(): Call to JavaObjToBytes failed\n%s' %
+            raise InteropTestError('JmsMessagesTestSender._s_get_java_obj_binary(): Call to JavaObjToBytes failed\n%s' %
                                    out_str)
         return out_str_list[1].decode('hex')
 
@@ -267,7 +253,7 @@ class JmsSenderShim(MessagingHandler):
         elif test_value_type == 'string':
             body_list = [test_value]
         else:
-            raise InteropTestError('JmsSenderShim._create_jms_streammessage: Unknown or unsupported subtype "%s"' %
+            raise InteropTestError('JmsMessagesTestSender._create_jms_streammessage: Unknown or unsupported subtype "%s"' %
                                    test_value_type)
         return Message(id=(self.sent+1),
                        body=body_list,
@@ -291,7 +277,8 @@ class JmsSenderShim(MessagingHandler):
 #print '#### sys.argv=%s' % sys.argv
 #print '>>> test_values=%s' % loads(sys.argv[4])
 try:
-    Container(JmsSenderShim(sys.argv[1], sys.argv[2], sys.argv[3], loads(sys.argv[4]))).run()
+    SENDER = JmsMessagesTestSender(sys.argv[1], sys.argv[2], sys.argv[3], loads(sys.argv[4]))
+    Container(SENDER).run()
 except KeyboardInterrupt:
     pass
 except Exception as exc:

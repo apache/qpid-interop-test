@@ -24,33 +24,21 @@ JMS message headers and properties test sender shim for qpid-interop-test
 #
 
 from json import loads
+import os.path
 from struct import pack, unpack
 from subprocess import check_output
 import sys
 from traceback import format_exc
 
+from qpid_interop_test.jms_types import create_annotation
 from proton import byte, char, float32, int32, Message, short, symbol
 from proton.handlers import MessagingHandler
 from proton.reactor import Container
 from qpid_interop_test.interop_test_errors import InteropTestError
 from qpid_interop_test.test_type_map import TestTypeMap
 
-# These values must tie in with the Qpid-JMS client values found in
-# org.apache.qpid.jms.provider.amqp.message.AmqpMessageSupport
-QPID_JMS_TYPE_ANNOTATION_NAME = symbol(u'x-opt-jms-msg-type')
-QPID_JMS_TYPE_ANNOTATIONS = {
-    'JMS_MESSAGE_TYPE': byte(0),
-    'JMS_BYTESMESSAGE_TYPE': byte(3),
-    'JMS_MAPMESSAGE_TYPE': byte(2),
-    'JMS_OBJECTMESSAGE_TYPE': byte(1),
-    'JMS_STREAMMESSAGE_TYPE': byte(4),
-    'JMS_TEXTMESSAGE_TYPE': byte(5)
-    }
-def create_annotation(jms_msg_type):
-    """Function which creates a message annotation for JMS message type as used by the Qpid JMS client"""
-    return {QPID_JMS_TYPE_ANNOTATION_NAME: QPID_JMS_TYPE_ANNOTATIONS[jms_msg_type]}
 
-class JmsSenderShim(MessagingHandler):
+class JmsHdrsPropsTestSender(MessagingHandler):
     """
     This shim sends JMS messages of a particular JMS message type according to the test parameters list. This list
     contains three maps:
@@ -61,9 +49,9 @@ class JmsSenderShim(MessagingHandler):
     This shim takes the combinations of the above map and creates test cases, each of which sends a single message
     with (or without) JMS headers and properties.
     """
-    def __init__(self, broker_ip_addr, queue_name, jms_msg_type, test_parameters_list):
-        super(JmsSenderShim, self).__init__()
-        self.broker_ip_addr = broker_ip_addr
+    def __init__(self, broker_url, queue_name, jms_msg_type, test_parameters_list):
+        super(JmsHdrsPropsTestSender, self).__init__()
+        self.broker_url = broker_url
         self.queue_name = queue_name
         self.jms_msg_type = jms_msg_type
         self.test_value_map = test_parameters_list[0]
@@ -75,7 +63,7 @@ class JmsSenderShim(MessagingHandler):
 
     def on_start(self, event):
         """Event callback for when the client starts"""
-        event.container.create_sender('%s/%s' % (self.broker_ip_addr, self.queue_name))
+        event.container.create_sender('%s/%s' % (self.broker_url, self.queue_name))
 
     def on_sendable(self, event):
         """Event callback for when send credit is received, allowing the sending of messages"""
@@ -380,9 +368,10 @@ class JmsSenderShim(MessagingHandler):
 #print '#### sys.argv=%s' % sys.argv
 #print '>>> test_values=%s' % loads(sys.argv[4])
 try:
-    Container(JmsSenderShim(sys.argv[1], sys.argv[2], sys.argv[3], loads(sys.argv[4]))).run()
+    SENDER = JmsHdrsPropsTestSender(sys.argv[1], sys.argv[2], sys.argv[3], loads(sys.argv[4]))
+    Container(SENDER).run()
 except KeyboardInterrupt:
     pass
 except Exception as exc:
-    print 'jms-sender-shim EXCEPTION:', exc
+    print os.path.basename(sys.argv[0]), 'EXCEPTION:', exc
     print format_exc()

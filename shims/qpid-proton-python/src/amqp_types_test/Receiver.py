@@ -27,6 +27,7 @@ AMQP type test receiver shim for qpid-interop-test
 # * Capturing errors from client or broker
 
 from json import dumps
+import os.path
 from string import digits, letters, punctuation
 from struct import pack, unpack
 import sys
@@ -35,15 +36,16 @@ from traceback import format_exc
 from proton.handlers import MessagingHandler
 from proton.reactor import Container
 
-class AmqpTypesReceiverShim(MessagingHandler):
+class AmqpTypesTestReceiver(MessagingHandler):
     """
     Reciver shim for AMQP types test
     This shim receives the number of messages supplied on the command-line and checks that they contain message
     bodies of the exptected AMQP type. The values are then aggregated and returned.
     """
-    def __init__(self, url, amqp_type, num_expected_messages_str):
-        super(AmqpTypesReceiverShim, self).__init__()
-        self.url = url
+    def __init__(self, broker_url, queue_name, amqp_type, num_expected_messages_str):
+        super(AmqpTypesTestReceiver, self).__init__()
+        self.broker_url = broker_url
+        self.queue_name = queue_name
         self.received_value_list = []
         self.amqp_type = amqp_type
         self.expected = int(num_expected_messages_str)
@@ -55,7 +57,7 @@ class AmqpTypesReceiverShim(MessagingHandler):
 
     def on_start(self, event):
         """Event callback for when the client starts"""
-        event.container.create_receiver(self.url)
+        event.container.create_receiver('%s/%s' % (self.broker_url, self.queue_name))
 
     def on_message(self, event):
         """Event callback when a message is received by the client"""
@@ -117,12 +119,12 @@ class AmqpTypesReceiverShim(MessagingHandler):
 #       3: AMQP type
 #       4: Expected number of test values to receive
 try:
-    RECEIVER = AmqpTypesReceiverShim('%s/%s' % (sys.argv[1], sys.argv[2]), sys.argv[3], sys.argv[4])
+    RECEIVER = AmqpTypesTestReceiver(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
     Container(RECEIVER).run()
     print sys.argv[3]
     print dumps(RECEIVER.get_received_value_list())
 except KeyboardInterrupt:
     pass
 except Exception as exc:
-    print 'proton-python-receive EXCEPTION:', exc
+    print os.path.basename(sys.argv[0]), 'EXCEPTION', exc
     print format_exc()

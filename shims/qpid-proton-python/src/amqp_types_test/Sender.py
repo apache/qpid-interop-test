@@ -38,15 +38,16 @@ from proton import byte, char, decimal32, decimal64, decimal128, float32, int32,
 from proton.handlers import MessagingHandler
 from proton.reactor import Container
 
-class AmqpTypesSenderShim(MessagingHandler):
+class AmqpTypesTestSender(MessagingHandler):
     """
     Sender shim for AMQP types test
     This shim receives the AMQP type and a list of test values. Each value is sent in a message body of the appropriate
     AMQP type. There is no returned value.
     """
-    def __init__(self, url, amqp_type, test_value_list):
-        super(AmqpTypesSenderShim, self).__init__()
-        self.url = url
+    def __init__(self, broker_url, queue_name, amqp_type, test_value_list):
+        super(AmqpTypesTestSender, self).__init__()
+        self.broker_url = broker_url
+        self.queue_name = queue_name
         self.amqp_type = amqp_type
         self.test_value_list = test_value_list
         self.sent = 0
@@ -55,7 +56,7 @@ class AmqpTypesSenderShim(MessagingHandler):
 
     def on_start(self, event):
         """Event callback for when the client starts"""
-        event.container.create_sender(self.url)
+        event.container.create_sender('%s/%s' % (self.broker_url, self.queue_name))
 
     def on_sendable(self, event):
         """Event callback for when send credit is received, allowing the sending of messages"""
@@ -147,7 +148,8 @@ class AmqpTypesSenderShim(MessagingHandler):
 #       3: AMQP type
 #       4...n: Test value(s) as strings
 try:
-    Container(AmqpTypesSenderShim('%s/%s' % (sys.argv[1], sys.argv[2]), sys.argv[3], loads(sys.argv[4]))).run()
+    SENDER = AmqpTypesTestSender(sys.argv[1], sys.argv[2], sys.argv[3], loads(sys.argv[4]))
+    Container(SENDER).run()
 except KeyboardInterrupt:
     pass
 except Exception as exc:

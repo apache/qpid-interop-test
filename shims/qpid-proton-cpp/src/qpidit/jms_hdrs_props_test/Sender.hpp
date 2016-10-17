@@ -24,7 +24,6 @@
 
 #include "json/value.h"
 #include "proton/message.hpp"
-#include "proton/messaging_handler.hpp"
 #include "qpidit/JmsTestBase.hpp"
 #include "qpidit/QpidItErrors.hpp"
 #include <typeinfo>

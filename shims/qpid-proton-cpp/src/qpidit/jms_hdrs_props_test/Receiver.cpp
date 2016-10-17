@@ -319,7 +319,8 @@ namespace qpidit
                 // Get and check message headers which are set by a JMS-compient sender
                 // See: https://docs.oracle.com/cd/E19798-01/821-1841/bnces/index.html
                 // 1. Destination
-                const std::string destination = msg.to();
+                std::string destination = msg.to();
+                stripQueueTopicPrefix(destination); // Some brokers prepend "queue://" or "topic://"
                 if (destination.compare(_queueName) != 0) {
                     std::ostringstream oss;
                     oss << "Invalid header: found \"" << destination << "\"; expected \"" << _queueName << "\"";
@@ -397,6 +398,16 @@ namespace qpidit
 //            std::map<proton::value, proton::value> props;
 //            msg.properties().value() >> props;
         }
+
+        //static
+        void Receiver::stripQueueTopicPrefix(std::string& name) {
+            if (name.size() > 8) {
+                if (name.find("queue://") == 0 || name.find("topic://") == 0) {
+                    name.erase(0, 8);
+                }
+            }
+        }
+
 
     } /* namespace jms_hdrs_props_test */
 } /* namespace qpidit */

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-Module to test AMQP primitive types across different APIs
+Module to test AMQP primitive types across different clients
 """
 
 #

@@ -610,7 +610,7 @@ class TestOptions(object):
     """
     def __init__(self,):
         parser = argparse.ArgumentParser(description='Qpid-interop AMQP client interoparability test suite '
-                                         'for JMS message types')
+                                         'for JMS headers and properties')
         parser.add_argument('--broker', action='store', default='localhost:5672', metavar='BROKER:PORT',
                             help='Broker against which to run test suite.')
 #        test_group = parser.add_mutually_exclusive_group()
