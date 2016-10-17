@@ -21,6 +21,7 @@
 
 #include "qpidit/jms_hdrs_props_test/Receiver.hpp"
 
+#include <ctime>
 #include <iostream>
 #include <json/json.h>
 #include "proton/connection.hpp"
