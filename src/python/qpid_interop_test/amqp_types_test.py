@@ -286,8 +286,9 @@ class AmqpTypeTestCase(unittest.TestCase):
             # Process return string from sender
             send_obj = sender.get_return_object()
             if send_obj is not None:
-                if isinstance(send_obj, str) and len(send_obj) > 0:
-                    self.fail('Send shim \'%s\':\n%s' % (send_shim.NAME, send_obj))
+                if isinstance(send_obj, str):
+                    if len(send_obj) > 0:
+                        self.fail('Send shim \'%s\':\n%s' % (send_shim.NAME, send_obj))
                 else:
                     self.fail('Sender error: %s' % str(send_obj))
 
