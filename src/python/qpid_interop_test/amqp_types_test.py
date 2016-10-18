@@ -266,7 +266,7 @@ class AmqpTypeTestCase(unittest.TestCase):
             # Currently, Artemis only supports auto-create queues for JMS, and the queue name must be prefixed by
             # 'jms.queue.'
             #queue_name = 'qpid-interop.simple_type_tests.%s.%s.%s' % (amqp_type, send_shim.NAME, receive_shim.NAME)
-            queue_name = 'jms.queue.qpid-interop.simple_type_tests.%s.%s.%s' % \
+            queue_name = 'jms.queue.qpid-interop.amqp_types_test.%s.%s.%s' % \
                          (amqp_type, send_shim.NAME, receive_shim.NAME)
 
             # Start the receive shim first (for queueless brokers/dispatch)
@@ -414,10 +414,6 @@ if __name__ == '__main__':
 
     TYPES = AmqpPrimitiveTypes()
 
-    # TEST_CASE_CLASSES is a list that collects all the test classes that are constructed. One class is constructed
-    # per AMQP type used as the key in map AmqpPrimitiveTypes.TYPE_MAP.
-    TEST_CASE_CLASSES = []
-
     # TEST_SUITE is the final suite of tests that will be run and which contains all the dynamically created
     # type classes, each of which contains a test for the combinations of client shims
     TEST_SUITE = unittest.TestSuite()
@@ -434,7 +430,6 @@ if __name__ == '__main__':
                                                     ARGS.broker,
                                                     at,
                                                     product(SHIM_MAP.values(), repeat=2))
-            TEST_CASE_CLASSES.append(test_case_class)
             TEST_SUITE.addTest(unittest.makeSuite(test_case_class))
 
     # Finally, run all the dynamically created tests

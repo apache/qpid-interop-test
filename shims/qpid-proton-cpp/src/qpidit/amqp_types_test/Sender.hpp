@@ -37,13 +37,14 @@ namespace qpidit
         {
         protected:
             const std::string _brokerUrl;
+            const std::string _queueName;
             const std::string _amqpType;
             const Json::Value _testValues;
             uint32_t _msgsSent;
             uint32_t _msgsConfirmed;
             uint32_t _totalMsgs;
         public:
-            Sender(const std::string& brokerUrl, const std::string& amqpType, const Json::Value& testValues);
+            Sender(const std::string& brokerUrl, const std::string& queueName, const std::string& amqpType, const Json::Value& testValues);
             virtual ~Sender();
             void on_container_start(proton::container &c);
             void on_sendable(proton::sender &s);

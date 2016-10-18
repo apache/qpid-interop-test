@@ -89,45 +89,55 @@ class ShimWorkerThread(Thread):
 
 class Sender(ShimWorkerThread):
     """Sender class for multi-threaded send"""
-    def __init__(self, use_shell_flag, send_shim_args, broker_addr, queue_name, msg_type, json_test_str):
+    def __init__(self, use_shell_flag, send_shim_args, broker_addr, queue_name, test_key, json_test_str):
         super(Sender, self).__init__('sender_thread_%s' % queue_name)
         if send_shim_args is None:
             print 'ERROR: Sender: send_shim_args == None'
         self.use_shell_flag = use_shell_flag
         self.arg_list.extend(send_shim_args)
-        self.arg_list.extend([broker_addr, queue_name, msg_type, json_test_str])
+        self.arg_list.extend([broker_addr, queue_name, test_key, json_test_str])
 
     def run(self):
         """Thread starts here"""
         try:
-            #print '\n>>>', self.arg_list # DEBUG - useful to see command-line sent to shim
+            #print '\n>>>Sender>>>', self.arg_list # DEBUG - useful to see command-line sent to shim
             self.proc = Popen(self.arg_list, stdout=PIPE, stderr=PIPE, shell=self.use_shell_flag, preexec_fn=setsid)
             (stdoutdata, stderrdata) = self.proc.communicate()
-            if len(stdoutdata) > 0 or len(stderrdata) > 0:
+            if len(stderrdata) > 0:
                 self.return_obj = (stdoutdata, stderrdata)
+            else:
+                #print '<<<Sender<<<', stdoutdata # DEBUG - useful to see text received from shim
+                str_tvl = stdoutdata.split('\n')[0:-1] # remove trailing \n
+                if len(str_tvl) == 2:
+                    try:
+                        self.return_obj = (str_tvl[0], loads(str_tvl[1]))
+                    except ValueError:
+                        self.return_obj = stdoutdata
+                else: # Make a single line of all the bits and return that
+                    self.return_obj = stdoutdata
         except CalledProcessError as exc:
             self.return_obj = str(exc) + '\n\nOutput:\n' + exc.output
 
 
 class Receiver(ShimWorkerThread):
     """Receiver class for multi-threaded receive"""
-    def __init__(self, receive_shim_args, broker_addr, queue_name, msg_type, json_test_str):
+    def __init__(self, receive_shim_args, broker_addr, queue_name, test_key, json_test_str):
         super(Receiver, self).__init__('receiver_thread_%s' % queue_name)
         if receive_shim_args is None:
             print 'ERROR: Receiver: receive_shim_args == None'
         self.arg_list.extend(receive_shim_args)
-        self.arg_list.extend([broker_addr, queue_name, msg_type, json_test_str])
+        self.arg_list.extend([broker_addr, queue_name, test_key, json_test_str])
 
     def run(self):
         """Thread starts here"""
         try:
-            #print '\n>>>', self.arg_list # DEBUG - useful to see command-line sent to shim
+            #print '\n>>>Receiver>>>', self.arg_list # DEBUG - useful to see command-line sent to shim
             self.proc = Popen(self.arg_list, stdout=PIPE, stderr=PIPE, preexec_fn=setsid)
             (stdoutdata, stderrdata) = self.proc.communicate()
             if len(stderrdata) > 0:
                 self.return_obj = (stdoutdata, stderrdata)
             else:
-                #print '<<<', stdoutdata # DEBUG - useful to see text received from shim
+                #print '<<<Receiver<<<', stdoutdata # DEBUG - useful to see text received from shim
                 str_tvl = stdoutdata.split('\n')[0:-1] # remove trailing \n
                 if len(str_tvl) == 2:
                     try:
@@ -150,13 +160,13 @@ class Shim(object):
         self.receive_params = None
         self.use_shell_flag = False
 
-    def create_sender(self, broker_addr, queue_name, msg_type, json_test_str):
+    def create_sender(self, broker_addr, queue_name, test_key, json_test_str):
         """Create a new sender instance"""
-        return Sender(self.use_shell_flag, self.send_params, broker_addr, queue_name, msg_type, json_test_str)
+        return Sender(self.use_shell_flag, self.send_params, broker_addr, queue_name, test_key, json_test_str)
 
-    def create_receiver(self, broker_addr, queue_name, msg_type, json_test_str):
+    def create_receiver(self, broker_addr, queue_name, test_key, json_test_str):
         """Create a new receiver instance"""
-        return Receiver(self.receive_params, broker_addr, queue_name, msg_type, json_test_str)
+        return Receiver(self.receive_params, broker_addr, queue_name, test_key, json_test_str)
 
 class ProtonPythonShim(Shim):
     """Shim for qpid-proton Python client"""

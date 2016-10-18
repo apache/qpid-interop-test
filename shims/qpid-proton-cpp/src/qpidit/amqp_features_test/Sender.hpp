@@ -22,7 +22,9 @@
 #ifndef SRC_QPIDIT_AMQP_DTX_TEST_SENDER_HPP_
 #define SRC_QPIDIT_AMQP_DTX_TEST_SENDER_HPP_
 
+#include <json/value.h>
 #include "proton/messaging_handler.hpp"
+#include <string>
 
 namespace qpidit
 {
@@ -31,6 +33,31 @@ namespace qpidit
 
         class Sender : public proton::messaging_handler
         {
+            const std::string _brokerUrl;
+            const std::string _queueName;
+            const std::string _testType;
+            const Json::Value _testValues;
+            uint32_t _msgsSent;
+            uint32_t _msgsConfirmed;
+            uint32_t _totalMsgs;
+        public:
+            Sender(const std::string& brokerUrl,
+                   const std::string& queueName,
+                   const std::string& testType,
+                   const Json::Value& testValues);
+            virtual ~Sender();
+
+            void on_container_start(proton::container& c);
+            void on_connection_open(proton::connection &c);
+            void on_sendable(proton::sender& s);
+            void on_tracker_accept(proton::tracker& t);
+            void on_transport_close(proton::transport& t);
+
+            void on_connection_error(proton::connection& c);
+            void on_session_error(proton::session& s);
+            void on_sender_error(proton::sender& s);
+            void on_transport_error(proton::transport& t);
+            void on_error(const proton::error_condition& c);
         };
 
     } /* namespace amqp_features_test */

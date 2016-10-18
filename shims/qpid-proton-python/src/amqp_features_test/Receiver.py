@@ -23,6 +23,7 @@ AMQP features test receiver shim for qpid-interop-test
 # under the License.
 #
 
+from json import dumps
 import os.path
 import sys
 from traceback import format_exc
@@ -35,21 +36,33 @@ class AmqpFeaturesTestReceiver(MessagingHandler):
     Reciver shim for AMQP dtx test
     ...
     """
-    def __init__(self, broker_url, queue_name):
+    def __init__(self, broker_url, queue_name, test_type, num_expected_messages_str):
         super(AmqpFeaturesTestReceiver, self).__init__()
         self.broker_url = broker_url
         self.queue_name = queue_name
+        self.test_type = test_type
         self.received_value_list = []
-        self.expected = int('0')
+        self.expected = int(num_expected_messages_str)
         self.received = 0
+        self.remote_properties = None
 
     def get_received_value_list(self):
         """Return the received list of AMQP values"""
         return self.received_value_list
 
+    def get_remote_properties(self):
+        """Return the remote (broker) properties"""
+        return self.remote_properties
+
     def on_start(self, event):
         """Event callback for when the client starts"""
         event.container.create_receiver('%s/%s' % (self.broker_url, self.queue_name))
+
+    def on_connection_remote_open(self, event):
+        """Callback for remote connection open"""
+        self.remote_properties = event.connection.remote_properties
+        if self.test_type == 'connection_property':
+            event.connection.close()
 
     def on_message(self, event):
         """Event callback when a message is received by the client"""
@@ -64,10 +77,17 @@ class AmqpFeaturesTestReceiver(MessagingHandler):
 # --- main ---
 # Args: 1: Broker address (ip-addr:port)
 #       2: Queue name
-#       ...
+#       3: Test type
+#       4: Number of expected messages
 try:
-    RECEIVER = AmqpFeaturesTestReceiver(sys.argv[1], sys.argv[2])
+    RECEIVER = AmqpFeaturesTestReceiver(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
     Container(RECEIVER).run()
+    print sys.argv[3]
+    if (sys.argv[3] == 'connection_property'):
+        print dumps(RECEIVER.get_remote_properties())
+    else:
+        print dumps(RECEIVER.get_received_value_list())
+ 
 except KeyboardInterrupt:
     pass
 except Exception as exc:

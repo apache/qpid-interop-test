@@ -35,9 +35,11 @@ namespace qpidit
     {
 
         Sender::Sender(const std::string& brokerUrl,
+                       const std::string& queueName,
                        const std::string& amqpType,
                        const Json::Value& testValues) :
                         _brokerUrl(brokerUrl),
+                        _queueName(queueName),
                         _amqpType(amqpType),
                         _testValues(testValues),
                         _msgsSent(0),
@@ -48,7 +50,9 @@ namespace qpidit
         Sender::~Sender() {}
 
         void Sender::on_container_start(proton::container &c) {
-            c.open_sender(_brokerUrl);
+            std::ostringstream oss;
+            oss << _brokerUrl << "/" << _queueName;
+            c.open_sender(oss.str());
         }
 
         void Sender::on_sendable(proton::sender &s) {
@@ -348,9 +352,6 @@ int main(int argc, char** argv) {
         throw qpidit::ArgumentError("Incorrect number of arguments");
     }
 
-    std::ostringstream oss;
-    oss << argv[1] << "/" << argv[2];
-
     try {
         Json::Value testValues;
         Json::Reader jsonReader;
@@ -358,10 +359,10 @@ int main(int argc, char** argv) {
             throw qpidit::JsonParserError(jsonReader);
         }
 
-        qpidit::amqp_types_test::Sender sender(oss.str(), argv[3], testValues);
+        qpidit::amqp_types_test::Sender sender(argv[1], argv[2], argv[3], testValues);
         proton::default_container(sender).run();
     } catch (const std::exception& e) {
-        std::cerr << "AmqpSender error: " << e.what() << std::endl;
+        std::cerr << "amqp_types_test Sender error: " << e.what() << std::endl;
         exit(1);
     }
     exit(0);

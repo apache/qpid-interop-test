@@ -34,14 +34,14 @@ class Client(MessagingHandler):
         self.url = url
         self.remote_properties = None
 
+    def on_start(self, event):
+        """Event loop start"""
+        event.container.connect(url=self.url)
+
     def on_connection_remote_open(self, event):
         """Callback for remote connection open"""
         self.remote_properties = event.connection.remote_properties
         event.connection.close()
-
-    def on_start(self, event):
-        """Event loop start"""
-        event.container.connect(url=self.url)
 
     def get_connection_properties(self):
         """Return the connection properties"""
