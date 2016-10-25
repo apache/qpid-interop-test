@@ -21,39 +21,28 @@
 
 #include "qpidit/amqp_types_test/Sender.hpp"
 
+#include <iomanip>
 #include <iostream>
 #include <json/json.h>
 #include "proton/connection.hpp"
 #include "proton/default_container.hpp"
 #include "proton/sender.hpp"
-#include "proton/tracker.hpp"
-#include "proton/transport.hpp"
 
 namespace qpidit
 {
     namespace amqp_types_test
     {
 
-        Sender::Sender(const std::string& brokerUrl,
+        Sender::Sender(const std::string& brokerAddr,
                        const std::string& queueName,
                        const std::string& amqpType,
                        const Json::Value& testValues) :
-                        _brokerUrl(brokerUrl),
-                        _queueName(queueName),
+                        AmqpSenderBase("amqp_types_test::Sender", brokerAddr, queueName, testValues.size()),
                         _amqpType(amqpType),
-                        _testValues(testValues),
-                        _msgsSent(0),
-                        _msgsConfirmed(0),
-                        _totalMsgs(testValues.size())
+                        _testValues(testValues)
         {}
 
         Sender::~Sender() {}
-
-        void Sender::on_container_start(proton::container &c) {
-            std::ostringstream oss;
-            oss << _brokerUrl << "/" << _queueName;
-            c.open_sender(oss.str());
-        }
 
         void Sender::on_sendable(proton::sender &s) {
             if (_totalMsgs == 0) {
@@ -69,37 +58,6 @@ namespace qpidit
             } else {
                 // do nothing
             }
-        }
-
-        void Sender::on_tracker_accept(proton::tracker &t) {
-            _msgsConfirmed++;
-            if (_msgsConfirmed == _totalMsgs) {
-                t.connection().close();
-            }
-        }
-
-        void Sender::on_transport_close(proton::transport &t) {
-            _msgsSent = _msgsConfirmed;
-        }
-
-        void Sender::on_connection_error(proton::connection &c) {
-            std::cerr << "AmqpSender::on_connection_error(): " << c.error() << std::endl;
-        }
-
-        void Sender::on_sender_error(proton::sender &s) {
-            std::cerr << "AmqpSender::on_sender_error(): " << s.error() << std::endl;
-        }
-
-        void Sender::on_session_error(proton::session &s) {
-            std::cerr << "AmqpSender::on_session_error(): " << s.error() << std::endl;
-        }
-
-        void Sender::on_transport_error(proton::transport &t) {
-            std::cerr << "AmqpSender::on_transport_error(): " << t.error() << std::endl;
-        }
-
-        void Sender::on_error(const proton::error_condition &ec) {
-            std::cerr << "AmqpSender::on_error(): " << ec << std::endl;
         }
 
         // protected

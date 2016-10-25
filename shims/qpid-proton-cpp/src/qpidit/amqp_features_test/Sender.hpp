@@ -22,6 +22,7 @@
 #ifndef SRC_QPIDIT_AMQP_DTX_TEST_SENDER_HPP_
 #define SRC_QPIDIT_AMQP_DTX_TEST_SENDER_HPP_
 
+#include <stdint.h>
 #include <json/value.h>
 #include "proton/messaging_handler.hpp"
 #include <string>

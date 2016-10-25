@@ -55,11 +55,11 @@ class JmsLargeContentTestReceiver(MessagingHandler):
         """Event callback when a message is received by the client"""
         if event.message.id and event.message.id < self.received:
             return # ignore duplicate message
-        if self.expected == 0 or self.received < self.expected:
-            # do something here
-            if self.received >= self.expected:
-                event.receiver.close()
-                event.connection.close()
+        if self.received < self.expected:
+            pass # do something here
+        if self.received >= self.expected:
+            event.receiver.close()
+            event.connection.close()
 
 
 # --- main ---

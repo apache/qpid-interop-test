@@ -63,7 +63,7 @@ class AmqpTypesTestReceiver(MessagingHandler):
         """Event callback when a message is received by the client"""
         if event.message.id and event.message.id < self.received:
             return # ignore duplicate message
-        if self.expected == 0 or self.received < self.expected:
+        if self.received < self.expected:
             if self.amqp_type == 'null' or \
                self.amqp_type == 'boolean' or \
                self.amqp_type == 'uuid':
@@ -109,9 +109,9 @@ class AmqpTypesTestReceiver(MessagingHandler):
                 print 'receive: Unsupported AMQP type "%s"' % self.amqp_type
                 return
             self.received += 1
-            if self.received == self.expected:
-                event.receiver.close()
-                event.connection.close()
+        if self.received >= self.expected:
+            event.receiver.close()
+            event.connection.close()
 
 # --- main ---
 # Args: 1: Broker address (ip-addr:port)

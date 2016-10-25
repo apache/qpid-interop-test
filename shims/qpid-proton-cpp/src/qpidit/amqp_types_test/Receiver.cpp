@@ -36,9 +36,11 @@ namespace qpidit
     {
 
         Receiver::Receiver(const std::string& brokerUrl,
+                           const std::string& queueName,
                            const std::string& amqpType,
                            uint32_t expected) :
                         _brokerUrl(brokerUrl),
+                        _queueName(queueName),
                         _amqpType(amqpType),
                         _expected(expected),
                         _received(0UL),
@@ -52,7 +54,9 @@ namespace qpidit
         }
 
         void Receiver::on_container_start(proton::container &c) {
-            c.open_receiver(_brokerUrl);
+            std::ostringstream oss;
+            oss << _brokerUrl << "/" << _queueName;
+            c.open_receiver(oss.str());
         }
 
         void Receiver::on_message(proton::delivery &d, proton::message &m) {
@@ -272,11 +276,8 @@ int main(int argc, char** argv) {
         throw qpidit::ArgumentError("Incorrect number of arguments");
     }
 
-    std::ostringstream oss;
-    oss << argv[1] << "/" << argv[2];
-
     try {
-        qpidit::amqp_types_test::Receiver receiver(oss.str(), argv[3], std::strtoul(argv[4], NULL, 0));
+        qpidit::amqp_types_test::Receiver receiver(argv[1], argv[2], argv[3], std::strtoul(argv[4], NULL, 0));
         proton::default_container(receiver).run();
 
         std::cout << argv[3] << std::endl;

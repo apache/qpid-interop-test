@@ -27,16 +27,14 @@ import argparse
 import sys
 import unittest
 
-#from itertools import product
-#from json import dumps
+from itertools import product
+from json import dumps
 from os import getenv, path
-#from time import mktime, time
-#from uuid import UUID, uuid4
 
 from proton import symbol
-#import qpid_interop_test.broker_properties
+import qpid_interop_test.broker_properties
 import qpid_interop_test.shims
-#from qpid_interop_test.test_type_map import TestTypeMap
+from qpid_interop_test.test_type_map import TestTypeMap
 
 # TODO: propose a sensible default when installation details are worked out
 QPID_INTEROP_TEST_HOME = getenv('QPID_INTEROP_TEST_HOME')
@@ -44,20 +42,21 @@ if QPID_INTEROP_TEST_HOME is None:
     print 'ERROR: Environment variable QPID_INTEROP_TEST_HOME is not set'
     sys.exit(1)
 
-
-
 class AmqpVariableSizeTypes(TestTypeMap):
     """
-    Class which contains all the described AMQP primitive types and the test values to be used in testing.
+    Class which contains all the described AMQP variable-size types and the test values to be used in testing.
     """
 
-    VARIABLE_SIZE_TYPE_MAP = {
-        'binary': b'abcdefghijklmnopqrstuvwxyz0123456789',
-        'string': u'abcdefghijklmnopqrstuvwxyz0123456789',
-        'symbol': 'abcdefghijklmnopqrstuvwxyz0123456789',
-        'list': [],
-        'map': {},
-        'array': [],
+    TYPE_MAP = {
+        # List of sizes in Mb
+        'binary': [1, 10, 100],
+        'string': [1, 10, 100],
+        'symbol': [1, 10, 100],
+        # Tuple of two elements: (tot size of list/map in MB, List of no elements in list)
+        # The num elements lists are powers of 2 so that they divide evenly into the size in MB (1024 * 1024 bytes)
+        'list': [[1, [1, 16, 256, 4096]], [10, [1, 16, 256, 4096]], [100, [1, 16, 256, 4096]]],
+        'map': [[1, [1, 16, 256, 4096]], [10, [1, 16, 256, 4096]], [100, [1, 16, 256, 4096]]],
+        #'array': [[1, [1, 16, 256, 4096]], [10, [1, 16, 256, 4096]], [100, [1, 16, 256, 4096]]]
         }
 
     # This section contains tests that should be skipped because of know issues that would cause the test to fail.
@@ -70,12 +69,101 @@ class AmqpLargeContentTestCase(unittest.TestCase):
     Abstract base class for AMQP large content test cases
     """
 
-    def run_test(self):
+    def run_test(self, broker_addr, amqp_type, test_value_list, send_shim, receive_shim):
         """
         Run this test by invoking the shim send method to send the test values, followed by the shim receive method
         to receive the values. Finally, compare the sent values with the received values.
         """
-        pass
+        if len(test_value_list) > 0:
+            # TODO: When Artemis can support it (in the next release), revert the queue name back to 'qpid-interop...'
+            # Currently, Artemis only supports auto-create queues for JMS, and the queue name must be prefixed by
+            # 'jms.queue.'
+            #queue_name = 'qpid-interop.simple_type_tests.%s.%s.%s' % (amqp_type, send_shim.NAME, receive_shim.NAME)
+            queue_name = 'jms.queue.qpid-interop.amqp_large_content_test.%s.%s.%s' % \
+                         (amqp_type, send_shim.NAME, receive_shim.NAME)
+
+            # Start the receive shim first (for queueless brokers/dispatch)
+            receiver = receive_shim.create_receiver(broker_addr, queue_name, amqp_type,
+                                                    str(self.get_num_messages(amqp_type, test_value_list)))
+            receiver.start()
+
+            # Start the send shim
+            sender = send_shim.create_sender(broker_addr, queue_name, amqp_type,
+                                             dumps(test_value_list))
+            sender.start()
+
+            # Wait for both shims to finish
+            sender.join_or_kill(qpid_interop_test.shims.THREAD_TIMEOUT)
+            receiver.join_or_kill(qpid_interop_test.shims.THREAD_TIMEOUT)
+
+            # Process return string from sender
+            send_obj = sender.get_return_object()
+            if send_obj is not None:
+                if isinstance(send_obj, str):
+                    if len(send_obj) > 0:
+                        self.fail('Send shim \'%s\':\n%s' % (send_shim.NAME, send_obj))
+                else:
+                    self.fail('Sender error: %s' % str(send_obj))
+
+            # Process return string from receiver
+            receive_obj = receiver.get_return_object()
+            if isinstance(receive_obj, tuple):
+                if len(receive_obj) == 2:
+                    return_amqp_type, return_test_value_list = receive_obj
+                    self.assertEqual(return_amqp_type, amqp_type,
+                                     msg='AMQP type error:\n\n    sent:%s\n\n    received:%s' % \
+                                     (amqp_type, return_amqp_type))
+                    self.assertEqual(return_test_value_list, test_value_list, msg='\n    sent:%s\nreceived:%s' % \
+                                     (test_value_list, return_test_value_list))
+                else:
+                    self.fail('Received incorrect tuple format: %s' % str(receive_obj))
+            else:
+                self.fail('Received non-tuple: %s' % str(receive_obj))
+
+    @staticmethod
+    def get_num_messages(amqp_type, test_value_list):
+        """Find the total number of messages to be sent for this test"""
+        if amqp_type == 'binary' or amqp_type == 'string' or amqp_type == 'symbol':
+            return len(test_value_list)
+        if amqp_type == 'list' or amqp_type == 'map':
+            tot_len = 0
+            for test_item in test_value_list:
+                tot_len += len(test_item[1])
+            return tot_len
+        return None
+
+def create_testcase_class(broker_name, types, broker_addr, amqp_type, shim_product):
+    """
+    Class factory function which creates new subclasses to AmqpTypeTestCase.
+    """
+
+    def __repr__(self):
+        """Print the class name"""
+        return self.__class__.__name__
+
+    def add_test_method(cls, send_shim, receive_shim):
+        """Function which creates a new test method in class cls"""
+
+        @unittest.skipIf(types.skip_test(amqp_type, broker_name),
+                         types.skip_test_message(amqp_type, broker_name))
+        def inner_test_method(self):
+            self.run_test(self.broker_addr, self.amqp_type, self.test_value_list, send_shim, receive_shim)
+
+        inner_test_method.__name__ = 'test_%s_%s->%s' % (amqp_type, send_shim.NAME, receive_shim.NAME)
+        setattr(cls, inner_test_method.__name__, inner_test_method)
+
+    class_name = amqp_type.title() + 'TestCase'
+    class_dict = {'__name__': class_name,
+                  '__repr__': __repr__,
+                  '__doc__': 'Test case for AMQP 1.0 simple type \'%s\'' % amqp_type,
+                  'amqp_type': amqp_type,
+                  'broker_addr': broker_addr,
+                  'test_value_list': types.get_test_values(amqp_type)}
+    new_class = type(class_name, (AmqpLargeContentTestCase,), class_dict)
+    for send_shim, receive_shim in shim_product:
+        add_test_method(new_class, send_shim, receive_shim)
+    return new_class
+
 
 
 # SHIM_MAP contains an instance of each client language shim that is to be tested as a part of this test. For
@@ -136,9 +224,7 @@ if __name__ == '__main__':
         print
         sys.stdout.flush()
 
-    # TEST_CASE_CLASSES is a list that collects all the test classes that are constructed. One class is constructed
-    # per AMQP type used as the key in map AmqpPrimitiveTypes.TYPE_MAP.
-    TEST_CASE_CLASSES = []
+    TYPES = AmqpVariableSizeTypes()
 
     # TEST_SUITE is the final suite of tests that will be run and which contains all the dynamically created
     # type classes, each of which contains a test for the combinations of client shims
@@ -149,6 +235,13 @@ if __name__ == '__main__':
         for shim in ARGS.exclude_shim:
             SHIM_MAP.pop(shim)
     # Create test classes dynamically
+    for at in sorted(TYPES.get_type_list()):
+        test_case_class = create_testcase_class(BROKER,
+                                                TYPES,
+                                                ARGS.broker,
+                                                at,
+                                                product(SHIM_MAP.values(), repeat=2))
+        TEST_SUITE.addTest(unittest.makeSuite(test_case_class))
 
     # Finally, run all the dynamically created tests
     RES = unittest.TextTestRunner(verbosity=2).run(TEST_SUITE)

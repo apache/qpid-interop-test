@@ -22,10 +22,9 @@
 #ifndef SRC_QPIDIT_AMQP_TYPES_TEST_SENDER_HPP_
 #define SRC_QPIDIT_AMQP_TYPES_TEST_SENDER_HPP_
 
-#include <iomanip>
 #include <json/value.h>
-#include "proton/messaging_handler.hpp"
 #include "proton/message.hpp"
+#include "qpidit/AmqpSenderBase.hpp"
 #include "qpidit/QpidItErrors.hpp"
 
 namespace qpidit
@@ -33,29 +32,18 @@ namespace qpidit
     namespace amqp_types_test
     {
 
-        class Sender : public proton::messaging_handler
+        class Sender : public qpidit::AmqpSenderBase
         {
         protected:
-            const std::string _brokerUrl;
-            const std::string _queueName;
             const std::string _amqpType;
             const Json::Value _testValues;
-            uint32_t _msgsSent;
-            uint32_t _msgsConfirmed;
-            uint32_t _totalMsgs;
-        public:
-            Sender(const std::string& brokerUrl, const std::string& queueName, const std::string& amqpType, const Json::Value& testValues);
-            virtual ~Sender();
-            void on_container_start(proton::container &c);
-            void on_sendable(proton::sender &s);
-            void on_tracker_accept(proton::tracker &t);
-            void on_transport_close(proton::transport &t);
 
-            void on_connection_error(proton::connection &c);
-            void on_session_error(proton::session &s);
-            void on_sender_error(proton::sender& s);
-            void on_transport_error(proton::transport &t);
-            void on_error(const proton::error_condition &c);
+        public:
+            Sender(const std::string& brokerAddr, const std::string& queueName, const std::string& amqpType, const Json::Value& testValues);
+            virtual ~Sender();
+
+            void on_sendable(proton::sender &s);
+
         protected:
             proton::message& setMessage(proton::message& msg, const Json::Value& testValue);
 

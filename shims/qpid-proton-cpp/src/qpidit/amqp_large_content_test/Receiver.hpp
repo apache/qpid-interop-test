@@ -22,15 +22,34 @@
 #ifndef SRC_QPIDIT_AMQP_LARGE_CONTENT_TEST_RECEIVER_HPP_
 #define SRC_QPIDIT_AMQP_LARGE_CONTENT_TEST_RECEIVER_HPP_
 
-#include "proton/messaging_handler.hpp"
+#include <json/value.h>
+#include "proton/value.hpp"
+#include "qpidit/AmqpReceiverBase.hpp"
 
 namespace qpidit
 {
     namespace amqp_large_content_test
     {
 
-        class Receiver : public proton::messaging_handler
+        class Receiver : public qpidit::AmqpReceiverBase
         {
+        protected:
+            const std::string _amqpType;
+            uint32_t _expected;
+            uint32_t _received;
+            Json::Value _receivedValueList;
+        public:
+            Receiver(const std::string& brokerAddr, const std::string& queueName, const std::string& amqpType, uint32_t exptected);
+            virtual ~Receiver();
+
+            Json::Value& getReceivedValueList();
+            void on_message(proton::delivery &d, proton::message &m);
+        protected:
+            std::pair<uint32_t, uint32_t> getTestListSizeMb(const proton::value& testList);
+            std::pair<uint32_t, uint32_t> getTestMapSizeMb(const proton::value& testMap);
+            uint32_t getTestStringSizeMb(const proton::value& testString);
+            void appendListMapSize(Json::Value& numEltsList, std::pair<uint32_t, uint32_t> val);
+            void createNewListMapSize(std::pair<uint32_t, uint32_t> val);
         };
 
     } /* namespace amqp_large_content_test */

@@ -80,7 +80,7 @@ class JmsHdrsPropsTestReceiver(MessagingHandler):
         """Event callback when a message is received by the client"""
         if event.message.id and event.message.id < self.received:
             return # ignore duplicate message
-        if self.expected == 0 or self.received < self.expected:
+        if self.received < self.expected:
             if self.current_subtype is None:
                 self.current_subtype = self.subtype_itr.next()
                 self.current_subtype_msg_list = []
@@ -92,9 +92,9 @@ class JmsHdrsPropsTestReceiver(MessagingHandler):
                 self.current_subtype = None
                 self.current_subtype_msg_list = []
             self.received += 1
-            if self.received == self.expected:
-                event.receiver.close()
-                event.connection.close()
+        if self.received >= self.expected:
+            event.receiver.close()
+            event.connection.close()
 
     def on_connection_error(self, event):
         print 'JmsReceiverShim.on_connection_error'

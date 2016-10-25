@@ -30,9 +30,10 @@ namespace qpidit {
     proton::symbol JmsTestBase::s_jmsMessageTypeAnnotationKey("x-opt-jms-msg-type");
     std::map<std::string, int8_t>JmsTestBase::s_jmsMessageTypeAnnotationValues = initializeJmsMessageTypeAnnotationMap();
 
-    JmsTestBase::JmsTestBase() {
+    JmsTestBase::JmsTestBase() {}
 
-    }
+    //virtual
+    JmsTestBase::~JmsTestBase() {}
 
     void JmsTestBase::on_connection_error(proton::connection &c) {
         std::cerr << "JmsSender::on_connection_error(): " << c.error() << std::endl;

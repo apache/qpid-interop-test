@@ -19,8 +19,8 @@
  *
  */
 
-#ifndef SRC_QPIDIT_JMS_JMSDEFINTIONS_HPP_
-#define SRC_QPIDIT_JMS_JMSDEFINTIONS_HPP_
+#ifndef SRC_QPIDIT_JMSTESTBASE_HPP_
+#define SRC_QPIDIT_JMSTESTBASE_HPP_
 
 #include <map>
 #include "proton/messaging_handler.hpp"
@@ -29,6 +29,7 @@
 
 namespace qpidit
 {
+
     typedef enum {JMS_QUEUE = 0,
                   JMS_TOPIC,
                   JMS_TMEP_QUEUE,
@@ -47,18 +48,19 @@ namespace qpidit
     protected:
         static proton::symbol s_jmsMessageTypeAnnotationKey;
         static std::map<std::string, int8_t>s_jmsMessageTypeAnnotationValues;
+    public:
+        JmsTestBase();
+        virtual ~JmsTestBase();
 
         void on_connection_error(proton::connection &c);
         void on_session_error(proton::session &s);
         void on_sender_error(proton::sender& s);
         void on_transport_error(proton::transport &t);
         void on_error(const proton::error_condition &c);
-    public:
-        JmsTestBase();
     protected:
         static std::map<std::string, int8_t> initializeJmsMessageTypeAnnotationMap();
     };
 
-}
+} // namespace qpidit
 
-#endif /* SRC_QPIDIT_JMS_JMSDEFINTIONS_HPP_ */
+#endif /* SRC_QPIDIT_JMSTESTBASE_HPP_ */

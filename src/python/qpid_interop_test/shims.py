@@ -29,7 +29,7 @@ from threading import Thread
 from time import sleep
 
 
-THREAD_TIMEOUT = 10.0 # seconds to complete before join is forced
+THREAD_TIMEOUT = 800.0 # seconds to complete before join is forced
 
 
 class ShimWorkerThread(Thread):

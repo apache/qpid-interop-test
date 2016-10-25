@@ -37,12 +37,13 @@ namespace qpidit
         {
         protected:
             const std::string _brokerUrl;
+            const std::string _queueName;
             const std::string _amqpType;
             uint32_t _expected;
             uint32_t _received;
             Json::Value _receivedValueList;
         public:
-            Receiver(const std::string& brokerUrl, const std::string& amqpType, uint32_t exptected);
+            Receiver(const std::string& brokerUrl, const std::string& queueName, const std::string& amqpType, uint32_t exptected);
             virtual ~Receiver();
             Json::Value& getReceivedValueList();
             void on_container_start(proton::container &c);
