@@ -70,6 +70,7 @@ class AmqpPrimitiveTypes(TestTypeMap):
                   '0x1',
                   '0xff',
                   '0x100',
+                  '0x102030405',
                   '0x7fffffffffffffff',
                   '0x8000000000000000',
                   '0xffffffffffffffff'],
@@ -86,12 +87,14 @@ class AmqpPrimitiveTypes(TestTypeMap):
                 '0x0',
                 '0x7fffffff'],
         'long': ['-0x8000000000000000',
+                 '-0x102030405',
                  '-0x81',
                  '-0x80',
                  '-0x1',
                  '0x0',
                  '0x7f',
                  '0x80',
+                 '0x102030405',
                  '0x7fffffffffffffff'],
         # float and double: Because of difficulty with rounding of floating point numbers, we use the binary
         # representation instead which should be exact when comparing sent and received values.
@@ -110,7 +113,8 @@ class AmqpPrimitiveTypes(TestTypeMap):
                   #'0x7f800000', # +Infinity # PROTON-1149 - fails on RHEL7
                   #'0xff800000', # -Infinity # PROTON-1149 - fails on RHEL7
                   '0x7fc00000', # +NaN
-                  '0xffc00000'], # -NaN
+                  #'0xffc00000', # -NaN # Not supported in Javascript
+                 ],
         'double': ['0x0000000000000000', # 0.0
                    '0x8000000000000000', # -0.0
                    '0x400921fb54442eea', # pi (3.14159265359) positive decimal
@@ -126,7 +130,8 @@ class AmqpPrimitiveTypes(TestTypeMap):
                    '0x7ff0000000000000', # +Infinity
                    '0xfff0000000000000', # -Infinity
                    '0x7ff8000000000000', # +NaN
-                   '0xfff8000000000000'], # -NaN
+                   #'0xfff8000000000000', # -NaN # Not supported in Javascript
+                  ],
         # decimal32, decimal64, decimal128:
         # Until more formal support for decimal32, decimal64 and decimal128 are included in Python, we use
         # a hex format for basic tests, and treat the data as a binary blob.
@@ -140,12 +145,18 @@ class AmqpPrimitiveTypes(TestTypeMap):
                       '0xffefffffffffffff'],
         'decimal128': ['0x00000000000000000000000000000000',
                        '0xff0102030405060708090a0b0c0d0e0f'],
-        'char': [u'a',
-                 u'Z',
-                 u'0x1',
+        'char': [u' ', # single ASCII chars
+                 u'0',
+                 u'A',
+                 u'z',
+                 u'~',
+                 u'0x1', # Hex representation
                  u'0x7f',
                  u'0x16b5', # Rune 'G'
-                 u'0x10ffff'],
+                 u'0x10203',
+                 u'0x10ffff',
+                 #u'0x12345678' # 32-bit number, not real char # Disabled until Python can handle it
+                ],
         # timestamp: Must be in milliseconds since the Unix epoch
         'timestamp': ['0x0',
                       '0x%x' % int(mktime((2000, 1, 1, 0, 0, 0, 5, 1, 0))*1000),
@@ -169,7 +180,8 @@ class AmqpPrimitiveTypes(TestTypeMap):
                   ],
         'symbol': ['',
                    'myDomain.123',
-                   'domain.0123456789.' * 100],
+                   'domain.0123456789.' * 100,
+                  ],
         'list': [[],
                  ['ubyte:1', 'int:-2', 'float:3.14'],
                  ['string:a', 'string:b', 'string:c'],
@@ -200,35 +212,47 @@ class AmqpPrimitiveTypes(TestTypeMap):
                   'short:8',
                   'short:9'] * 10
                 ],
-        'map': [
-            # Enpty map
-            {},
-            # Map with string keys
-            {'string:one': 'ubyte:1',
-             'string:two': 'ushort:2'},
-            # Map with other AMQP simple types as keys
-            {'none:': 'string:None',
-             'string:None': 'none:',
-             'string:One': 'long:-1234567890',
-             'short:2': 'int:2',
-             'boolean:True': 'string:True',
-             'string:False': 'boolean:False',
-             #['string:AAA', 'ushort:5951']: 'string:list value',
-             #{'byte:-55': 'ubyte:200',
-             # 'boolean:True': 'string:Hello, world!'}: 'symbol:map.value',
-             #'string:list': [],
-             'string:map': {'char:A': 'int:1',
-                            'char:B': 'int:2'}},
-            ],
-        # TODO: Support all AMQP types in array (including keys)
-        #'array': [[],
-        #          [1, 2, 3],
-        #          ['Hello', 'world'],
-        #          [[1, 2, 3],
-        #           ['a', 'b', 'c'],
-        #           [2.3, 3.4, 4,5],
-        #           [True, False, True, True]]
-        #          ]
+        'map': [{}, # Enpty map
+                # Map with string keys
+                {'string:one': 'ubyte:1',
+                 'string:two': 'ushort:2'},
+                # Map with other AMQP simple types as keys
+                {'none:': 'string:None',
+                 'string:None': 'none:',
+                 'string:One': 'long:-1234567890',
+                 'short:2': 'int:2',
+                 'boolean:True': 'string:True',
+                 'string:False': 'boolean:False',
+                 #['string:AAA', 'ushort:5951']: 'string:list value',
+                 #{'byte:-55': 'ubyte:200',
+                 # 'boolean:True': 'string:Hello, world!'}: 'symbol:map.value',
+                 #'string:list': [],
+                 'string:map': {'char:A': 'int:1',
+                                'char:B': 'int:2'}},
+               ],
+        # array: Each array is constructed from the test values in this map. This list contains
+        # the keys to the array value types to be included in the test. See function create_test_arrays()
+        # for the top-level function that performs the array creation.
+        #'array': ['boolean',
+        #          'ubyte',
+        #          'ushort',
+        #          'uint',
+        #          'ulong',
+        #          'byte',
+        #          'short',
+        #          'int',
+        #          'long',
+        #          'float',
+        #          'double',
+        #          'decimal32',
+        #          'decimal64',
+        #          'decimal128',
+        #          'char',
+        #          'uuid',
+        #          'binary',
+        #          'string',
+        #          'symbol',
+        #         ],
         }
 
     # This section contains tests that should be skipped because of know issues that would cause the test to fail.
@@ -249,6 +273,31 @@ class AmqpPrimitiveTypes(TestTypeMap):
                    'float': {'apache-activemq-artemis': '-NaN is stripped of its sign: ENTMQ-1686'},
                    'double': {'apache-activemq-artemis': '-NaN is stripped of its sign: ENTMQ-1686'},
                   }
+
+    def create_array(self, amqp_type, repeat):
+        """
+        Create a single test array for a given AMQP type from the test values for that type. It can be optionally
+        repeated for greater number of elements.
+        """
+        test_array = [amqp_type]
+        for _ in range(repeat):
+            for val in self.TYPE_MAP[amqp_type]:
+                test_array.append(val)
+        return test_array
+
+    def create_test_arrays(self):
+        """ Method to synthesize the test arrays from the values used in the previous type tests """
+        test_arrays = []
+        for amqp_type in self.TYPE_MAP['array']:
+            test_arrays.append(self.create_array(amqp_type, 1))
+        print test_arrays
+        return test_arrays
+
+    def get_test_values(self, amqp_type):
+        """ Overload the parent method so that arrays can be synthesized rather than read directly """
+        if amqp_type == 'array':
+            return self.create_test_arrays()
+        return super(AmqpPrimitiveTypes, self).get_test_values(amqp_type)
 
 
 class AmqpTypeTestCase(unittest.TestCase):
@@ -353,11 +402,17 @@ PROTON_PYTHON_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-p
                                         'Receiver.py')
 PROTON_PYTHON_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'src', 'amqp_types_test',
                                       'Sender.py')
+PROTON_RHEAJS_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'rhea-js', 'amqp_types_test',
+                                        'Receiver.js')
+PROTON_RHEAJS_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'rhea-js', 'amqp_types_test',
+                                      'Sender.js')
 
 SHIM_MAP = {qpid_interop_test.shims.ProtonCppShim.NAME: \
                 qpid_interop_test.shims.ProtonCppShim(PROTON_CPP_SENDER_SHIM, PROTON_CPP_RECEIVER_SHIM),
             qpid_interop_test.shims.ProtonPythonShim.NAME: \
                 qpid_interop_test.shims.ProtonPythonShim(PROTON_PYTHON_SENDER_SHIM, PROTON_PYTHON_RECEIVER_SHIM),
+            qpid_interop_test.shims.RheaJsShim.NAME: \
+                qpid_interop_test.shims.RheaJsShim(PROTON_RHEAJS_SENDER_SHIM, PROTON_RHEAJS_RECEIVER_SHIM),
            }
 
 

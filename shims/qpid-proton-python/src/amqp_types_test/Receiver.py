@@ -94,7 +94,7 @@ class AmqpTypesTestReceiver(MessagingHandler):
             elif self.amqp_type == 'decimal128':
                 self.received_value_list.append('0x' + ''.join(['%02x' % ord(c) for c in event.message.body]).strip())
             elif self.amqp_type == 'char':
-                if ord(event.message.body) < 0x80 and event.message.body in digits + letters + punctuation:
+                if ord(event.message.body) < 0x80 and event.message.body in digits + letters + punctuation + " ":
                     self.received_value_list.append(event.message.body)
                 else:
                     self.received_value_list.append(hex(ord(event.message.body)))

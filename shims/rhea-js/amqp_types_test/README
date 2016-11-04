@@ -1,0 +1,47 @@
+These are the Sender and Receiver shims for qpid-interop-test AMQP types test.
+They send and receive messages via an AMQP broker which is assumed to be running
+at a well-known location/port.
+
+These are invoked on the command-line from the test program using the following
+command-line options:
+
+1. broker address (ip-addr:port)
+2. queue name
+3. AMQP type under test
+4. JSON list of stringified test values (Sender) "[\"val1\", \"val2\", ... ]"
+   or
+   A number indicating how many messages to expect (Receiver)
+
+Any errors/exceptions are sent to stderr.
+The Sender does not print anything onto stdout.
+The Receiver prints two items onto stdout:
+
+1. The AMQP type under test
+2. JSON list of stringified test values received (matching that sent to the
+   Sender)
+
+The top-level test program (amqp_types_test.py) will launch each shim as needed
+with its command-line parameters and will receive output from stdout and
+stderr. These outputs will be checked to determine pass/fail. By default, the
+JSON sequende sent to the Sender must match the JSON sequence received from the
+receiver for the test to pass.
+
+The AMQP types and test values are all set within the top-level test program.
+
+Required modules
+----------------
+ rhea (https://github.com/grs/rhea.git)
+ node-uuid (via npm)
+
+NOTE: For the tests to pass, a patch is needed for the Rhea javascript client.
+This patch is contained in the file rhea-long-ulong.patch. It addresses a
+problem in Javascript in which numbers are represented internally as floating
+point numbers. This means that the precision available for representing large
+integer values is limited, and can round up or down to a representation that
+is not exact and can cause tests to fail. (For example, the unsigned long
+number 0x7fffffffffffffff will round to 0x8000000000000000). The patch allows
+numbers stored in Buffer objects to be used to set a long or ulong values in
+message bodies, which avoids this problem. If the patch is not applied, the
+long and ulong tests will fail. (If this patch is accepted into Rhea, then
+this file will be removed.)
+

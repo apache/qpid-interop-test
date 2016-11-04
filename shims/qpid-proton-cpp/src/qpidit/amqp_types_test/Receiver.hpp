@@ -69,7 +69,7 @@ namespace qpidit
                 if (fillFlag) {
                     oss << std::setw(sizeof(T)*2) << std::setfill('0');
                 }
-                oss << (sizeof(T) == 1 ? (int)val & 0xff : sizeof(T) == 2 ? val & 0xffff : sizeof(T) == 4 ? val & 0xffffffff : val);
+                oss << (sizeof(T) == 1 ? (int)val & 0xff : sizeof(T) == 2 ? val & 0xffff : /*sizeof(T) == 4 ? val & 0xffffffff :*/ val);
                 return oss.str();
             }
 

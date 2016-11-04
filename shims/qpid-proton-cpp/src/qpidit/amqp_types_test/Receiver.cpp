@@ -60,7 +60,8 @@ namespace qpidit
         }
 
         void Receiver::on_message(proton::delivery &d, proton::message &m) {
-            if (proton::get<uint64_t>(m.id()) < _received) return; // ignore duplicate
+            // TODO: Ignore m.id() if it does not exist on the message
+            //if (proton::get<uint64_t>(m.id()) < _received) return; // ignore duplicate
             if (_received < _expected) {
                 if (_amqpType.compare("null") == 0) {
                     checkMessageType(m, proton::NULL_TYPE);

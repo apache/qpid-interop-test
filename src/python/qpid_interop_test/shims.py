@@ -186,6 +186,15 @@ class ProtonCppShim(Shim):
         self.receive_params = [self.receiver_shim]
 
 
+class RheaJsShim(Shim):
+    """Shim for Rhea Javascript client"""
+    NAME = 'RheaJs'
+    def __init__(self, sender_shim, receiver_shim):
+        super(RheaJsShim, self).__init__(sender_shim, receiver_shim)
+        self.send_params = [self.sender_shim]
+        self.receive_params = [self.receiver_shim]
+
+
 class QpidJmsShim(Shim):
     """Shim for qpid-jms JMS client"""
     NAME = 'QpidJms'
