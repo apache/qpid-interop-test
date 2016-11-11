@@ -33,15 +33,3 @@ Required modules
  rhea (https://github.com/grs/rhea.git)
  node-uuid (via npm)
 
-NOTE: For the tests to pass, a patch is needed for the Rhea javascript client.
-This patch is contained in the file rhea-long-ulong.patch. It addresses a
-problem in Javascript in which numbers are represented internally as floating
-point numbers. This means that the precision available for representing large
-integer values is limited, and can round up or down to a representation that
-is not exact and can cause tests to fail. (For example, the unsigned long
-number 0x7fffffffffffffff will round to 0x8000000000000000). The patch allows
-numbers stored in Buffer objects to be used to set a long or ulong values in
-message bodies, which avoids this problem. If the patch is not applied, the
-long and ulong tests will fail. (If this patch is accepted into Rhea, then
-this file will be removed.)
-
