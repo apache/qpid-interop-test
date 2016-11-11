@@ -167,14 +167,14 @@ class AmqpPrimitiveTypes(TestTypeMap):
                  str(uuid4())],
         'binary': [bytes(),
                    bytes(12345),
-                   b'Hello, world!',
+                   b'Hello, world',
                    b'\\x01\\x02\\x03\\x04\\x05abcde\\x80\\x81\\xfe\\xff',
                    b'The quick brown fox jumped over the lazy dog 0123456789.' * 100
                   ],
         # strings must be unicode to comply with AMQP spec
         'string': [u'',
-                   u'Hello, world!',
-                   u'"Hello, world!"',
+                   u'Hello, world',
+                   u'"Hello, world"',
                    u"Charlie's peach",
                    u'The quick brown fox jumped over the lazy dog 0123456789.' * 100
                   ],
@@ -225,7 +225,7 @@ class AmqpPrimitiveTypes(TestTypeMap):
                  'string:False': 'boolean:False',
                  #['string:AAA', 'ushort:5951']: 'string:list value',
                  #{'byte:-55': 'ubyte:200',
-                 # 'boolean:True': 'string:Hello, world!'}: 'symbol:map.value',
+                 # 'boolean:True': 'string:Hello, world'}: 'symbol:map.value',
                  #'string:list': [],
                  'string:map': {'char:A': 'int:1',
                                 'char:B': 'int:2'}},
@@ -258,20 +258,23 @@ class AmqpPrimitiveTypes(TestTypeMap):
     # This section contains tests that should be skipped because of know issues that would cause the test to fail.
     # As the issues are resolved, these should be removed.
     BROKER_SKIP = {'null': {'ActiveMQ': 'Null type not sent in Proton Python binding: PROTON-1091',
-                            'qpid-cpp': 'Null type not sent in Proton Python binding: PROTON-1091',},
+                            'qpid-cpp': 'Null type not sent in Proton Python binding: PROTON-1091',
+                            'qpid-dispatch-router': 'router with qpid or activemq broker',},
                    'decimal32': {'ActiveMQ': 'decimal32 and decimal64 sent byte reversed: PROTON-1160',
                                  'qpid-cpp': 'decimal32 not supported on qpid-cpp broker: QPIDIT-5, QPID-6328',
                                  'apache-activemq-artemis': 'decimal32 and decimal64 sent byte reversed: PROTON-1160',
-                                 'qpid-dispatch-router': 'decimal32 and decimal64 sent byte reversed: PROTON-1160'},
+                                 'qpid-dispatch-router': 'decimal32 and decimal64 sent byte reversed: PROTON-1160',},
                    'decimal64': {'ActiveMQ': 'decimal32 and decimal64 sent byte reversed: PROTON-1160',
                                  'qpid-cpp': 'decimal64 not supported on qpid-cpp broker: QPIDIT-6, QPID-6328',
                                  'apache-activemq-artemis': 'decimal32 and decimal64 sent byte reversed: PROTON-1160',
-                                 'qpid-dispatch-router': 'decimal32 and decimal64 sent byte reversed: PROTON-1160'},
-                   'decimal128': {'qpid-cpp': 'decimal128 not supported on qpid-cpp broker: QPIDIT-3, QPID-6328',},
+                                 'qpid-dispatch-router': 'decimal32 and decimal64 sent byte reversed: PROTON-1160',},
+                   'decimal128': {'qpid-cpp': 'decimal128 not supported on qpid-cpp broker: QPIDIT-3, QPID-6328',
+                                  'qpid-dispatch-router': 'router with qpid or activemq broker',},
                    'char': {'qpid-cpp': 'char not supported on qpid-cpp broker: QPIDIT-4, QPID-6328',
-                            'apache-activemq-artemis': 'char types > 16 bits truncated on Artemis: ENTMQ-1685'},
-                   'float': {'apache-activemq-artemis': '-NaN is stripped of its sign: ENTMQ-1686'},
-                   'double': {'apache-activemq-artemis': '-NaN is stripped of its sign: ENTMQ-1686'},
+                            'apache-activemq-artemis': 'char types > 16 bits truncated on Artemis: ENTMQ-1685',
+                            'qpid-dispatch-router': 'router with qpid or artemis broker',},
+                   'float': {'apache-activemq-artemis': '-NaN is stripped of its sign: ENTMQ-1686',},
+                   'double': {'apache-activemq-artemis': '-NaN is stripped of its sign: ENTMQ-1686',},
                   }
 
     def create_array(self, amqp_type, repeat):
@@ -305,7 +308,7 @@ class AmqpTypeTestCase(unittest.TestCase):
     Abstract base class for AMQP Type test cases
     """
 
-    def run_test(self, broker_addr, amqp_type, test_value_list, send_shim, receive_shim):
+    def run_test(self, sender_addr, receiver_addr, amqp_type, test_value_list, send_shim, receive_shim):
         """
         Run this test by invoking the shim send method to send the test values, followed by the shim receive method
         to receive the values. Finally, compare the sent values with the received values.
@@ -319,12 +322,12 @@ class AmqpTypeTestCase(unittest.TestCase):
                          (amqp_type, send_shim.NAME, receive_shim.NAME)
 
             # Start the receive shim first (for queueless brokers/dispatch)
-            receiver = receive_shim.create_receiver(broker_addr, queue_name, amqp_type,
+            receiver = receive_shim.create_receiver(receiver_addr, queue_name, amqp_type,
                                                     str(len(test_value_list)))
             receiver.start()
 
             # Start the send shim
-            sender = send_shim.create_sender(broker_addr, queue_name, amqp_type,
+            sender = send_shim.create_sender(sender_addr, queue_name, amqp_type,
                                              dumps(test_value_list))
             sender.start()
 
@@ -356,7 +359,7 @@ class AmqpTypeTestCase(unittest.TestCase):
             else:
                 self.fail('Received non-tuple: %s' % str(receive_obj))
 
-def create_testcase_class(broker_name, types, broker_addr, amqp_type, shim_product):
+def create_testcase_class(broker_name, types, sender_addr, receiver_addr, amqp_type, shim_product):
     """
     Class factory function which creates new subclasses to AmqpTypeTestCase.
     """
@@ -371,7 +374,8 @@ def create_testcase_class(broker_name, types, broker_addr, amqp_type, shim_produ
         @unittest.skipIf(types.skip_test(amqp_type, broker_name),
                          types.skip_test_message(amqp_type, broker_name))
         def inner_test_method(self):
-            self.run_test(self.broker_addr, self.amqp_type, self.test_value_list, send_shim, receive_shim)
+            self.run_test(self.sender_addr, self.receiver_addr, self.amqp_type, self.test_value_list,
+                          send_shim, receive_shim)
 
         inner_test_method.__name__ = 'test_%s_%s->%s' % (amqp_type, send_shim.NAME, receive_shim.NAME)
         setattr(cls, inner_test_method.__name__, inner_test_method)
@@ -381,7 +385,8 @@ def create_testcase_class(broker_name, types, broker_addr, amqp_type, shim_produ
                   '__repr__': __repr__,
                   '__doc__': 'Test case for AMQP 1.0 simple type \'%s\'' % amqp_type,
                   'amqp_type': amqp_type,
-                  'broker_addr': broker_addr,
+                  'sender_addr': sender_addr,
+                  'receiver_addr': receiver_addr,
                   'test_value_list': types.get_test_values(amqp_type)}
     new_class = type(class_name, (AmqpTypeTestCase,), class_dict)
     for send_shim, receive_shim in shim_product:
@@ -423,8 +428,10 @@ class TestOptions(object):
     def __init__(self):
         parser = argparse.ArgumentParser(description='Qpid-interop AMQP client interoparability test suite '
                                          'for AMQP simple types')
-        parser.add_argument('--broker', action='store', default='localhost:5672', metavar='BROKER:PORT',
-                            help='Broker against which to run test suite.')
+        parser.add_argument('--sender', action='store', default='localhost:5672', metavar='IP-ADDR:PORT',
+                            help='Node to which test suite will send messages.')
+        parser.add_argument('--receiver', action='store', default='localhost:5672', metavar='IP-ADDR:PORT',
+                            help='Node from which test suite will receive messages.')
 #        test_group = parser.add_mutually_exclusive_group()
 #        test_group.add_argument('--include-test', action='append', metavar='TEST-NAME',
 #                                help='Name of test to include')
@@ -453,7 +460,7 @@ if __name__ == '__main__':
     #print 'ARGS:', ARGS # debug
 
     # Connect to broker to find broker type
-    CONNECTION_PROPS = qpid_interop_test.broker_properties.get_broker_properties(ARGS.broker)
+    CONNECTION_PROPS = qpid_interop_test.broker_properties.get_broker_properties(ARGS.sender)
     if CONNECTION_PROPS is None:
         print 'WARNING: Unable to get connection properties - unknown broker'
         BROKER = 'unknown'
@@ -483,7 +490,8 @@ if __name__ == '__main__':
         if ARGS.exclude_type is None or at not in ARGS.exclude_type:
             test_case_class = create_testcase_class(BROKER,
                                                     TYPES,
-                                                    ARGS.broker,
+                                                    ARGS.sender,
+                                                    ARGS.receiver,
                                                     at,
                                                     product(SHIM_MAP.values(), repeat=2))
             TEST_SUITE.addTest(unittest.makeSuite(test_case_class))

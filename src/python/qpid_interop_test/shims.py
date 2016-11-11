@@ -100,13 +100,13 @@ class Sender(ShimWorkerThread):
     def run(self):
         """Thread starts here"""
         try:
-            #print '\n>>>Sender>>>', self.arg_list # DEBUG - useful to see command-line sent to shim
+            #print '\n>>SNDR>>', self.arg_list # DEBUG - useful to see command-line sent to shim
             self.proc = Popen(self.arg_list, stdout=PIPE, stderr=PIPE, shell=self.use_shell_flag, preexec_fn=setsid)
             (stdoutdata, stderrdata) = self.proc.communicate()
             if len(stderrdata) > 0:
                 self.return_obj = (stdoutdata, stderrdata)
             else:
-                #print '<<<Sender<<<', stdoutdata # DEBUG - useful to see text received from shim
+                #print '<<SNDR<<', stdoutdata # DEBUG - useful to see text received from shim
                 str_tvl = stdoutdata.split('\n')[0:-1] # remove trailing \n
                 if len(str_tvl) == 2:
                     try:
@@ -131,13 +131,13 @@ class Receiver(ShimWorkerThread):
     def run(self):
         """Thread starts here"""
         try:
-            #print '\n>>>Receiver>>>', self.arg_list # DEBUG - useful to see command-line sent to shim
+            #print '\n>>RCVR>>', self.arg_list # DEBUG - useful to see command-line sent to shim
             self.proc = Popen(self.arg_list, stdout=PIPE, stderr=PIPE, preexec_fn=setsid)
             (stdoutdata, stderrdata) = self.proc.communicate()
             if len(stderrdata) > 0:
                 self.return_obj = (stdoutdata, stderrdata)
             else:
-                #print '<<<Receiver<<<', stdoutdata # DEBUG - useful to see text received from shim
+                #print '<<RCVR<<', stdoutdata # DEBUG - useful to see text received from shim
                 str_tvl = stdoutdata.split('\n')[0:-1] # remove trailing \n
                 if len(str_tvl) == 2:
                     try:
