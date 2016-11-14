@@ -232,8 +232,8 @@ class JmsMessageHdrsPropsTestCase(unittest.TestCase):
     Abstract base class for JMS message headers and properties test cases
     """
 
-    def run_test(self, broker_addr, queue_name_fragment, jms_message_type, test_values, msg_hdrs, msg_props, send_shim,
-                 receive_shim):
+    def run_test(self, sender_addr, receiver_addr, queue_name_fragment, jms_message_type, test_values, msg_hdrs,
+                 msg_props, send_shim, receive_shim):
         """
         Run this test by invoking the shim send method to send the test values, followed by the shim receive method
         to receive the values. Finally, compare the sent values with the received values.
@@ -257,12 +257,12 @@ class JmsMessageHdrsPropsTestCase(unittest.TestCase):
         if send_shim.JMS_CLIENT:
             flags_map['JMS_CLIENT_CHECKS'] = True
         # Start the receiver shim
-        receiver = receive_shim.create_receiver(broker_addr, queue_name, jms_message_type,
+        receiver = receive_shim.create_receiver(receiver_addr, queue_name, jms_message_type,
                                                 dumps([num_test_values_map, flags_map]))
         receiver.start()
 
         # Start the send shim
-        sender = send_shim.create_sender(broker_addr, queue_name, jms_message_type,
+        sender = send_shim.create_sender(sender_addr, queue_name, jms_message_type,
                                          dumps([test_values, msg_hdrs, msg_props]))
         sender.start()
 
@@ -311,6 +311,7 @@ class JmsMessageHdrsPropsTestCase(unittest.TestCase):
 
 
 def create_testcases():
+    """Create all the test cases"""
     # --- Message headers on JMS Message ---
 
     # Part A: Single message header on each message
@@ -349,7 +350,8 @@ def create_part_a_testcase_class():
         @unittest.skipIf(TYPES.skip_test(jms_message_type, BROKER),
                          TYPES.skip_test_message(jms_message_type, BROKER))
         def inner_test_method(self):
-            self.run_test(self.broker_addr,
+            self.run_test(self.sender_addr,
+                          self.receiver_addr,
                           queue_name_fragment,
                           self.jms_message_type,
                           self.test_values,
@@ -369,7 +371,8 @@ def create_part_a_testcase_class():
                   '__doc__': 'Test case for JMS message type \'%s\' containing a single ' % jms_message_type +
                              'JMS header, one for each possible header',
                   'jms_message_type': jms_message_type,
-                  'broker_addr': ARGS.broker,
+                  'sender_addr': ARGS.sender,
+                  'receiver_addr': ARGS.receiver,
                   'test_values': TYPES.get_test_values(jms_message_type)}
     new_class = type(class_name, (JmsMessageHdrsPropsTestCase,), class_dict)
 
@@ -405,7 +408,8 @@ def create_part_b_testcase_class():
         @unittest.skipIf(TYPES.skip_test(jms_message_type, BROKER),
                          TYPES.skip_test_message(jms_message_type, BROKER))
         def inner_test_method(self):
-            self.run_test(self.broker_addr,
+            self.run_test(self.sender_addr,
+                          self.receiver_addr,
                           queue_name_fragment,
                           self.jms_message_type,
                           self.test_values,
@@ -425,12 +429,12 @@ def create_part_b_testcase_class():
                   '__doc__': 'Test case for JMS message type \'%s\' containing a combination ' % jms_message_type +
                              'of possible JMS headers',
                   'jms_message_type': jms_message_type,
-                  'broker_addr': ARGS.broker,
+                  'sender_addr': ARGS.sender,
+                  'receiver_addr': ARGS.receiver,
                   'test_values': TYPES.get_test_values(jms_message_type)}
     new_class = type(class_name, (JmsMessageHdrsPropsTestCase,), class_dict)
 
     for send_shim, receive_shim in product(SHIM_MAP.values(), repeat=2):
-        jms_hdrs_combos = []
         for jms_hdrs_combo_index in range(0, len(TYPES.HEADERS_MAP.keys())+1):
             for jms_hdrs_combo in combinations(TYPES.HEADERS_MAP.iterkeys(), jms_hdrs_combo_index):
                 jms_hdr_list = []
@@ -475,7 +479,8 @@ def create_part_c_testcase_class():
         @unittest.skipIf(TYPES.skip_test(jms_message_type, BROKER),
                          TYPES.skip_test_message(jms_message_type, BROKER))
         def inner_test_method(self):
-            self.run_test(self.broker_addr,
+            self.run_test(self.sender_addr,
+                          self.receiver_addr,
                           queue_name_fragment,
                           self.jms_message_type,
                           self.test_values,
@@ -495,7 +500,8 @@ def create_part_c_testcase_class():
                   '__doc__': 'Test case for JMS message type \'%s\' containing a single ' % jms_message_type +
                              'JMS property',
                   'jms_message_type': jms_message_type,
-                  'broker_addr': ARGS.broker,
+                  'sender_addr': ARGS.sender,
+                  'receiver_addr': ARGS.receiver,
                   'test_values': TYPES.get_test_values(jms_message_type)}
     new_class = type(class_name, (JmsMessageHdrsPropsTestCase,), class_dict)
 
@@ -530,7 +536,8 @@ def create_part_d_testcase_class(jms_message_type):
         @unittest.skipIf(TYPES.skip_test(jms_message_type, BROKER),
                          TYPES.skip_test_message(jms_message_type, BROKER))
         def inner_test_method(self):
-            self.run_test(self.broker_addr,
+            self.run_test(self.sender_addr,
+                          self.receiver_addr,
                           queue_name_fragment,
                           jms_message_type,
                           self.test_values,
@@ -549,7 +556,8 @@ def create_part_d_testcase_class(jms_message_type):
                   '__doc__': 'Test case for JMS message type \'%s\' containing a single ' % jms_message_type +
                              'JMS property',
                   'jms_message_type': jms_message_type,
-                  'broker_addr': ARGS.broker,
+                  'sender_addr': ARGS.sender,
+                  'receiver_addr': ARGS.receiver,
                   'test_values': TYPES.get_test_values(jms_message_type)}
     new_class = type(class_name, (JmsMessageHdrsPropsTestCase,), class_dict)
 
@@ -612,8 +620,10 @@ class TestOptions(object):
     def __init__(self,):
         parser = argparse.ArgumentParser(description='Qpid-interop AMQP client interoparability test suite '
                                          'for JMS headers and properties')
-        parser.add_argument('--broker', action='store', default='localhost:5672', metavar='BROKER:PORT',
-                            help='Broker against which to run test suite.')
+        parser.add_argument('--sender', action='store', default='localhost:5672', metavar='IP-ADDR:PORT',
+                            help='Node to which test suite will send messages.')
+        parser.add_argument('--receiver', action='store', default='localhost:5672', metavar='IP-ADDR:PORT',
+                            help='Node from which test suite will receive messages.')
 #        test_group = parser.add_mutually_exclusive_group()
 #        test_group.add_argument('--include-test', action='append', metavar='TEST-NAME',
 #                                help='Name of test to include')
@@ -641,7 +651,7 @@ if __name__ == '__main__':
     #print 'ARGS:', ARGS # debug
 
     # Connect to broker to find broker type
-    CONNECTION_PROPS = qpid_interop_test.broker_properties.get_broker_properties(ARGS.broker)
+    CONNECTION_PROPS = qpid_interop_test.broker_properties.get_broker_properties(ARGS.sender)
     if CONNECTION_PROPS is None:
         print 'WARNING: Unable to get connection properties - unknown broker'
         BROKER = 'unknown'

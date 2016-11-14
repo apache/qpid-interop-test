@@ -45,7 +45,7 @@ class AmqpFeaturesTestCase(unittest.TestCase):
     Abstract base class for AMQP message features test cases
     """
 
-    def run_test(self, broker_addr, test_type, send_shim, receive_shim):
+    def run_test(self, sender_addr, receiver_addr, test_type, send_shim, receive_shim):
         """
         Run this test by invoking the shim send method to send the test values, followed by the shim receive method
         to receive the values. Finally, compare the sent values with the received values.
@@ -54,11 +54,11 @@ class AmqpFeaturesTestCase(unittest.TestCase):
         receive_queue_name = 'jms.queue.qpid-interop.amqp_features_test.%s' % receive_shim.NAME
 
         # Start the receive shim first (for queueless brokers/dispatch)
-        receiver = receive_shim.create_receiver(broker_addr, receive_queue_name, test_type, '0')
+        receiver = receive_shim.create_receiver(receiver_addr, receive_queue_name, test_type, '0')
         receiver.start()
 
         # Start the send shim
-        sender = send_shim.create_sender(broker_addr, send_queue_name, test_type, dumps([None]))
+        sender = send_shim.create_sender(sender_addr, send_queue_name, test_type, dumps([None]))
         sender.start()
 
         # Wait for both shims to finish
@@ -69,20 +69,22 @@ class AmqpFeaturesTestCase(unittest.TestCase):
             self.check_connection_property_test_results(sender.get_return_object(), receiver.get_return_object())
 
     def check_connection_property_test_results(self, sender_return_obj, receiver_return_obj):
+        """Check received connection property for pass/fail of test"""
         self.check_connection_properties(sender_return_obj[1], 'sender')
         self.check_connection_properties(receiver_return_obj[1], 'receiver')
-    
+
     def check_connection_properties(self, connection_properties, source):
+        """Check an individual connection property for pass/fail"""
         keys = connection_properties.keys()
         if 'product' not in keys:
             self.fail('Broker connection properties (from %s) missing "product" key' % source)
         if 'version' not in keys:
             self.fail('Broker connection properties (from %s) missing "version" key' % source)
         for key in keys:
-            assert(len(connection_properties[key]) > 0, 'Property "%s" (from %s) is empty' % (key, source))
+            self.assertTrue(len(connection_properties[key]) > 0, msg='Property "%s" (from %s) is empty' % (key, source))
 
 
-def create_connection_property_test_class(broker_addr, send_shim, receive_shim):
+def create_connection_property_test_class(send_shim, receive_shim):
     """
     Class factory function which creates new subclasses to AmqpFeaturesTestCase.
     """
@@ -95,7 +97,7 @@ def create_connection_property_test_class(broker_addr, send_shim, receive_shim):
         """Function which creates a new test method in class cls"""
 
         def inner_test_method(self):
-            self.run_test(self.broker_addr, 'connection_property', send_shim, receive_shim)
+            self.run_test(self.sender_addr, self.receiver_addr, 'connection_property', send_shim, receive_shim)
 
         inner_test_method.__name__ = 'test_connection_properties_%s->%s' % (send_shim.NAME, receive_shim.NAME)
         setattr(cls, inner_test_method.__name__, inner_test_method)
@@ -104,7 +106,8 @@ def create_connection_property_test_class(broker_addr, send_shim, receive_shim):
     class_dict = {'__name__': class_name,
                   '__repr__': __repr__,
                   '__doc__': 'Test case for AMQP connection properties',
-                  'broker_addr': broker_addr}
+                  'sender_addr': ARGS.sender,
+                  'receiver_addr': ARGS.receiver}
     new_class = type(class_name, (AmqpFeaturesTestCase,), class_dict)
     add_test_method(new_class, send_shim, receive_shim)
     return new_class
@@ -137,8 +140,10 @@ class TestOptions(object):
     def __init__(self):
         parser = argparse.ArgumentParser(description='Qpid-interop AMQP client interoparability test suite '
                                          'for AMQP messaging features')
-        parser.add_argument('--broker', action='store', default='localhost:5672', metavar='BROKER:PORT',
-                            help='Broker against which to run test suite.')
+        parser.add_argument('--sender', action='store', default='localhost:5672', metavar='IP-ADDR:PORT',
+                            help='Node to which test suite will send messages.')
+        parser.add_argument('--receiver', action='store', default='localhost:5672', metavar='IP-ADDR:PORT',
+                            help='Node from which test suite will receive messages.')
         parser.add_argument('--exclude-shim', action='append', metavar='SHIM-NAME',
                             help='Name of shim to exclude. Supported shims:\n%s' % sorted(SHIM_MAP.keys()))
         self.args = parser.parse_args()
@@ -152,7 +157,7 @@ if __name__ == '__main__':
     #print 'ARGS:', ARGS # debug
 
     # Connect to broker to find broker type
-    CONNECTION_PROPS = qpid_interop_test.broker_properties.get_broker_properties(ARGS.broker)
+    CONNECTION_PROPS = qpid_interop_test.broker_properties.get_broker_properties(ARGS.sender)
     if CONNECTION_PROPS is None:
         print 'WARNING: Unable to get connection properties - unknown broker'
         BROKER = 'unknown'
@@ -181,7 +186,7 @@ if __name__ == '__main__':
             SHIM_MAP.pop(shim)
     # Create test classes dynamically
     for shim_name in SHIM_MAP.keys():
-        test_case_class = create_connection_property_test_class(ARGS.broker, SHIM_MAP[shim_name], SHIM_MAP[shim_name])
+        test_case_class = create_connection_property_test_class(SHIM_MAP[shim_name], SHIM_MAP[shim_name])
         TEST_SUITE.addTest(unittest.makeSuite(test_case_class))
 
     # Finally, run all the dynamically created tests

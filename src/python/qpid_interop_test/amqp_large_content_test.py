@@ -69,7 +69,7 @@ class AmqpLargeContentTestCase(unittest.TestCase):
     Abstract base class for AMQP large content test cases
     """
 
-    def run_test(self, broker_addr, amqp_type, test_value_list, send_shim, receive_shim):
+    def run_test(self, sender_addr, receiver_addr, amqp_type, test_value_list, send_shim, receive_shim):
         """
         Run this test by invoking the shim send method to send the test values, followed by the shim receive method
         to receive the values. Finally, compare the sent values with the received values.
@@ -83,12 +83,12 @@ class AmqpLargeContentTestCase(unittest.TestCase):
                          (amqp_type, send_shim.NAME, receive_shim.NAME)
 
             # Start the receive shim first (for queueless brokers/dispatch)
-            receiver = receive_shim.create_receiver(broker_addr, queue_name, amqp_type,
+            receiver = receive_shim.create_receiver(receiver_addr, queue_name, amqp_type,
                                                     str(self.get_num_messages(amqp_type, test_value_list)))
             receiver.start()
 
             # Start the send shim
-            sender = send_shim.create_sender(broker_addr, queue_name, amqp_type,
+            sender = send_shim.create_sender(sender_addr, queue_name, amqp_type,
                                              dumps(test_value_list))
             sender.start()
 
@@ -132,7 +132,7 @@ class AmqpLargeContentTestCase(unittest.TestCase):
             return tot_len
         return None
 
-def create_testcase_class(broker_name, types, broker_addr, amqp_type, shim_product):
+def create_testcase_class(amqp_type, shim_product):
     """
     Class factory function which creates new subclasses to AmqpTypeTestCase.
     """
@@ -144,10 +144,15 @@ def create_testcase_class(broker_name, types, broker_addr, amqp_type, shim_produ
     def add_test_method(cls, send_shim, receive_shim):
         """Function which creates a new test method in class cls"""
 
-        @unittest.skipIf(types.skip_test(amqp_type, broker_name),
-                         types.skip_test_message(amqp_type, broker_name))
+        @unittest.skipIf(TYPES.skip_test(amqp_type, BROKER),
+                         TYPES.skip_test_message(amqp_type, BROKER))
         def inner_test_method(self):
-            self.run_test(self.broker_addr, self.amqp_type, self.test_value_list, send_shim, receive_shim)
+            self.run_test(self.sender_addr,
+                          self.receiver_addr,
+                          self.amqp_type,
+                          self.test_value_list,
+                          send_shim,
+                          receive_shim)
 
         inner_test_method.__name__ = 'test_%s_%s->%s' % (amqp_type, send_shim.NAME, receive_shim.NAME)
         setattr(cls, inner_test_method.__name__, inner_test_method)
@@ -157,8 +162,9 @@ def create_testcase_class(broker_name, types, broker_addr, amqp_type, shim_produ
                   '__repr__': __repr__,
                   '__doc__': 'Test case for AMQP 1.0 simple type \'%s\'' % amqp_type,
                   'amqp_type': amqp_type,
-                  'broker_addr': broker_addr,
-                  'test_value_list': types.get_test_values(amqp_type)}
+                  'sender_addr': ARGS.sender,
+                  'receiver_addr': ARGS.receiver,
+                  'test_value_list': TYPES.get_test_values(amqp_type)}
     new_class = type(class_name, (AmqpLargeContentTestCase,), class_dict)
     for send_shim, receive_shim in shim_product:
         add_test_method(new_class, send_shim, receive_shim)
@@ -194,8 +200,10 @@ class TestOptions(object):
     def __init__(self):
         parser = argparse.ArgumentParser(description='Qpid-interop AMQP client interoparability test suite '
                                          'for AMQP messages with large content')
-        parser.add_argument('--broker', action='store', default='localhost:5672', metavar='BROKER:PORT',
-                            help='Broker against which to run test suite.')
+        parser.add_argument('--sender', action='store', default='localhost:5672', metavar='IP-ADDR:PORT',
+                            help='Node to which test suite will send messages.')
+        parser.add_argument('--receiver', action='store', default='localhost:5672', metavar='IP-ADDR:PORT',
+                            help='Node from which test suite will receive messages.')
         parser.add_argument('--exclude-shim', action='append', metavar='SHIM-NAME',
                             help='Name of shim to exclude. Supported shims:\n%s' % sorted(SHIM_MAP.keys()))
         self.args = parser.parse_args()
@@ -209,7 +217,7 @@ if __name__ == '__main__':
     #print 'ARGS:', ARGS # debug
 
     # Connect to broker to find broker type
-    CONNECTION_PROPS = qpid_interop_test.broker_properties.get_broker_properties(ARGS.broker)
+    CONNECTION_PROPS = qpid_interop_test.broker_properties.get_broker_properties(ARGS.sender)
     if CONNECTION_PROPS is None:
         print 'WARNING: Unable to get connection properties - unknown broker'
         BROKER = 'unknown'
@@ -236,11 +244,7 @@ if __name__ == '__main__':
             SHIM_MAP.pop(shim)
     # Create test classes dynamically
     for at in sorted(TYPES.get_type_list()):
-        test_case_class = create_testcase_class(BROKER,
-                                                TYPES,
-                                                ARGS.broker,
-                                                at,
-                                                product(SHIM_MAP.values(), repeat=2))
+        test_case_class = create_testcase_class(at, product(SHIM_MAP.values(), repeat=2))
         TEST_SUITE.addTest(unittest.makeSuite(test_case_class))
 
     # Finally, run all the dynamically created tests

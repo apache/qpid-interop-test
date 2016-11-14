@@ -94,8 +94,10 @@ class TestOptions(object):
     def __init__(self,):
         parser = argparse.ArgumentParser(description='Qpid-interop AMQP client interoparability test suite '
                                          'for JMS distrubuted (dtx) transactions')
-        parser.add_argument('--broker', action='store', default='localhost:5672', metavar='BROKER:PORT',
-                            help='Broker against which to run test suite.')
+        parser.add_argument('--sender', action='store', default='localhost:5672', metavar='IP-ADDR:PORT',
+                            help='Node to which test suite will send messages.')
+        parser.add_argument('--receiver', action='store', default='localhost:5672', metavar='IP-ADDR:PORT',
+                            help='Node from which test suite will receive messages.')
         parser.add_argument('--exclude-shim', action='append', metavar='SHIM-NAME',
                             help='Name of shim to exclude. Supported shims:\n%s' % sorted(SHIM_MAP.keys()))
         self.args = parser.parse_args()
@@ -109,7 +111,7 @@ if __name__ == '__main__':
     #print 'ARGS:', ARGS # debug
 
     # Connect to broker to find broker type
-    CONNECTION_PROPS = qpid_interop_test.broker_properties.get_broker_properties(ARGS.broker)
+    CONNECTION_PROPS = qpid_interop_test.broker_properties.get_broker_properties(ARGS.sender)
     if CONNECTION_PROPS is None:
         print 'WARNING: Unable to get connection properties - unknown broker'
         BROKER = 'unknown'

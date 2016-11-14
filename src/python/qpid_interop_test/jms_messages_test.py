@@ -200,7 +200,7 @@ class JmsMessageTypeTestCase(unittest.TestCase):
     Abstract base class for JMS message type test cases
     """
 
-    def run_test(self, broker_addr, jms_message_type, test_values, send_shim, receive_shim):
+    def run_test(self, sender_addr, receiver_addr, jms_message_type, test_values, send_shim, receive_shim):
         """
         Run this test by invoking the shim send method to send the test values, followed by the shim receive method
         to receive the values. Finally, compare the sent values with the received values.
@@ -214,11 +214,13 @@ class JmsMessageTypeTestCase(unittest.TestCase):
             for index in test_values.keys():
                 num_test_values_map[index] = len(test_values[index])
         # Start the receiver shim
-        receiver = receive_shim.create_receiver(broker_addr, queue_name, jms_message_type, dumps(num_test_values_map))
+        receiver = receive_shim.create_receiver(receiver_addr, queue_name, jms_message_type,
+                                                dumps(num_test_values_map))
         receiver.start()
 
         # Start the send shim
-        sender = send_shim.create_sender(broker_addr, queue_name, jms_message_type, dumps(test_values))
+        sender = send_shim.create_sender(sender_addr, queue_name, jms_message_type,
+                                         dumps(test_values))
         sender.start()
 
         # Wait for both shims to finish
@@ -254,7 +256,7 @@ class JmsMessageTypeTestCase(unittest.TestCase):
                 self.fail('Received non-tuple: %s' % str(receive_obj))
 
 
-def create_testcase_class(broker_name, types, broker_addr, jms_message_type, shim_product):
+def create_testcase_class(jms_message_type, shim_product):
     """
     Class factory function which creates new subclasses to JmsMessageTypeTestCase. Each call creates a single new
     test case named and based on the parameters supplied to the method
@@ -267,10 +269,11 @@ def create_testcase_class(broker_name, types, broker_addr, jms_message_type, shi
     def add_test_method(cls, send_shim, receive_shim):
         """Function which creates a new test method in class cls"""
 
-        @unittest.skipIf(types.skip_test(jms_message_type, broker_name),
-                         types.skip_test_message(jms_message_type, broker_name))
+        @unittest.skipIf(TYPES.skip_test(jms_message_type, BROKER),
+                         TYPES.skip_test_message(jms_message_type, BROKER))
         def inner_test_method(self):
-            self.run_test(self.broker_addr,
+            self.run_test(self.sender_addr,
+                          self.receiver_addr,
                           self.jms_message_type,
                           self.test_values,
                           send_shim,
@@ -284,8 +287,9 @@ def create_testcase_class(broker_name, types, broker_addr, jms_message_type, shi
                   '__repr__': __repr__,
                   '__doc__': 'Test case for JMS message type \'%s\'' % jms_message_type,
                   'jms_message_type': jms_message_type,
-                  'broker_addr': broker_addr,
-                  'test_values': types.get_test_values(jms_message_type)} # tuple (tot_size, {...}
+                  'sender_addr': ARGS.sender,
+                  'receiver_addr': ARGS.receiver,
+                  'test_values': TYPES.get_test_values(jms_message_type)} # tuple (tot_size, {...}
     new_class = type(class_name, (JmsMessageTypeTestCase,), class_dict)
     for send_shim, receive_shim in shim_product:
         add_test_method(new_class, send_shim, receive_shim)
@@ -328,8 +332,10 @@ class TestOptions(object):
     def __init__(self,):
         parser = argparse.ArgumentParser(description='Qpid-interop AMQP client interoparability test suite '
                                          'for JMS message types')
-        parser.add_argument('--broker', action='store', default='localhost:5672', metavar='BROKER:PORT',
-                            help='Broker against which to run test suite.')
+        parser.add_argument('--sender', action='store', default='localhost:5672', metavar='IP-ADDR:PORT',
+                            help='Node to which test suite will send messages.')
+        parser.add_argument('--receiver', action='store', default='localhost:5672', metavar='IP-ADDR:PORT',
+                            help='Node from which test suite will receive messages.')
 #        test_group = parser.add_mutually_exclusive_group()
 #        test_group.add_argument('--include-test', action='append', metavar='TEST-NAME',
 #                                help='Name of test to include')
@@ -357,7 +363,7 @@ if __name__ == '__main__':
     #print 'ARGS:', ARGS # debug
 
     # Connect to broker to find broker type
-    CONNECTION_PROPS = qpid_interop_test.broker_properties.get_broker_properties(ARGS.broker)
+    CONNECTION_PROPS = qpid_interop_test.broker_properties.get_broker_properties(ARGS.sender)
     if CONNECTION_PROPS is None:
         print 'WARNING: Unable to get connection properties - unknown broker'
         BROKER = 'unknown'
@@ -389,11 +395,7 @@ if __name__ == '__main__':
     # Create test classes dynamically
     for jmt in sorted(TYPES.get_type_list()):
         if ARGS.exclude_type is None or jmt not in ARGS.exclude_type:
-            test_case_class = create_testcase_class(BROKER,
-                                                    TYPES,
-                                                    ARGS.broker,
-                                                    jmt,
-                                                    product(SHIM_MAP.values(), repeat=2))
+            test_case_class = create_testcase_class(jmt, product(SHIM_MAP.values(), repeat=2))
             TEST_CASE_CLASSES.append(test_case_class)
             TEST_SUITE.addTest(unittest.makeSuite(test_case_class))
 

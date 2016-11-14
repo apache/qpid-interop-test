@@ -359,7 +359,7 @@ class AmqpTypeTestCase(unittest.TestCase):
             else:
                 self.fail('Received non-tuple: %s' % str(receive_obj))
 
-def create_testcase_class(broker_name, types, sender_addr, receiver_addr, amqp_type, shim_product):
+def create_testcase_class(amqp_type, shim_product):
     """
     Class factory function which creates new subclasses to AmqpTypeTestCase.
     """
@@ -371,11 +371,15 @@ def create_testcase_class(broker_name, types, sender_addr, receiver_addr, amqp_t
     def add_test_method(cls, send_shim, receive_shim):
         """Function which creates a new test method in class cls"""
 
-        @unittest.skipIf(types.skip_test(amqp_type, broker_name),
-                         types.skip_test_message(amqp_type, broker_name))
+        @unittest.skipIf(TYPES.skip_test(amqp_type, BROKER),
+                         TYPES.skip_test_message(amqp_type, BROKER))
         def inner_test_method(self):
-            self.run_test(self.sender_addr, self.receiver_addr, self.amqp_type, self.test_value_list,
-                          send_shim, receive_shim)
+            self.run_test(self.sender_addr,
+                          self.receiver_addr,
+                          self.amqp_type,
+                          self.test_value_list,
+                          send_shim,
+                          receive_shim)
 
         inner_test_method.__name__ = 'test_%s_%s->%s' % (amqp_type, send_shim.NAME, receive_shim.NAME)
         setattr(cls, inner_test_method.__name__, inner_test_method)
@@ -385,9 +389,9 @@ def create_testcase_class(broker_name, types, sender_addr, receiver_addr, amqp_t
                   '__repr__': __repr__,
                   '__doc__': 'Test case for AMQP 1.0 simple type \'%s\'' % amqp_type,
                   'amqp_type': amqp_type,
-                  'sender_addr': sender_addr,
-                  'receiver_addr': receiver_addr,
-                  'test_value_list': types.get_test_values(amqp_type)}
+                  'sender_addr': ARGS.sender,
+                  'receiver_addr': ARGS.receiver,
+                  'test_value_list': TYPES.get_test_values(amqp_type)}
     new_class = type(class_name, (AmqpTypeTestCase,), class_dict)
     for send_shim, receive_shim in shim_product:
         add_test_method(new_class, send_shim, receive_shim)
@@ -488,12 +492,7 @@ if __name__ == '__main__':
     # Create test classes dynamically
     for at in sorted(TYPES.get_type_list()):
         if ARGS.exclude_type is None or at not in ARGS.exclude_type:
-            test_case_class = create_testcase_class(BROKER,
-                                                    TYPES,
-                                                    ARGS.sender,
-                                                    ARGS.receiver,
-                                                    at,
-                                                    product(SHIM_MAP.values(), repeat=2))
+            test_case_class = create_testcase_class(at, product(SHIM_MAP.values(), repeat=2))
             TEST_SUITE.addTest(unittest.makeSuite(test_case_class))
 
     # Finally, run all the dynamically created tests
