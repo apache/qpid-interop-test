@@ -22,7 +22,7 @@ These are the install steps:
 ================
 * Necessary packages for building and running qpid-interop-test and its dependencies:
 TODO: Complete this list
-** C++: the usual suspects
+** C++: json-cpp-devel and packages required for qpid-proton
 ** Python: Nothing special, should be all installed standard on Lunux
 ** Maven: mvn
 ** Rhea: node npm
