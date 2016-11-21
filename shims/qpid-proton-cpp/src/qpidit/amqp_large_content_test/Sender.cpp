@@ -53,20 +53,20 @@ namespace qpidit
                     if (s.credit()) {
                         uint32_t totSizeMb;
                         Json::Value numElementsList = Json::arrayValue;
-                        if (i->isInt()) {
-                            totSizeMb = i->asInt();
+                        if ((*i).isInt()) {
+                            totSizeMb = (*i).asInt();
                             numElementsList.append(1);
-                        } else if (i->isArray()) {
+                        } else if ((*i).isArray()) {
                             totSizeMb = (*i)[0].asInt();
                             numElementsList = (*i)[1];
                         } else {
-                            std::cerr << "on_sendable: Unexpected JSON type: " << i->type() << std::endl;
+                            std::cerr << "on_sendable: Unexpected JSON type: " << (*i).type() << std::endl;
                         }
                         for (Json::Value::iterator numElementsAsStrItr=numElementsList.begin();
                                                    numElementsAsStrItr!=numElementsList.end();
                                                    ++numElementsAsStrItr) {
                             proton::message msg;
-                            setMessage(msg, totSizeMb * 1024 * 1024, numElementsAsStrItr->asInt());
+                            setMessage(msg, totSizeMb * 1024 * 1024, (*numElementsAsStrItr).asInt());
                             s.send(msg);
                             _msgsSent++;
                         }
