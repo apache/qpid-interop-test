@@ -585,14 +585,10 @@ def create_part_d_testcase_class(jms_message_type):
     return new_class
 
 
-PROTON_CPP_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'build', 'jms_hdrs_props_test',
-                                     'Receiver')
-PROTON_CPP_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'build', 'jms_hdrs_props_test',
-                                   'Sender')
-PROTON_PYTHON_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'src',
-                                        'jms_hdrs_props_test', 'Receiver.py')
-PROTON_PYTHON_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'src',
-                                      'jms_hdrs_props_test', 'Sender.py')
+PROTON_CPP_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'jms_hdrs_props_test', 'Receiver')
+PROTON_CPP_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'jms_hdrs_props_test', 'Sender')
+PROTON_PYTHON_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'jms_hdrs_props_test', 'Receiver.py')
+PROTON_PYTHON_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'jms_hdrs_props_test', 'Sender.py')
 QIT_JMS_CLASSPATH_FILE = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-jms', 'cp.txt')
 with open(QIT_JMS_CLASSPATH_FILE, 'r') as classpath_file:
     QIT_JMS_CLASSPATH = classpath_file.read()

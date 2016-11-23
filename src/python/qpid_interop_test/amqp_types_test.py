@@ -403,18 +403,12 @@ def create_testcase_class(amqp_type, shim_product):
 # other shim in the list.
 #
 # As new shims are added, add them into this map to have them included in the test cases.
-PROTON_CPP_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'build', 'amqp_types_test',
-                                     'Receiver')
-PROTON_CPP_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'build', 'amqp_types_test',
-                                   'Sender')
-PROTON_PYTHON_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'src', 'amqp_types_test',
-                                        'Receiver.py')
-PROTON_PYTHON_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'src', 'amqp_types_test',
-                                      'Sender.py')
-PROTON_RHEAJS_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'rhea-js', 'amqp_types_test',
-                                        'Receiver.js')
-PROTON_RHEAJS_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'rhea-js', 'amqp_types_test',
-                                      'Sender.js')
+PROTON_CPP_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'amqp_types_test', 'Receiver')
+PROTON_CPP_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'amqp_types_test', 'Sender')
+PROTON_PYTHON_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'amqp_types_test', 'Receiver.py')
+PROTON_PYTHON_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'amqp_types_test', 'Sender.py')
+PROTON_RHEAJS_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'rhea-js', 'amqp_types_test', 'Receiver.js')
+PROTON_RHEAJS_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'rhea-js', 'amqp_types_test', 'Sender.js')
 
 SHIM_MAP = {qpid_interop_test.shims.ProtonCppShim.NAME: \
                 qpid_interop_test.shims.ProtonCppShim(PROTON_CPP_SENDER_SHIM, PROTON_CPP_RECEIVER_SHIM),
@@ -464,6 +458,7 @@ if __name__ == '__main__':
     #print 'ARGS:', ARGS # debug
 
     # Connect to broker to find broker type
+    # TODO: Find out why this uses auth
     CONNECTION_PROPS = qpid_interop_test.broker_properties.get_broker_properties(ARGS.sender)
     if CONNECTION_PROPS is None:
         print 'WARNING: Unable to get connection properties - unknown broker'

@@ -13,8 +13,8 @@ These are the install steps:
    b. Qpid Python
    c. Qpid JMS
    d. Rhea
-2. Install and build qpid-interop-test
-3. Install or build AMQP brokers to test against
+2. Download and build qpid-interop-test
+3. Install or download / build AMQP brokers to test against
 4. Run the tests
 
 
@@ -86,19 +86,10 @@ npm install debug
 sudo npm link
 cd ..
 
-2. Install and build qpid-interop-test
-======================================
+2. Download and build qpid-interop-test
+=======================================
 git clone https://git-wip-us.apache.org/repos/asf/qpid-interop-test.git
 cd qpid-interop-test
-
-a. Build Java shims
--------------------
-Java shims:
-mvn -DskipTests install
-
-b. Build C++ shims
-------------------
-cd shims/qpid-proton-cpp
 mkdir build
 cd build
 
@@ -108,17 +99,8 @@ make
 sudo make install
 
 # INSTALL OPTION B:
-cmake -DPROTON_INSTALL_DIR=/abs/path/to/local/install/dir ..
-make
-
-cd ../../..
-
-c. Prepare Rhea shims
----------------------
-cd shims/rhea-js/amqp_types_test
-npm install node-uuid
-npm link rhea
-cd ../../../..
+cmake -DPROTON_INSTALL_DIR=/abs/path/to/local/install/dir -DCMAKE_INSTALL_PREFIX=/abs/path/to/local/install/dir ..
+make install
 
 
 3. Install or build AMQP brokers to test against
@@ -181,9 +163,9 @@ export LD_LIBRARY_PATH=${INSTALL_PATH}/lib64
 
 Start the test broker
 
-All of the tests are located in ${QPID_INTEROP_TEST_HOME}/src/python/qpid-interop-test, and can be directly called:
-./src/python/qpid-interop-test/amqp_types_test.py 
-./src/python/qpid-interop-test/jms_messages_test.py
+All of the tests are located in ${QPID_INTEROP_TEST_HOME}/src/python/qpid_interop_test, and can be directly called:
+./src/python/qpid_interop_test/amqp_types_test.py 
+./src/python/qpid_interop_test/jms_messages_test.py
 etc.
 
 
