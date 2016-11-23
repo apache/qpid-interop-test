@@ -162,11 +162,15 @@ class Shim(object):
 
     def create_sender(self, broker_addr, queue_name, test_key, json_test_str):
         """Create a new sender instance"""
-        return Sender(self.use_shell_flag, self.send_params, broker_addr, queue_name, test_key, json_test_str)
+        sender = Sender(self.use_shell_flag, self.send_params, broker_addr, queue_name, test_key, json_test_str)
+        sender.daemon = True
+        return sender
 
     def create_receiver(self, broker_addr, queue_name, test_key, json_test_str):
         """Create a new receiver instance"""
-        return Receiver(self.receive_params, broker_addr, queue_name, test_key, json_test_str)
+        receiver = Receiver(self.receive_params, broker_addr, queue_name, test_key, json_test_str)
+        receiver.daemon = True
+        return receiver
 
 class ProtonPythonShim(Shim):
     """Shim for qpid-proton Python client"""
