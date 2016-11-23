@@ -585,10 +585,14 @@ def create_part_d_testcase_class(jms_message_type):
     return new_class
 
 
-PROTON_CPP_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'jms_hdrs_props_test', 'Receiver')
-PROTON_CPP_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'jms_hdrs_props_test', 'Sender')
-PROTON_PYTHON_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'jms_hdrs_props_test', 'Receiver.py')
-PROTON_PYTHON_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'jms_hdrs_props_test', 'Sender.py')
+PROTON_CPP_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'jms_hdrs_props_test',
+                                     'Receiver')
+PROTON_CPP_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'jms_hdrs_props_test',
+                                   'Sender')
+PROTON_PYTHON_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'jms_hdrs_props_test',
+                                        'Receiver.py')
+PROTON_PYTHON_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'jms_hdrs_props_test',
+                                      'Sender.py')
 QIT_JMS_CLASSPATH_FILE = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-jms', 'cp.txt')
 with open(QIT_JMS_CLASSPATH_FILE, 'r') as classpath_file:
     QIT_JMS_CLASSPATH = classpath_file.read()
@@ -632,10 +636,10 @@ class TestOptions(object):
         parser.add_argument('--exclude-type', action='append', metavar='JMS-MESSAGE-TYPE',
                             help='Name of JMS message type to exclude. Supported types:\n%s' %
                             sorted(JmsMessageTypes.TYPE_MAP.keys()))
-#        shim_group = test_group.add_mutually_exclusive_group()
-#        shim_group.add_argument('--include-shim', action='append', metavar='SHIM-NAME',
-#                                help='Name of shim to include. Supported shims:\n%s' % sorted(SHIM_MAP.keys()))
-        parser.add_argument('--exclude-shim', action='append', metavar='SHIM-NAME',
+        shim_group = parser.add_mutually_exclusive_group()
+        shim_group.add_argument('--include-shim', action='append', metavar='SHIM-NAME',
+                                help='Name of shim to include. Supported shims:\n%s' % sorted(SHIM_MAP.keys()))
+        shim_group.add_argument('--exclude-shim', action='append', metavar='SHIM-NAME',
                             help='Name of shim to exclude. Supported shims:\n%s' % sorted(SHIM_MAP.keys()))
         self.args = parser.parse_args()
 
@@ -668,10 +672,25 @@ if __name__ == '__main__':
     # type classes, each of which contains a test for the combinations of client shims
     TEST_SUITE = unittest.TestSuite()
 
+    # Add shims included from the command-line
+    if ARGS.include_shim is not None:
+        new_shim_map = {}
+        for shim in ARGS.include_shim:
+            try:
+                new_shim_map[shim] = SHIM_MAP[shim]
+            except KeyError:
+                print 'No such shim: "%s". Use --help for valid shims' % shim
+                sys.exit(1) # Errors or failures present
+        SHIM_MAP = new_shim_map
     # Remove shims excluded from the command-line
-    if ARGS.exclude_shim is not None:
+    elif ARGS.exclude_shim is not None:
         for shim in ARGS.exclude_shim:
-            SHIM_MAP.pop(shim)
+            try:
+                SHIM_MAP.pop(shim)
+            except KeyError:
+                print 'No such shim: "%s". Use --help for valid shims' % shim
+                sys.exit(1) # Errors or failures present
+
     # Create test classes dynamically
     create_testcases()
 

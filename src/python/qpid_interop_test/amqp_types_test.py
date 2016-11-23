@@ -403,12 +403,18 @@ def create_testcase_class(amqp_type, shim_product):
 # other shim in the list.
 #
 # As new shims are added, add them into this map to have them included in the test cases.
-PROTON_CPP_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'amqp_types_test', 'Receiver')
-PROTON_CPP_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'amqp_types_test', 'Sender')
-PROTON_PYTHON_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'amqp_types_test', 'Receiver.py')
-PROTON_PYTHON_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'amqp_types_test', 'Sender.py')
-PROTON_RHEAJS_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'rhea-js', 'amqp_types_test', 'Receiver.js')
-PROTON_RHEAJS_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'rhea-js', 'amqp_types_test', 'Sender.js')
+PROTON_CPP_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'amqp_types_test',
+                                     'Receiver')
+PROTON_CPP_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'amqp_types_test',
+                                   'Sender')
+PROTON_PYTHON_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'amqp_types_test',
+                                        'Receiver.py')
+PROTON_PYTHON_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'amqp_types_test',
+                                      'Sender.py')
+PROTON_RHEAJS_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'rhea-js', 'amqp_types_test',
+                                        'Receiver.js')
+PROTON_RHEAJS_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'rhea-js', 'amqp_types_test',
+                                      'Sender.js')
 
 SHIM_MAP = {qpid_interop_test.shims.ProtonCppShim.NAME: \
                 qpid_interop_test.shims.ProtonCppShim(PROTON_CPP_SENDER_SHIM, PROTON_CPP_RECEIVER_SHIM),
@@ -442,12 +448,14 @@ class TestOptions(object):
         parser.add_argument('--exclude-type', action='append', metavar='AMQP-TYPE',
                             help='Name of AMQP type to exclude. Supported types:\n%s' %
                             sorted(AmqpPrimitiveTypes.TYPE_MAP.keys()))
-#        shim_group = test_group.add_mutually_exclusive_group()
-#        shim_group.add_argument('--include-shim', action='append', metavar='SHIM-NAME',
-#                                help='Name of shim to include. Supported shims:\n%s' % sorted(SHIM_MAP.keys()))
-        parser.add_argument('--exclude-shim', action='append', metavar='SHIM-NAME',
+        shim_group = parser.add_mutually_exclusive_group()
+        shim_group.add_argument('--include-shim', action='append', metavar='SHIM-NAME',
+                                help='Name of shim to include. Supported shims:\n%s' % sorted(SHIM_MAP.keys()))
+        shim_group.add_argument('--exclude-shim', action='append', metavar='SHIM-NAME',
                             help='Name of shim to exclude. Supported shims:\n%s' % sorted(SHIM_MAP.keys()))
         self.args = parser.parse_args()
+#        if self.args.include_shim is not None and self.args.exclude_shim is not None:
+#            raise RuntimeError('Connot use --include-shim and --exclude-shim together')
 
 
 #--- Main program start ---
@@ -480,10 +488,26 @@ if __name__ == '__main__':
     # type classes, each of which contains a test for the combinations of client shims
     TEST_SUITE = unittest.TestSuite()
 
+
+    # Add shims included from the command-line
+    if ARGS.include_shim is not None:
+        new_shim_map = {}
+        for shim in ARGS.include_shim:
+            try:
+                new_shim_map[shim] = SHIM_MAP[shim]
+            except KeyError:
+                print 'No such shim: "%s". Use --help for valid shims' % shim
+                sys.exit(1) # Errors or failures present
+        SHIM_MAP = new_shim_map
     # Remove shims excluded from the command-line
-    if ARGS.exclude_shim is not None:
+    elif ARGS.exclude_shim is not None:
         for shim in ARGS.exclude_shim:
-            SHIM_MAP.pop(shim)
+            try:
+                SHIM_MAP.pop(shim)
+            except KeyError:
+                print 'No such shim: "%s". Use --help for valid shims' % shim
+                sys.exit(1) # Errors or failures present
+
     # Create test classes dynamically
     for at in sorted(TYPES.get_type_list()):
         if ARGS.exclude_type is None or at not in ARGS.exclude_type:
