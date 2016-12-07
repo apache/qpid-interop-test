@@ -1,0 +1,458 @@
+HOW TO WRITE A SHIM
+===================
+
+Introduction
+============
+
+Qpid Interop Test has a number of tests. Each test must call a pair of "shims"
+or stand-alone test programs written in the language/API under test - one to
+send test messages, and one to receive them.
+
+[NOTE: DIRECTORY STRUCTURES REFERRED TO IN THIS DOCUMENT ARE UNDER REVIEW AND
+MAY CHANGE. HOWEVER, THE METHOD REMAINS FIXED. SEE QPIDIT-54, QPIDIT-58]
+
+For example, consider the JMS messages test (found in
+src/python/qpid_interop_test/jms_messages_test.py).  It uses shims for the Proton
+C++ client, the Proton Python client and the Rhea JavaScript client.  Each of
+these clients under test requires a pair of "shim" programs written in that
+language/API, one to send the test messages and one to receive them.
+
+The test program achieves interoperability testing by combining the send and
+receive shims so that they work against each other.  For example, for three
+shims A, B and C, the program will run the following combinations:
+
+A.sender -> A.receiver
+A.sender -> B.receiver
+A.sender -> C.reciever
+B.sender -> A.receiver
+B.sender -> B.receiver
+B.sender -> C.receiver
+C.sender -> A.receiver
+C.sender -> B.reciever
+C.sender -> C.reciever
+
+so that every sender is run against every receiver. The total number of tests
+run is the square of the number of shims.
+
+The shims themselves are located in a separate directory structure "shims".
+This folder contains one sub-folder per client language/API. Under each
+language/API folder is a substructure that is appropriate for that language
+and will eventually contain directories which exactly match the name of the
+test program. Under that are two program files, one called Sender and one
+called Receiver.
+
+At the time of writing this document, the directory structure looks as follows
+(in part, showing only the sections relevant to jms_messages_test):
+
+qpid-interop-test
+├── src
+│   └── python
+│       └── qpid_interop_test
+│           ├── jms_messages_test.py
+│           └── <other tests>
+└── shims/
+    ├── qpid-jms
+    │   └── src
+    │       └── main
+    │           └── java
+    │               └── org
+    │                   └── apache
+    │                       └── qpid
+    │                           └── qpid_interop_test
+    │                               ├── jms_messages_test
+    │                               │   ├── Receiver.java
+    │                               │   └── Sender.java
+    │                               └── <other tests>
+    ├── qpid-proton-cpp
+    │   └── src
+    │       └── qpidit
+    │           ├── jms_messages_test
+    │           │   ├── Receiver.cpp
+    │           │   ├── Receiver.hpp
+    │           │   ├── Sender.cpp
+    │           │   └── Sender.hpp
+    │           └── <other tests>
+    ├── qpid-proton-python
+    │   └── src
+    │       ├── jms_messages_test
+    │       │   ├── __init__.py
+    │       │   ├── Receiver.py
+    │       │   └── Sender.py
+    │       └── <other tests>
+    └── rhea-js
+        ├── jms_messages_test
+        │   ├── node_modules
+        │   │   ...
+        │   ├── Receiver.js
+        │   └── Sender.js
+        └── <other tests>
+
+NOTE: The name of the directory containing the shim code must match the test
+name for which it is written exactly. (in this example: "jms_messages_test")
+
+
+Communicating with the shims
+============================
+
+Because the shims are sand-alone programs written in the test language, the
+test program communicates with it by sending parameters to the shim on the
+command-line, and receives information by receiving what the shim prints to
+cout (and in the case of problems or errors, cerr).
+
+The following are the parameters sent to each shim:
+
+1.   Broker address (ipaddr:port)
+2.   Queue name
+3.   Test keyword (this can mean different things depending on the test)
+4.   JSON value list of test values to be sent (Sender) or number of test
+     values to expect (Receiver)
+
+The following are received from each shim on cout (each item on its own line):
+
+Sender: Nothing
+
+Receiver:
+1. Test Keyword
+2. JSON value list of received test values
+
+Both sender and receiver should print any errors or exceptions to cerr, this
+will automatically fail the test if present.
+
+The test program will compare the values of the received JSNON list of test
+values with that sent and pass the test if it matches. It is important for the
+format of the JSON test value strings to be identical. All test values are sent
+as strings, and must be sent as strings. For example, the sender may receive
+the following JSON list of integer value strings to send:
+
+["-0x80000000", "-0x1", "0x0", "0x7fffffff"]
+
+and it is the job of the sender to convert these to appropriate integers before
+sending. Similarly, the receiver must receive these integers and format them as
+strings before printing them to cout as a JSON list.
+
+
+Adding a shim (summary):
+========================
+
+To add a shim, it will be necessary to perform the following steps:
+
+1. Add an empty shim framework (sends and receives no messages, but receives
+   parameters from the command-line) to shims directory.
+2. Add the shim to the build system so that it can be compiled (where
+   necessary) and installed. Where necessary, compile the empty shim.
+3. Add shim into to test program (so it can be found and included into its list
+   of available shims. (See https://issues.apache.org/jira/browse/QPIDIT-58:
+   Add auto-detection of shims which could change this.)
+4. Modify the test data from the test program so that only a single simple test
+   case is run.  (For example, in jms_messages_test, enable only the boolean
+   values for the JMS_MESSAGE type.)
+5. Check that the test program correctly finds the new shim and receives its
+   command-line parameters.  The test will fail as no messages are being sent
+   yet.  It would be useful to record the command-lines as received, so that
+   while developing the test you can call the shim directly instead of through
+   the test program. See note below on JSON on the command-line.
+6. Write the guts of the shims. They must:
+   a. Receive the command-line parameters;
+   b. Connect to the broker at the specified address and queue name;
+   c. It must interpret the test type and JSON string according to the test for
+      which it is written and send the appropriate messages.  Note that the
+      JSON string will contain only stringified test values, so the shim must
+      convert these to the appropriate type before sending them as part of a
+      message.
+7. When the shims are working with all types / test data, then make sure it runs
+   and passes correctly when run from the test program and when run against
+   the other shims.
+   
+   
+Adding a shim (detail):
+=======================
+
+This section contains the same steps as above, but with more detail. This
+section will suppose that a new python shim named "test" will be added to the
+amqp_types_test.
+
+1. Add an empty shim framework
+------------------------------
+  a. Within the shims directory, add a "test" directory.
+  b. Under this directory, add a new subdirectory "amqp_types_test".
+  c. Under this directory, add Sender.py and Receiver.py  source files.
+  d. Within each file, add a function to receive and print the command-line
+     parameters it receives. For example:
+
+    #!/usr/bin/env python
+    
+    import sys
+    
+    # --- main ---
+    # Args: 1: Broker address (ip-addr:port)
+    #       2: Queue name
+    #       3: AMQP type
+    #       4: Expected number of test values to receive
+    print sys.argv
+    
+2. Add the shim to the build system
+-----------------------------------
+NOTE: The build and install systems are immature and will likely be changed in
+the near future. See QPIDIT-54 and QPIDIT-57. The current arrangement, while
+functional, is ugly and needs reforming.
+
+At present, the top-level builder and installer is cmake. This is usually run
+in two phases:
+make
+make install
+
+The first (make) phase compiles the C++ shim only.
+The second (make install) phase compiles all non-C++ code prior to calling the
+Python installer (setup.py) to perform the actual installation of the artifacts.
+
+a. Building:
+   There are three possiblities:
+   1. If your shim does not need compiling, skip this step.
+   2. If your shim can use cmake directly, then add your shim direcory to the
+      top-level CMakeLists.txt file as a subdirectory and supply your own local
+      CMakeLists.txt file.
+   3. If your shim uses a compiler unknown to cmake, then call it directly (or
+      call a script which calls it) from within cmake using the execute_process
+      command:
+      
+      # Compile Test Shim
+      install(CODE "execute_process(COMMAND <command to compile your shim>
+                                    WORKING_DIRECTORY <your working dir>)")
+
+      which should invoke the compiler.
+
+   NOTE: If your client is dependent on any way on Qpid Proton, then the
+   variable PROTON_INSTALL_DIR points to the location where this is installed.
+
+b. Installing:
+   As the test control programs are all written in Python, the
+   entire install is treated as a Python install with the shims being
+   considered dependencies of the test control programs and placed in a "shims"
+   subdirectory.  The install may be local or system-wide, depending on the
+   value of CMAKE_INSTALL_PREFIX:
+   
+   CMAKE_INSTALL_PREFIX
+   └── lib
+       └── python2.7
+           └── site-packages
+               └── qpid_interop_test
+                   ├── test-name-1.py
+                   ├── test-name-2.py
+                   ...
+                   └── shims
+                       ├── client-1
+                       │   ├── test-name-1.py
+                       │   │   ├── Sender
+                       │   │   └── Receiver
+                       │   ├── test-name-2.py
+                       │   │   ├── Sender
+                       │   │   └── Receiver
+                       │   ...
+                       ├── client-2
+                       ...
+
+   It will be necessary to add your shim to the install scripts in setup.py so
+   that they will be placed in the correct directory when installed. Where and
+   how it is added to the setup.py depends on the type and nature of your
+   shims.
+
+   NOTE: Make sure your Sender and Receiver shims are executable when
+   installed - this can be an issue for non-compiled scripts.  If this the
+   case, you can add it as a last step in the CMakeLists.txt file as a call to
+   chmod +x Sender Receiver:
+   
+   install(CODE "execute_process(COMMAND chmod +x Receiver Sender
+                                 WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}/lib/python2.7/site-packages/qpid_interop_test/shims/test/amqp_types_test/)")
+
+3. Add shim into to test program
+--------------------------------
+This step involves modifying the test program to make it aware of your test
+client. (NOTE: This will likely change soon, see QPIDIT-58).
+
+There are two steps:
+
+a. Add a shim class to represent your client metadata in the shims.py module.
+   This is done by creating a new subclass of Shim to represent your client.
+   The constructor receives only two parameters, the path to the sender and the
+   path to the receiver:
+   
+    class TestShim(Shim):
+        """Shim for test client"""
+        NAME = 'Test'
+        def __init__(self, sender_shim, receiver_shim):
+            super(TestShim, self).__init__(sender_shim, receiver_shim)
+            self.send_params = [self.sender_shim]
+            self.receive_params = [self.receiver_shim]
+   
+b. Add an instance of this class to the SHIM_MAP in the test program for which
+   you are writing your shim. Locate the SHIM_MAP declaration by a search. Then
+   add an instance of the class you created in step a. above to the SHIM_MAP,
+   using the shim NAME as the key:
+   
+   SHIM_MAP = { ... ,
+               qpid_interop_test.shims.TestShim.NAME: \
+               qpid_interop_test.shims.TestShim(<path to installed sender>,
+                                                <path to installed receiver>)
+              }
+   
+   Paths are relative to QPID_INTEROP_TEST_HOME, which points to
+   CMAKE_INSTALL_PREFIX/lib/python2.7/site-packages/qpid_interop_test (see 2.b.
+   above)
+
+4. Modify the test data so that only a single simple test case is run
+---------------------------------------------------------------------
+We need to isolate a single test case with a simple set of values so we can
+isolate the command-line parameters being sent to the shims.  If we don't do
+this, then there can be an overwhelming amount of command-line activity, and it
+will be difficult to see what is going on.  The test data is contained in a
+large map at the top of the test file.
+
+Using amqp_types_test as an example: 
+
+class AmqpPrimitiveTypes(TestTypeMap):
+    TYPE_MAP = { <loads of test data> }
+
+Comment out (or temporarily cut) all the test types out except one:
+    TYPE_MAP = { 'boolean': ['True', 'False'] }
+
+The idea is that as you start to fill out the guts of your shim, you add the
+different test types one-by-one until they are all present again.
+
+5. Check that the shim install
+------------------------------
+This step checks that the test program can call the shim, and we isolate the
+command-line parameters being sent to it. The test will fail (as the shims are
+still empty and don't send or receive any messages yet). If all the previous
+steps have been completed, then performing a make/make install will place your
+(empty) shims into the shims directory as expected.
+
+a. Uncomment a pair of debug prints in the shims.py module:
+
+    class Sender(ShimWorkerThread):
+        ...
+        def run(self):
+            try:
+                #print '\n>>SNDR>>', self.arg_list # DEBUG - useful to see command-line sent to shim
+                ...
+    
+    class Receiver(ShimWorkerThread):
+        ...
+        def run(self):
+            try:
+                #print '\n>>RCVR>>', self.arg_list # DEBUG - useful to see command-line sent to shim
+                ...
+
+   These will print out the command that will invoke the shims.
+   
+b. Start a broker.
+c. Run the test:
+
+   path/to/installed/location/of/amqp_types_test.py --include-shim Test
+
+   where the include-shim parameter is the name you gave your client in step
+   3.a. above. You should see something similar to the following:
+   
+   Test Broker: <broker name> v.<broker version> on <platform>
+
+   test_boolean_Test->Test (__main__.BooleanTestCase) ... 
+   >>RCVR>> ['/abs/path/to/installed/Receiver', 'localhost:5672',
+             'jms.queue.qpid-interop.amqp_types_test.boolean.Test.Test',
+             'boolean', '2']
+
+   >>SNDR>> ['/abs/path/to/installed/Sender', 'localhost:5672',
+             'jms.queue.qpid-interop.amqp_types_test.boolean.Test.Test',
+             'boolean', '["True", "False"]']
+   FAIL
+
+   ...
+   
+d. Note the command-line parameters - these will be used to develop the
+   shims moving forward by calling them directly from the command-line:
+   
+   $ /abs/path/to/installed/Sender localhost:5672 jms.queue.qpid-interop.amqp_types_test.boolean.Test.Test boolean '["True", "False"]'
+   ['/abs/path/to/installed/Sender', 'localhost:5672', 'jms.queue.qpid-interop.amqp_types_test.boolean.Test.Test', 'boolean', '["True", "False"]']
+   
+   $ /abs/path/to/installed/Receiver localhost:5672 jms.queue.qpid-interop.amqp_types_test.boolean.Test.Test boolean 2
+   ['/abs/path/to/installed/Receiver', 'localhost:5672', 'jms.queue.qpid-interop.amqp_types_test.boolean.Test.Test', 'boolean', '2']
+   
+   and, as expected, the shims simply return the command-line parameters they were sent.
+   
+6. Write the guts of the shims
+------------------------------
+Strategies for accomplishing this will vary, but in general:
+a. Sender: Convert the JSON list in parameter 4 to a list of test value
+   strings.
+b. Write the Send and Receive shims to connect to the broker at the address
+   contained in command-line parameter 1.
+c. When the on_start callback is received, create a sender/receiver for the
+   queue contained in command-line parameter 2.
+d. Sender: When the on_sendable callback is received, iterate through the
+   values of test value strings (see a. above) and convert then from a string
+   into an appropriate type the AMQP type contained in command-line parameter
+   3. Then send each one as a message body using the sender created in step c.
+   above.
+e. Receiver: Set up a counter to listen for the number of messages contained in
+   the command-line parameter 4. When the on_message callback is received,
+   interpret the message body as the AMQP type contained in command-line
+   parameter 3. Convert this back to a string of the same format as used by the
+   sender when sending the message, and add it to a list of received values.
+f. Sender: When all messages are sent, exit without printing anything to cout.
+g. Receiver: When all expected messages have been received and acknowledged,
+   print the following 2 lines to cout:
+   Line 1: The test type as contained in command-line parameter 3
+   Line 2: A JSON list of test values received and formatted to strings. Make
+   sure that the entire JSON list is printed on a single line.
+
+For this stage of the development, it may be helpful to test by using the
+command-line directly on each test shim.  A tool such as Wireshark is useful to
+check that the messages are being sent on the wire to and from the broker.
+
+Once this is complete for a single type (eg boolean in the examples above), the
+the test will pass if run from the test program. You should see the same as
+5.c. above, but with a PASS.
+
+It may be helpful to develop each type one at a time in lock-step with both the
+sender and receiver shim. For example, using amqp_types_test:
+* Write sender and receiver for type boolean
+* Once this passes, add type ubyte, ushort, etc. one at a time, checking that
+  all previously added types still pass, until all types are included.
+* Re-comment the print statements in the shims.py module if necessary to make
+  the tests less noisy.
+
+7. Test your shim against the other shims
+-----------------------------------------
+Once all types are handled in your shim and it passes the test running against
+itself, test them against the other existing shims. This can be done by calling
+the test program without the --include-shim parameter, or if you want to test
+against one other shim at a time, use two --include-shim values. For example,
+to test against only the C++ shim, use:
+
+path/to/installed/location/of/amqp_types_test.py --include-shim Test --include-shim ProtonCpp
+
+Note that the --exclude-shim paramer can be used to exclude a shim in the full
+list of shims in SHIM_MAP from the tests, but that it is mutually exclusive to
+the --include-shim parameter.
+
+
+NOTES
+=====
+
+Queue names
+-----------
+Owing to a limitation that currently exists in some brokers, auto-created
+queues MUST be prefixed with "jms.queue". All the tests currently use this
+prefix even though the tests may not be JMS tests at all. (This is expected
+to change at some point when this limitation is fixed)
+
+Broker settings
+---------------
+* The tests rely upon the broker to create queues that do not exist
+  automatically (or they must pre-exist), as the tests do not explicitly create
+  them. If necessary, configure the broker for auto-queue-creation.
+* IP4/IP6: Some clients use IP4 by default, others use IP6. The broker must be
+  listening on both for these clients to interoperate.
+* It is helpful to turn persistence off on the brokers. While developing shims
+  the ability to quickly stop and restart a broker so that it is clean (or to
+  quickly flush all queues of messages) is helpful.
+  
+  
