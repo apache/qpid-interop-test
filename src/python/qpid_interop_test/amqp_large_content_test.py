@@ -197,18 +197,26 @@ class TestOptions(object):
     """
     Class controlling command-line arguments used to control the test.
     """
-    def __init__(self):
+    def __init__(self, shim_map):
         parser = argparse.ArgumentParser(description='Qpid-interop AMQP client interoparability test suite '
                                          'for AMQP messages with large content')
         parser.add_argument('--sender', action='store', default='localhost:5672', metavar='IP-ADDR:PORT',
                             help='Node to which test suite will send messages.')
         parser.add_argument('--receiver', action='store', default='localhost:5672', metavar='IP-ADDR:PORT',
                             help='Node from which test suite will receive messages.')
+        parser.add_argument('--no-skip', action='store_true',
+                            help='Do not skip tests that are excluded by default for reasons of a known bug')
+        type_group = parser.add_mutually_exclusive_group()
+        type_group.add_argument('--include-type', action='append', metavar='AMQP-TYPE',
+                                help='Name of AMQP type to include. Supported types:\n%s' %
+                                sorted(AmqpVariableSizeTypes.TYPE_MAP.keys()))
+        type_group.add_argument('--exclude-type', action='append', metavar='AMQP-TYPE',
+                                help='Name of AMQP type to exclude. Supported types: see "include-type" above')
         shim_group = parser.add_mutually_exclusive_group()
         shim_group.add_argument('--include-shim', action='append', metavar='SHIM-NAME',
-                                help='Name of shim to include. Supported shims:\n%s' % sorted(SHIM_MAP.keys()))
+                                help='Name of shim to include. Supported shims:\n%s' % sorted(shim_map.keys()))
         shim_group.add_argument('--exclude-shim', action='append', metavar='SHIM-NAME',
-                            help='Name of shim to exclude. Supported shims:\n%s' % sorted(SHIM_MAP.keys()))
+                            help='Name of shim to exclude. Supported shims: see "include-shim" above')
         self.args = parser.parse_args()
 
 
@@ -216,32 +224,30 @@ class TestOptions(object):
 
 if __name__ == '__main__':
 
-    ARGS = TestOptions().args
+    # SHIM_MAP contains an instance of each client language shim that is to be tested as a part of this test. For
+    # every shim in this list, a test is dynamically constructed which tests it against itself as well as every
+    # other shim in the list.
+    #
+    # As new shims are added, add them into this map to have them included in the test cases.
+    PROTON_CPP_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'amqp_large_content_test',
+                                         'Receiver')
+    PROTON_CPP_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'amqp_large_content_test',
+                                       'Sender')
+    PROTON_PYTHON_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python',
+                                            'amqp_large_content_test', 'Receiver.py')
+    PROTON_PYTHON_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'amqp_large_content_test',
+                                          'Sender.py')
+
+    SHIM_MAP = {qpid_interop_test.shims.ProtonCppShim.NAME: \
+                    qpid_interop_test.shims.ProtonCppShim(PROTON_CPP_SENDER_SHIM, PROTON_CPP_RECEIVER_SHIM),
+                qpid_interop_test.shims.ProtonPythonShim.NAME: \
+                    qpid_interop_test.shims.ProtonPythonShim(PROTON_PYTHON_SENDER_SHIM, PROTON_PYTHON_RECEIVER_SHIM),
+               }
+
+    ARGS = TestOptions(SHIM_MAP).args
     #print 'ARGS:', ARGS # debug
 
-    # Connect to broker to find broker type
-    CONNECTION_PROPS = qpid_interop_test.broker_properties.get_broker_properties(ARGS.sender)
-    if CONNECTION_PROPS is None:
-        print 'WARNING: Unable to get connection properties - unknown broker'
-        BROKER = 'unknown'
-    else:
-        BROKER = CONNECTION_PROPS[symbol(u'product')] if symbol(u'product') in CONNECTION_PROPS \
-                 else '<product not found>'
-        BROKER_VERSION = CONNECTION_PROPS[symbol(u'version')] if symbol(u'version') in CONNECTION_PROPS \
-                         else '<version not found>'
-        BROKER_PLATFORM = CONNECTION_PROPS[symbol(u'platform')] if symbol(u'platform') in CONNECTION_PROPS \
-                          else '<platform not found>'
-        print 'Test Broker: %s v.%s on %s' % (BROKER, BROKER_VERSION, BROKER_PLATFORM)
-        print
-        sys.stdout.flush()
-
-    TYPES = AmqpVariableSizeTypes()
-
-    # TEST_SUITE is the final suite of tests that will be run and which contains all the dynamically created
-    # type classes, each of which contains a test for the combinations of client shims
-    TEST_SUITE = unittest.TestSuite()
-
-        # Add shims included from the command-line
+    # Add shims included from the command-line
     if ARGS.include_shim is not None:
         new_shim_map = {}
         for shim in ARGS.include_shim:
@@ -259,6 +265,30 @@ if __name__ == '__main__':
             except KeyError:
                 print 'No such shim: "%s". Use --help for valid shims' % shim
                 sys.exit(1) # Errors or failures present
+
+    # Connect to broker to find broker type
+    CONNECTION_PROPS = qpid_interop_test.broker_properties.get_broker_properties(ARGS.sender)
+    if CONNECTION_PROPS is None:
+        print 'WARNING: Unable to get connection properties - unknown broker'
+        BROKER = 'unknown'
+    else:
+        BROKER = CONNECTION_PROPS[symbol(u'product')] if symbol(u'product') in CONNECTION_PROPS \
+                 else '<product not found>'
+        BROKER_VERSION = CONNECTION_PROPS[symbol(u'version')] if symbol(u'version') in CONNECTION_PROPS \
+                         else '<version not found>'
+        BROKER_PLATFORM = CONNECTION_PROPS[symbol(u'platform')] if symbol(u'platform') in CONNECTION_PROPS \
+                          else '<platform not found>'
+        print 'Test Broker: %s v.%s on %s' % (BROKER, BROKER_VERSION, BROKER_PLATFORM)
+        print
+        sys.stdout.flush()
+        if ARGS.no_skip:
+            BROKER = None # Will cause all tests to run
+
+    TYPES = AmqpVariableSizeTypes().get_types(ARGS)
+
+    # TEST_SUITE is the final suite of tests that will be run and which contains all the dynamically created
+    # type classes, each of which contains a test for the combinations of client shims
+    TEST_SUITE = unittest.TestSuite()
 
     # Create test classes dynamically
     for at in sorted(TYPES.get_type_list()):

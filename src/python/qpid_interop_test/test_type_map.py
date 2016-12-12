@@ -20,6 +20,8 @@ Module containing Error classes for interop testing
 # under the License.
 #
 
+import sys
+
 class TestTypeMap(object):
     """
     Class which contains all the described types and the test values to be used in testing against those types.
@@ -58,6 +60,25 @@ class TestTypeMap(object):
     def get_type_list(self):
         """Return a list of types which this test suite supports"""
         return self.TYPE_MAP.keys()
+
+    def get_types(self, args):
+        if args.include_type is not None:
+            new_type_map = {}
+            for type in args.include_type:
+                try:
+                    new_type_map[type] = self.TYPE_MAP[type]
+                except KeyError:
+                    print 'No such type: "%s". Use --help for valid types' % type
+                    sys.exit(1) # Errors or failures present
+            self.TYPE_MAP = new_type_map
+        if args.exclude_type is not None:
+            for type in args.exclude_type:
+                try:
+                    self.TYPE_MAP.pop(type)
+                except KeyError:
+                    print 'No such type: "%s". Use --help for valid types' % type
+                    sys.exit(1) # Errors or failures present
+        return self
 
     def get_test_values(self, test_type):
         """Return test values to use when testing the supplied type."""

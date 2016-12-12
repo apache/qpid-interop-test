@@ -257,25 +257,29 @@ class AmqpPrimitiveTypes(TestTypeMap):
 
     # This section contains tests that should be skipped because of know issues that would cause the test to fail.
     # As the issues are resolved, these should be removed.
-    BROKER_SKIP = {'null': {'ActiveMQ': 'Null type not sent in Proton Python binding: PROTON-1091',
-                            'qpid-cpp': 'Null type not sent in Proton Python binding: PROTON-1091',
-                            'qpid-dispatch-router': 'router with qpid or activemq broker',},
-                   'decimal32': {'ActiveMQ': 'decimal32 and decimal64 sent byte reversed: PROTON-1160',
-                                 'qpid-cpp': 'decimal32 not supported on qpid-cpp broker: QPIDIT-5, QPID-6328',
-                                 'apache-activemq-artemis': 'decimal32 and decimal64 sent byte reversed: PROTON-1160',
-                                 'qpid-dispatch-router': 'decimal32 and decimal64 sent byte reversed: PROTON-1160',},
-                   'decimal64': {'ActiveMQ': 'decimal32 and decimal64 sent byte reversed: PROTON-1160',
-                                 'qpid-cpp': 'decimal64 not supported on qpid-cpp broker: QPIDIT-6, QPID-6328',
-                                 'apache-activemq-artemis': 'decimal32 and decimal64 sent byte reversed: PROTON-1160',
-                                 'qpid-dispatch-router': 'decimal32 and decimal64 sent byte reversed: PROTON-1160',},
-                   'decimal128': {'qpid-cpp': 'decimal128 not supported on qpid-cpp broker: QPIDIT-3, QPID-6328',
-                                  'qpid-dispatch-router': 'router with qpid or activemq broker',},
-                   'char': {'qpid-cpp': 'char not supported on qpid-cpp broker: QPIDIT-4, QPID-6328',
-                            'apache-activemq-artemis': 'char types > 16 bits truncated on Artemis: ENTMQ-1685',
-                            'qpid-dispatch-router': 'router with qpid or artemis broker',},
-                   'float': {'apache-activemq-artemis': '-NaN is stripped of its sign: ENTMQ-1686',},
-                   'double': {'apache-activemq-artemis': '-NaN is stripped of its sign: ENTMQ-1686',},
-                  }
+    BROKER_SKIP = {
+        'null': {'ActiveMQ': 'Null type not sent in Proton Python binding: PROTON-1091',
+                 'qpid-cpp': 'Null type not sent in Proton Python binding: PROTON-1091',
+                 'qpid-dispatch-router': 'router with qpid or activemq broker',},
+        'decimal32': {'ActiveMQ': 'decimal32 and decimal64 sent byte reversed: PROTON-1160',
+                      'qpid-cpp': 'decimal32 not supported on qpid-cpp broker: QPIDIT-5, QPID-6328',
+                      'apache-activemq-artemis': 'decimal32 and decimal64 sent byte reversed: PROTON-1160',
+                      'qpid-dispatch-router': 'decimal32 and decimal64 sent byte reversed: PROTON-1160',},
+        'decimal64': {'ActiveMQ': 'decimal32 and decimal64 sent byte reversed: PROTON-1160',
+                      'qpid-cpp': 'decimal64 not supported on qpid-cpp broker: QPIDIT-6, QPID-6328',
+                      'apache-activemq-artemis': 'decimal32 and decimal64 sent byte reversed: PROTON-1160',
+                      'qpid-dispatch-router': 'decimal32 and decimal64 sent byte reversed: PROTON-1160',},
+        'decimal128': {'qpid-cpp': 'decimal128 not supported on qpid-cpp broker: QPIDIT-3, QPID-6328',
+                       'qpid-dispatch-router': 'router with qpid or activemq broker',},
+        'char': {'qpid-cpp': 'char not supported on qpid-cpp broker: QPIDIT-4, QPID-6328',
+                 'apache-activemq-artemis': 'char types > 16 bits truncated on Artemis: ENTMQ-1685',
+                 'qpid-dispatch-router': 'router with qpid or artemis broker',},
+        'float': {'apache-activemq-artemis': '-NaN is stripped of its sign: ENTMQ-1686',},
+        'double': {'apache-activemq-artemis': '-NaN is stripped of its sign: ENTMQ-1686',},
+        }
+
+    def __init__(self):
+        super(AmqpPrimitiveTypes, self).__init__()
 
     def create_array(self, amqp_type, repeat):
         """
@@ -398,96 +402,64 @@ def create_testcase_class(amqp_type, shim_product):
     return new_class
 
 
-# SHIM_MAP contains an instance of each client language shim that is to be tested as a part of this test. For
-# every shim in this list, a test is dynamically constructed which tests it against itself as well as every
-# other shim in the list.
-#
-# As new shims are added, add them into this map to have them included in the test cases.
-PROTON_CPP_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'amqp_types_test',
-                                     'Receiver')
-PROTON_CPP_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'amqp_types_test',
-                                   'Sender')
-PROTON_PYTHON_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'amqp_types_test',
-                                        'Receiver.py')
-PROTON_PYTHON_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'amqp_types_test',
-                                      'Sender.py')
-PROTON_RHEAJS_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'rhea-js', 'amqp_types_test',
-                                        'Receiver.js')
-PROTON_RHEAJS_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'rhea-js', 'amqp_types_test',
-                                      'Sender.js')
-
-SHIM_MAP = {qpid_interop_test.shims.ProtonCppShim.NAME: \
-                qpid_interop_test.shims.ProtonCppShim(PROTON_CPP_SENDER_SHIM, PROTON_CPP_RECEIVER_SHIM),
-            qpid_interop_test.shims.ProtonPythonShim.NAME: \
-                qpid_interop_test.shims.ProtonPythonShim(PROTON_PYTHON_SENDER_SHIM, PROTON_PYTHON_RECEIVER_SHIM),
-            qpid_interop_test.shims.RheaJsShim.NAME: \
-                qpid_interop_test.shims.RheaJsShim(PROTON_RHEAJS_SENDER_SHIM, PROTON_RHEAJS_RECEIVER_SHIM),
-           }
-
-
 class TestOptions(object):
     """
     Class controlling command-line arguments used to control the test.
     """
-    def __init__(self):
+    def __init__(self, shim_map):
         parser = argparse.ArgumentParser(description='Qpid-interop AMQP client interoparability test suite '
                                          'for AMQP simple types')
         parser.add_argument('--sender', action='store', default='localhost:5672', metavar='IP-ADDR:PORT',
                             help='Node to which test suite will send messages.')
         parser.add_argument('--receiver', action='store', default='localhost:5672', metavar='IP-ADDR:PORT',
                             help='Node from which test suite will receive messages.')
-#        test_group = parser.add_mutually_exclusive_group()
-#        test_group.add_argument('--include-test', action='append', metavar='TEST-NAME',
-#                                help='Name of test to include')
-#        test_group.add_argument('--exclude-test', action='append', metavar='TEST-NAME',
-#                                help='Name of test to exclude')
-#        type_group = test_group.add_mutually_exclusive_group()
-#        type_group.add_argument('--include-type', action='append', metavar='AMQP-TYPE',
-#                                help='Name of AMQP type to include. Supported types:\n%s' %
-#                                sorted(AmqpPrimitiveTypes.TYPE_MAP.keys()))
-        parser.add_argument('--exclude-type', action='append', metavar='AMQP-TYPE',
-                            help='Name of AMQP type to exclude. Supported types:\n%s' %
-                            sorted(AmqpPrimitiveTypes.TYPE_MAP.keys()))
+        parser.add_argument('--no-skip', action='store_true',
+                            help='Do not skip tests that are excluded by default for reasons of a known bug')
+        type_group = parser.add_mutually_exclusive_group()
+        type_group.add_argument('--include-type', action='append', metavar='AMQP-TYPE',
+                                help='Name of AMQP type to include. Supported types:\n%s' %
+                                sorted(AmqpPrimitiveTypes.TYPE_MAP.keys()))
+        type_group.add_argument('--exclude-type', action='append', metavar='AMQP-TYPE',
+                                help='Name of AMQP type to exclude. Supported types: see "include-type" above')
         shim_group = parser.add_mutually_exclusive_group()
         shim_group.add_argument('--include-shim', action='append', metavar='SHIM-NAME',
-                                help='Name of shim to include. Supported shims:\n%s' % sorted(SHIM_MAP.keys()))
+                                help='Name of shim to include. Supported shims:\n%s' % sorted(shim_map.keys()))
         shim_group.add_argument('--exclude-shim', action='append', metavar='SHIM-NAME',
-                            help='Name of shim to exclude. Supported shims:\n%s' % sorted(SHIM_MAP.keys()))
+                            help='Name of shim to exclude. Supported shims: see "include-shim" above')
         self.args = parser.parse_args()
-#        if self.args.include_shim is not None and self.args.exclude_shim is not None:
-#            raise RuntimeError('Connot use --include-shim and --exclude-shim together')
 
 
 #--- Main program start ---
 
 if __name__ == '__main__':
 
-    ARGS = TestOptions().args
+    # SHIM_MAP contains an instance of each client language shim that is to be tested as a part of this test. For
+    # every shim in this list, a test is dynamically constructed which tests it against itself as well as every
+    # other shim in the list.
+    #
+    # As new shims are added, add them into this map to have them included in the test cases.
+    PROTON_CPP_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'amqp_types_test',
+                                         'Receiver')
+    PROTON_CPP_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'amqp_types_test',
+                                       'Sender')
+    PROTON_PYTHON_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'amqp_types_test',
+                                            'Receiver.py')
+    PROTON_PYTHON_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'amqp_types_test',
+                                          'Sender.py')
+    PROTON_RHEAJS_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'rhea-js', 'amqp_types_test',
+                                            'Receiver.js')
+    PROTON_RHEAJS_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'rhea-js', 'amqp_types_test',
+                                          'Sender.js')
+    SHIM_MAP = {qpid_interop_test.shims.ProtonCppShim.NAME: \
+                    qpid_interop_test.shims.ProtonCppShim(PROTON_CPP_SENDER_SHIM, PROTON_CPP_RECEIVER_SHIM),
+                qpid_interop_test.shims.ProtonPythonShim.NAME: \
+                    qpid_interop_test.shims.ProtonPythonShim(PROTON_PYTHON_SENDER_SHIM, PROTON_PYTHON_RECEIVER_SHIM),
+                qpid_interop_test.shims.RheaJsShim.NAME: \
+                    qpid_interop_test.shims.RheaJsShim(PROTON_RHEAJS_SENDER_SHIM, PROTON_RHEAJS_RECEIVER_SHIM),
+               }
+
+    ARGS = TestOptions(SHIM_MAP).args
     #print 'ARGS:', ARGS # debug
-
-    # Connect to broker to find broker type
-    # TODO: Find out why this uses auth
-    CONNECTION_PROPS = qpid_interop_test.broker_properties.get_broker_properties(ARGS.sender)
-    if CONNECTION_PROPS is None:
-        print 'WARNING: Unable to get connection properties - unknown broker'
-        BROKER = 'unknown'
-    else:
-        BROKER = CONNECTION_PROPS[symbol(u'product')] if symbol(u'product') in CONNECTION_PROPS \
-                 else '<product not found>'
-        BROKER_VERSION = CONNECTION_PROPS[symbol(u'version')] if symbol(u'version') in CONNECTION_PROPS \
-                         else '<version not found>'
-        BROKER_PLATFORM = CONNECTION_PROPS[symbol(u'platform')] if symbol(u'platform') in CONNECTION_PROPS \
-                          else '<platform not found>'
-        print 'Test Broker: %s v.%s on %s' % (BROKER, BROKER_VERSION, BROKER_PLATFORM)
-        print
-        sys.stdout.flush()
-
-    TYPES = AmqpPrimitiveTypes()
-
-    # TEST_SUITE is the final suite of tests that will be run and which contains all the dynamically created
-    # type classes, each of which contains a test for the combinations of client shims
-    TEST_SUITE = unittest.TestSuite()
-
 
     # Add shims included from the command-line
     if ARGS.include_shim is not None:
@@ -507,6 +479,31 @@ if __name__ == '__main__':
             except KeyError:
                 print 'No such shim: "%s". Use --help for valid shims' % shim
                 sys.exit(1) # Errors or failures present
+
+    # Connect to broker to find broker type
+    # TODO: Find out why this uses auth
+    CONNECTION_PROPS = qpid_interop_test.broker_properties.get_broker_properties(ARGS.sender)
+    if CONNECTION_PROPS is None:
+        print 'WARNING: Unable to get connection properties - unknown broker'
+        BROKER = 'unknown'
+    else:
+        BROKER = CONNECTION_PROPS[symbol(u'product')] if symbol(u'product') in CONNECTION_PROPS \
+                 else '<product not found>'
+        BROKER_VERSION = CONNECTION_PROPS[symbol(u'version')] if symbol(u'version') in CONNECTION_PROPS \
+                         else '<version not found>'
+        BROKER_PLATFORM = CONNECTION_PROPS[symbol(u'platform')] if symbol(u'platform') in CONNECTION_PROPS \
+                          else '<platform not found>'
+        print 'Test Broker: %s v.%s on %s' % (BROKER, BROKER_VERSION, BROKER_PLATFORM)
+        print
+        sys.stdout.flush()
+        if ARGS.no_skip:
+            BROKER = None # Will cause all tests to run
+
+    TYPES = AmqpPrimitiveTypes().get_types(ARGS)
+
+    # TEST_SUITE is the final suite of tests that will be run and which contains all the dynamically created
+    # type classes, each of which contains a test for the combinations of client shims
+    TEST_SUITE = unittest.TestSuite()
 
     # Create test classes dynamically
     for at in sorted(TYPES.get_type_list()):
