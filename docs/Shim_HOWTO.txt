@@ -99,7 +99,7 @@ test program communicates with it by sending parameters to the shim on the
 command-line, and receives information by receiving what the shim prints to
 cout (and in the case of problems or errors, cerr).
 
-The following are the parameters sent to each shim:
+The following parameters are sent to each shim:
 
 1.   Broker address (ipaddr:port)
 2.   Queue name
@@ -446,8 +446,8 @@ to change at some point when this limitation is fixed)
 
 Broker settings
 ---------------
-* The tests rely upon the broker to create queues that do not exist
-  automatically (or they must pre-exist), as the tests do not explicitly create
+* The tests rely upon the broker to automatically create queues that do not
+  exist (or they must pre-exist), as the tests do not explicitly create
   them. If necessary, configure the broker for auto-queue-creation.
 * IP4/IP6: Some clients use IP4 by default, others use IP6. The broker must be
   listening on both for these clients to interoperate.
