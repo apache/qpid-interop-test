@@ -22,6 +22,7 @@
 #ifndef SRC_QPIDIT_JMSTESTBASE_HPP_
 #define SRC_QPIDIT_JMSTESTBASE_HPP_
 
+#include <stdint.h>
 #include <map>
 #include "proton/messaging_handler.hpp"
 #include "proton/symbol.hpp"
