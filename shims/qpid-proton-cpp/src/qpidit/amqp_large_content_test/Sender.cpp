@@ -24,9 +24,12 @@
 #include <iomanip>
 #include <iostream>
 #include <json/json.h>
+#include "proton/container.hpp"
 #include "proton/default_container.hpp"
 #include "proton/connection.hpp"
+#include "proton/message.hpp"
 #include "proton/sender.hpp"
+#include "proton/tracker.hpp"
 #include "qpidit/QpidItErrors.hpp"
 
 namespace qpidit

@@ -24,9 +24,13 @@
 #include <iostream>
 #include <json/json.h>
 #include "proton/connection.hpp"
-#include <proton/default_container.hpp>
+#include "proton/container.hpp"
+#include "proton/default_container.hpp"
+#include "proton/error_condition.hpp"
 #include "proton/delivery.hpp"
+#include "proton/message.hpp"
 #include "proton/receiver.hpp"
+#include "proton/thread_safe.hpp"
 #include "proton/transport.hpp"
 #include "qpidit/QpidItErrors.hpp"
 

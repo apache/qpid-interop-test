@@ -26,7 +26,9 @@
 #include <iostream>
 #include <json/json.h>
 #include "proton/connection.hpp"
+#include "proton/container.hpp"
 #include "proton/default_container.hpp"
+#include "proton/thread_safe.hpp"
 #include "proton/tracker.hpp"
 #include "proton/transport.hpp"
 #include <stdio.h>

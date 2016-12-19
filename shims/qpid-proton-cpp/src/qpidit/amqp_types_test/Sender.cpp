@@ -25,8 +25,10 @@
 #include <iostream>
 #include <json/json.h>
 #include "proton/connection.hpp"
+#include "proton/container.hpp"
 #include "proton/default_container.hpp"
 #include "proton/sender.hpp"
+#include "proton/tracker.hpp"
 
 namespace qpidit
 {

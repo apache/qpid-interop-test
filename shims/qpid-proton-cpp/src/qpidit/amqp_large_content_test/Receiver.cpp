@@ -24,8 +24,12 @@
 #include <iostream>
 #include <json/json.h>
 #include <stdlib.h> // exit()
+#include "proton/connection.hpp"
+#include "proton/container.hpp"
 #include "proton/default_container.hpp"
 #include "proton/delivery.hpp"
+#include "proton/message.hpp"
+#include "proton/receiver.hpp"
 #include "qpidit/QpidItErrors.hpp"
 
 namespace qpidit

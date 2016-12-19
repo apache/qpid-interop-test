@@ -24,6 +24,8 @@
 #include <iostream> // debug
 #include <sstream>
 #include "proton/container.hpp"
+#include "proton/receiver.hpp"
+#include "proton/thread_safe.hpp" // for proton::returned<>
 
 namespace qpidit
 {

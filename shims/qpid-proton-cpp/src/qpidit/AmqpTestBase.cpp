@@ -23,6 +23,7 @@
 
 #include <iostream>
 #include "proton/connection.hpp"
+#include "proton/error_condition.hpp"
 #include "proton/sender.hpp"
 #include "proton/session.hpp"
 #include "proton/transport.hpp"

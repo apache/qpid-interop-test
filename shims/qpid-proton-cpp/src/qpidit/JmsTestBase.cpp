@@ -23,6 +23,7 @@
 
 #include <iostream>
 #include "proton/connection.hpp"
+#include "proton/error_condition.hpp"
 
 namespace qpidit {
 
