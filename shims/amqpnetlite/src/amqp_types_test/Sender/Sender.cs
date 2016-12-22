@@ -90,11 +90,7 @@ namespace Qpidit
             if (!encoded)
                 Encode();
 
-            if (valueDirect != null)
-            {
-                return valueDirect;
-            }
-            throw new ApplicationException("Sender.MessageValue.ToObject: Message not encoded properly");
+            return valueDirect;
         }
 
 
@@ -117,65 +113,72 @@ namespace Qpidit
         {
             string typename = obj.GetType().Name;
             string qpiditType = null;
-            switch (typename)
+            if (obj == null)
             {
-                case "Boolean":
-                    qpiditType = "boolean";
-                    break;
-                case "Byte":
-                    qpiditType = "ubyte";
-                    break;
-                case "UInt16":
-                    qpiditType = "ushort";
-                    break;
-                case "UInt32":
-                    qpiditType = "uint";
-                    break;
-                case "UInt64":
-                    qpiditType = "ulong";
-                    break;
-                case "SByte":
-                    qpiditType = "byte";
-                    break;
-                case "Int16":
-                    qpiditType = "short";
-                    break;
-                case "Int32":
-                    qpiditType = "int";
-                    break;
-                case "Int64":
-                    qpiditType = "long";
-                    break;
-                case "Single":
-                    qpiditType = "float";
-                    break;
-                case "Double":
-                    qpiditType = "double";
-                    break;
-                case "DateTime":
-                    qpiditType = "timestamp";
-                    break;
-                case "Guid":
-                    qpiditType = "uuid";
-                    break;
-                case "Byte[]":
-                    qpiditType = "binary";
-                    break;
-                case "String":
-                    qpiditType = "string";
-                    break;
-                case "Symbol":
-                    qpiditType = "symbol";
-                    break;
-                case "Array":
-                    qpiditType = "list";
-                    break;
-                case "Dictionary":
-                    qpiditType = "map";
-                    break;
-                default:
-                    throw new ApplicationException(String.Format(
-                        "Can not translate system type {0} to a QpidIT type", typename));
+                qpiditType = "null";
+            }
+            else
+            {
+                switch (typename)
+                {
+                    case "Boolean":
+                        qpiditType = "boolean";
+                        break;
+                    case "Byte":
+                        qpiditType = "ubyte";
+                        break;
+                    case "UInt16":
+                        qpiditType = "ushort";
+                        break;
+                    case "UInt32":
+                        qpiditType = "uint";
+                        break;
+                    case "UInt64":
+                        qpiditType = "ulong";
+                        break;
+                    case "SByte":
+                        qpiditType = "byte";
+                        break;
+                    case "Int16":
+                        qpiditType = "short";
+                        break;
+                    case "Int32":
+                        qpiditType = "int";
+                        break;
+                    case "Int64":
+                        qpiditType = "long";
+                        break;
+                    case "Single":
+                        qpiditType = "float";
+                        break;
+                    case "Double":
+                        qpiditType = "double";
+                        break;
+                    case "DateTime":
+                        qpiditType = "timestamp";
+                        break;
+                    case "Guid":
+                        qpiditType = "uuid";
+                        break;
+                    case "Byte[]":
+                        qpiditType = "binary";
+                        break;
+                    case "String":
+                        qpiditType = "string";
+                        break;
+                    case "Symbol":
+                        qpiditType = "symbol";
+                        break;
+                    case "Array":
+                        qpiditType = "list";
+                        break;
+                    case "Dictionary":
+                        qpiditType = "map";
+                        break;
+                    default:
+                        throw new ApplicationException(String.Format(
+                            "Can not translate system type {0} to a QpidIT type", typename));
+                }
             }
             return qpiditType;
         }
@@ -258,6 +261,9 @@ namespace Qpidit
 
                 switch (baseType)
                 {
+                    case "null":
+                        valueDirect = null;
+                        break;
                     case "boolean":
                         value = (string)baseValue;
                         bool mybool = String.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
