@@ -17,28 +17,51 @@
 # under the License.
 #
 
+# Building AMQP.Net Lite shim requires
+# * Mono version 4.2.4 or later
+# * AMQPNETLITE_LIB_DIR names directory that holds Ampq.Net.dll
+#   and optionally .pdb and .xml files.
+#
+# Define -DBUILD_AMQPNETLITE=ON (or OFF) at the cmake command line
+# to force a build or not.
+
 project (qpid-interop-test-amqpnetlite-shims)
 
 cmake_minimum_required(VERSION 2.8.7 FATAL_ERROR)
 
-# Set AMQPNETLITE build or not based on installed mono version
+# Set BUILD_AMQPNETLITE control variable based on sensed environment
 set(lite_default ON)
 
 find_program(PROG_MONO mono)
 
 if (PROG_MONO-NOTFOUND)
+  message(STATUS "Program 'mono' is not found. AMQP.Net Lite shim requires mono.")
   set(lite_default OFF)
 else ()
   # mono found. Check version
   execute_process(COMMAND mono --version OUTPUT_VARIABLE ov)
   string(REPLACE " " ";" ov_list ${ov})
   list(GET ov_list 4 mono_ver)
-  if(mono_ver VERSION_LESS "4.2.4")
-    message(STATUS "AMQP.Net Lite requires mono minimum version 4.2.4. Version ${mono_ver} detected.")
+  if (mono_ver VERSION_LESS "4.2.4")
+    message(STATUS "Mono version ${mono_ver} detected. AMQP.Net Lite requires mono minimum version 4.2.4.")
     set(lite_default OFF)
+  else ()
+    # check for DLL source directory
+    if (NOT EXISTS ${AMQPNETLITE_LIB_DIR})
+      message(STATUS "AMQP.Net Lite shim requires Amqp.Net.dll to be in folder located with AMQPNETLITE_LIB_DIR environment variable")
+      message(STATUS "AMQP.Net Lite library directory '${AMQPNETLITE_LIB_DIR}' does not exist.")
+      set(lite_default OFF)
+    else ()
+      if (NOT EXISTS ${AMQPNTLITE_LIB_DIR}/Amqp.Net.dll)
+        message(STATUS "AMQP.Net Lite shim requires Amqp.Net.dll to be in folder located with AMQPNETLITE_LIB_DIR environment variable")
+        message(STATUS "AMQP.Net Lite DLL does not exist in library directory '${AMQPNETLITE_LIB_DIR}'")
+        set(lite_default OFF)
+      endif ()
+    endif ()
   endif ()
 endif ()
 
+# Set option that controls the build process
 option(BUILD_AMQPNETLITE "Build AMQP.Net Lite shim under mono" ${lite_default})
 
 message(STATUS "BUILD_AMQPNETLITE = ${BUILD_AMQPNETLITE}")
