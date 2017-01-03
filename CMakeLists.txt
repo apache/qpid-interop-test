@@ -51,8 +51,8 @@ install(CODE "execute_process(COMMAND chmod +x Receiver.py
                               WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}/lib/python2.7/site-packages/qpid_interop_test/shims/qpid-proton-python/jms_messages_test/)")
 
 # Install Rhea client dependencies
-install(CODE "execute_process(COMMAND npm install node-uuid
-                              WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}/lib/python2.7/site-packages/qpid_interop_test/shims/rhea-js/)")
-install(CODE "execute_process(COMMAND npm link rhea
-                              WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}/lib/python2.7/site-packages/qpid_interop_test/shims/rhea-js/)")
+# install(CODE "execute_process(COMMAND npm install node-uuid
+#                               WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}/lib/python2.7/site-packages/qpid_interop_test/shims/rhea-js/)")
+# install(CODE "execute_process(COMMAND npm link rhea
+#                               WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}/lib/python2.7/site-packages/qpid_interop_test/shims/rhea-js/)")
                               
