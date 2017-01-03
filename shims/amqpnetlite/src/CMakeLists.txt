@@ -52,7 +52,7 @@ else ()
       message(STATUS "AMQP.Net Lite library directory '${AMQPNETLITE_LIB_DIR}' does not exist.")
       set(lite_default OFF)
     else ()
-      if (NOT EXISTS ${AMQPNTLITE_LIB_DIR}/Amqp.Net.dll)
+      if (NOT EXISTS ${AMQPNETLITE_LIB_DIR}/Amqp.Net.dll)
         message(STATUS "AMQP.Net Lite shim requires Amqp.Net.dll to be in folder located with AMQPNETLITE_LIB_DIR environment variable")
         message(STATUS "AMQP.Net Lite DLL does not exist in library directory '${AMQPNETLITE_LIB_DIR}'")
         set(lite_default OFF)
@@ -65,3 +65,19 @@ endif ()
 option(BUILD_AMQPNETLITE "Build AMQP.Net Lite shim under mono" ${lite_default})
 
 message(STATUS "BUILD_AMQPNETLITE = ${BUILD_AMQPNETLITE}")
+
+# Stage the build
+if (BUILD_AMQPNETLITE)
+  # Drop lite dll into build/packages
+  file(GLOB LITE_LIBS "${AMQPNETLITE_LIB_DIR}/Amqp.Net.*")
+  file(COPY ${LITE_LIBS} DESTINATION ${CMAKE_BINARY_DIR}/shims/amqpnetlite/packages/amqpnetlite/lib/net45/)
+
+  # Configure the csproj files
+  configure_file(                             amqp_types_test/Receiver/Receiver.csproj.in
+    ${CMAKE_BINARY_DIR}/shims/amqpnetlite/src/amqp_types_test/Receiver/Receiver.csproj
+    @ONLY)
+  configure_file(                             amqp_types_test/Sender/Sender.csproj.in
+    ${CMAKE_BINARY_DIR}/shims/amqpnetlite/src/amqp_types_test/Sender/Sender.csproj
+    @ONLY)
+  
+endif ()
