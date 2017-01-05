@@ -104,6 +104,7 @@ class Sender(ShimWorkerThread):
             self.proc = Popen(self.arg_list, stdout=PIPE, stderr=PIPE, shell=self.use_shell_flag, preexec_fn=setsid)
             (stdoutdata, stderrdata) = self.proc.communicate()
             if len(stderrdata) > 0:
+                #print '<<SNDR ERROR<<', stderrdata # DEBUG - useful to see shim's failure message
                 self.return_obj = (stdoutdata, stderrdata)
             else:
                 #print '<<SNDR<<', stdoutdata # DEBUG - useful to see text received from shim
@@ -135,6 +136,7 @@ class Receiver(ShimWorkerThread):
             self.proc = Popen(self.arg_list, stdout=PIPE, stderr=PIPE, preexec_fn=setsid)
             (stdoutdata, stderrdata) = self.proc.communicate()
             if len(stderrdata) > 0:
+                #print '<<SNDR ERROR<<', stderrdata # DEBUG - useful to see shim's failure message
                 self.return_obj = (stdoutdata, stderrdata)
             else:
                 #print '<<RCVR<<', stdoutdata # DEBUG - useful to see text received from shim
@@ -250,3 +252,12 @@ class QpidJmsShim(Shim):
     #                     self.LOGGER_IMPL_JAR,
     #                     self.PROTON_J_JAR,
     #                     self.NETTY_JAR])
+
+
+class AmqpNetLiteShim(Shim):
+    """Shim for AMQP.Net Lite client"""
+    NAME = 'AmqpNetLite'
+    def __init__(self, sender_shim, receiver_shim):
+        super(AmqpNetLiteShim, self).__init__(sender_shim, receiver_shim)
+        self.send_params = ['mono' ,self.sender_shim]
+        self.receive_params = ['mono', self.receiver_shim]

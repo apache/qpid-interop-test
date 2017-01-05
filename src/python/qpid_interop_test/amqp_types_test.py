@@ -450,12 +450,18 @@ if __name__ == '__main__':
                                             'Receiver.js')
     PROTON_RHEAJS_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'rhea-js', 'amqp_types_test',
                                           'Sender.js')
+    AMQPNETLITE_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'amqpnetlite', 'amqp_types_test',
+                                     'Receiver.exe')
+    AMQPNETLITE_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'amqpnetlite', 'amqp_types_test',
+                                   'Sender.exe')
     SHIM_MAP = {qpid_interop_test.shims.ProtonCppShim.NAME: \
                     qpid_interop_test.shims.ProtonCppShim(PROTON_CPP_SENDER_SHIM, PROTON_CPP_RECEIVER_SHIM),
                 qpid_interop_test.shims.ProtonPythonShim.NAME: \
                     qpid_interop_test.shims.ProtonPythonShim(PROTON_PYTHON_SENDER_SHIM, PROTON_PYTHON_RECEIVER_SHIM),
                 qpid_interop_test.shims.RheaJsShim.NAME: \
                     qpid_interop_test.shims.RheaJsShim(PROTON_RHEAJS_SENDER_SHIM, PROTON_RHEAJS_RECEIVER_SHIM),
+                qpid_interop_test.shims.AmqpNetLiteShim.NAME: \
+                    qpid_interop_test.shims.AmqpNetLiteShim(AMQPNETLITE_SENDER_SHIM, AMQPNETLITE_RECEIVER_SHIM),
                }
 
     ARGS = TestOptions(SHIM_MAP).args

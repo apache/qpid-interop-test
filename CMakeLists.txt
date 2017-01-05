@@ -24,6 +24,7 @@ cmake_minimum_required(VERSION 2.8.7 FATAL_ERROR)
 set(PROTON_INSTALL_DIR "/usr/local/qpid-proton" CACHE PATH "Proton install directory")
 
 add_subdirectory(shims/qpid-proton-cpp/src)
+add_subdirectory(shims/amqpnetlite/src)
 
 # Build Java code
 install(CODE "execute_process(COMMAND mvn -DskipTests install
