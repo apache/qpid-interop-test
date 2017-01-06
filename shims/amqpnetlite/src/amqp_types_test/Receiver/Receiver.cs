@@ -143,11 +143,15 @@ namespace Qpidit
             string result = "";
             for (int i = input.Length - 1; i >= 0; i--)
             {
-                if (!suppressLeading0s || input[i] != 0)
-                {
-                    suppressLeading0s = false;
-                    result += String.Format("{0:x2}", input[i]);
-                }
+                result += String.Format("{0:x2}", input[i]);
+            }
+            if (suppressLeading0s)
+            {
+                result = result.TrimStart('0');
+            }
+            if (String.IsNullOrEmpty(result))
+            {
+                result = "0";
             }
             return result;
         }
@@ -335,7 +339,7 @@ namespace Qpidit
                         byte[] dtbytes = BitConverter.GetBytes(
                             (((DateTime)messageValue).Ticks - epochTicks) / TimeSpan.TicksPerMillisecond);
                         qpiditType = "timestamp";
-                        valueString = BytesReversedToString(dtbytes, true);
+                        valueString = "0x" + BytesReversedToString(dtbytes, true);
                         break;
                     case "Guid":
                         qpiditType = "uuid";
