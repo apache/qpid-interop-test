@@ -136,7 +136,7 @@ class Receiver(ShimWorkerThread):
             self.proc = Popen(self.arg_list, stdout=PIPE, stderr=PIPE, preexec_fn=setsid)
             (stdoutdata, stderrdata) = self.proc.communicate()
             if len(stderrdata) > 0:
-                #print '<<SNDR ERROR<<', stderrdata # DEBUG - useful to see shim's failure message
+                #print '<<RCVR ERROR<<', stderrdata # DEBUG - useful to see shim's failure message
                 self.return_obj = (stdoutdata, stderrdata)
             else:
                 #print '<<RCVR<<', stdoutdata # DEBUG - useful to see text received from shim
