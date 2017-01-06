@@ -59,8 +59,5 @@ setup(name='qpid-interop-test',
                                                                  'build/jms_hdrs_props_test/Sender',
                                                                 ],
                   ),
-                  ('%s/rhea-js/amqp_types_test' % SHIM_DIR, ['shims/rhea-js/amqp_types_test/Receiver.js',
-                                                     'shims/rhea-js/amqp_types_test/Sender.js'],
-                  ),
                  ],
      )

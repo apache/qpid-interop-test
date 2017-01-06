@@ -34,7 +34,7 @@ set(lite_default ON)
 
 find_program(PROG_MONO mono)
 
-if (PROG_MONO-NOTFOUND)
+if (PROG_MONO STREQUAL "PROG_MONO-NOTFOUND")
   message(STATUS "Program 'mono' is not found. AMQP.Net Lite shim requires mono.")
   set(lite_default OFF)
 else ()

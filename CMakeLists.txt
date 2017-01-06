@@ -25,6 +25,7 @@ set(PROTON_INSTALL_DIR "/usr/local/qpid-proton" CACHE PATH "Proton install direc
 
 add_subdirectory(shims/qpid-proton-cpp/src)
 add_subdirectory(shims/amqpnetlite/src)
+add_subdirectory(shims/rhea-js)
 
 # Build Java code
 install(CODE "execute_process(COMMAND mvn -DskipTests install
@@ -33,6 +34,10 @@ install(CODE "execute_process(COMMAND mvn -DskipTests install
 # Install files using python setup.py
 install(CODE "execute_process(COMMAND python setup.py install --prefix ${CMAKE_INSTALL_PREFIX}
                               WORKING_DIRECTORY ../)")
+
+# TODO: THIS IS UGLY!
+# Find a way to handle this as part of the Python install process instead
+# Set the following Python scripts to executable:
 install(CODE "execute_process(COMMAND chmod +x amqp_large_content_test.py
                                                amqp_types_test.py
                                                jms_hdrs_props_test.py
@@ -50,10 +55,3 @@ install(CODE "execute_process(COMMAND chmod +x Receiver.py
 install(CODE "execute_process(COMMAND chmod +x Receiver.py
                                                Sender.py
                               WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}/lib/python2.7/site-packages/qpid_interop_test/shims/qpid-proton-python/jms_messages_test/)")
-
-# Install Rhea client dependencies
-install(CODE "execute_process(COMMAND npm install node-uuid
-                              WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}/lib/python2.7/site-packages/qpid_interop_test/shims/rhea-js/)")
-install(CODE "execute_process(COMMAND npm link rhea
-                              WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}/lib/python2.7/site-packages/qpid_interop_test/shims/rhea-js/)")
-                              
