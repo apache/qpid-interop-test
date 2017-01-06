@@ -154,6 +154,51 @@ namespace Qpidit
 
 
         /// <summary>
+        /// Json-encode an array of bytes assumed to be plain ascii text.
+        /// </summary>
+        /// <param name="theBytes">The byte array.</param>
+        /// <returns>Serialized string</returns>
+        public string SerializeBytes(byte[] theBytes)
+        {
+            StringBuilder builder = new StringBuilder();
+            byte asciiSlash = Encoding.Default.GetBytes("\\")[0];
+            byte asciiDoubleQuote = Encoding.Default.GetBytes("\"")[0];
+            foreach (byte b in theBytes)
+            {
+                if (b == asciiSlash) {
+                    // backslash needs backslash escape
+                    builder.Append((char)asciiSlash);
+                    builder.Append((char)asciiSlash);
+                }
+                else if (b == asciiDoubleQuote) {
+                    // doublequote needs backslash escape
+                    builder.Append((char)asciiSlash);
+                    builder.Append((char)asciiDoubleQuote);
+                }
+                else if (b >= 32 && b <= 127)
+                    // printable ascii passed through
+                    builder.Append((char)b);
+                else
+                    // non-printable ascii as escaped hex bytes
+                    builder.Append(String.Format("\\x{0:x2}", b));
+            }
+            return builder.ToString();
+        }
+
+
+        /// <summary>
+        /// Json-encode an object whose string value is assumed to be plain ascii text.
+        /// </summary>
+        /// <param name="theObject">The object.</param>
+        /// <returns>Serialized string</returns>
+        public string SerializeString(object theObject)
+        {
+            byte[] bytes = Encoding.ASCII.GetBytes(theObject.ToString());
+            return SerializeBytes(bytes);
+        }
+
+
+        /// <summary>
         /// Decode message body's object type names and QpidIt display details.
         /// Recursively process maps and lists.
         /// </summary>
@@ -276,12 +321,12 @@ namespace Qpidit
                     case "Single":
                         byte[] sbytes = BitConverter.GetBytes((Single)messageValue);
                         qpiditType = "float";
-                        valueString = BytesReversedToString(sbytes);
+                        valueString = "0x" + BytesReversedToString(sbytes);
                         break;
                     case "Double":
                         byte[] dbytes = BitConverter.GetBytes((Double)messageValue);
                         qpiditType = "double";
-                        valueString = BytesReversedToString(dbytes);
+                        valueString = "0x" + BytesReversedToString(dbytes);
                         break;
                     case "DateTime":
                         // epochTicks is the number of 100uSec ticks between 01/01/0001
@@ -299,21 +344,15 @@ namespace Qpidit
                     case "Byte[]":
                         qpiditType = "binary";
                         byte[] binstr = (byte[])messageValue;
-                        StringBuilder builder = new StringBuilder();
-                        foreach (byte b in binstr)
-                            if (b >= 32 && b <= 127)
-                                builder.Append((char)b);
-                            else
-                                builder.Append(String.Format("\\{0:x2}", b));
-                        valueString = builder.ToString();
+                        valueString = SerializeBytes(binstr);
                         break;
                     case "String":
                         qpiditType = "string";
-                        valueString = messageValue.ToString();
+                        valueString = SerializeString(messageValue);
                         break;
                     case "Symbol":
                         qpiditType = "symbol";
-                        valueString = messageValue.ToString();
+                        valueString = SerializeString(messageValue);
                         break;
                     default:
                         qpiditType = "unknown";
