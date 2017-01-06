@@ -212,7 +212,7 @@ namespace Qpidit
             {
                 liteType = "null";
                 qpiditType = "null";
-                valueString = "null";
+                valueString = "None";
                 return;
             }
 
