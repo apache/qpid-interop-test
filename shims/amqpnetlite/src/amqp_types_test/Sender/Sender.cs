@@ -20,6 +20,7 @@
  */
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading;
@@ -172,7 +173,13 @@ namespace Qpidit
                     case "Array":
                         qpiditType = "list";
                         break;
+                    case "ArrayList":
+                        qpiditType = "list";
+                        break;
                     case "Dictionary":
+                        qpiditType = "map";
+                        break;
+                    case "Dictionary`2":
                         qpiditType = "map";
                         break;
                     default:
@@ -230,6 +237,22 @@ namespace Qpidit
                 }
                 valueDirect = new Amqp.Types.List();
                 foreach (object item in (Array)baseValue)
+                {
+                    MessageValue itemValue = MessageValue.CreateAutoType(item);
+                    itemValue.Encode();
+                    ((Amqp.Types.List)valueDirect).Add(itemValue.ToObject());
+                }
+            }
+            if (baseValue is ArrayList)
+            {
+                // List
+                if (! String.Equals(baseType, "list", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new ApplicationException(String.Format(
+                        "Sender asked to encode a {0} but received a list: {1}", baseType, baseValue.ToString()));
+                }
+                valueDirect = new Amqp.Types.List();
+                foreach (object item in (ArrayList)baseValue)
                 {
                     MessageValue itemValue = MessageValue.CreateAutoType(item);
                     itemValue.Encode();
