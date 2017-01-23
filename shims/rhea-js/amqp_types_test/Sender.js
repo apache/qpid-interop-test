@@ -233,16 +233,14 @@ function Sender(brokerAddr, brokerPort, queueName, amqpType, testValues) {
     };
 
     this.encodeChar = function(testValue) {
-        var val = null;
         try {
             if (testValue.length === 1) { // Single char format 'a'
-                val = [0, 0, 0, testValue.charCodeAt(0)];
+                return testValue.charCodeAt(0);
             } else { // Hex format '0xNNNN'
-                val = this.hexString2ByteArray(testValue.slice(2), 4);
+                return parseInt(testValue, 16);
             }
         }
         catch (err) { this.handleEncodeError("char", testValue); }
-        return new Buffer(val);
     };
 
     this.encodeTimestamp = function(testValue) {

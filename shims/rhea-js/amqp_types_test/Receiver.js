@@ -122,16 +122,12 @@ function Receiver(brokerAddr, brokerPort, queueName, amqpType, numTestValues) {
         return "0x" + buf.toString('hex');
     };
 
-    // UTF32LE char per AMQP spec
+    // UTF32BE char per AMQP spec
     this.decodeChar = function(msgBody) {
-        if (Buffer.isBuffer(msgBody)) {
-            if (msgBody[0] === 0 && msgBody[1] === 0 && msgBody[2] === 0 && msgBody[3] >= 32 && msgBody[3] <= 126) {
-                // Printable single ASCII char - return just the char
-                return String.fromCharCode(msgBody[3]);
-            }
-            return "0x" + this.buffer2HexString(msgBody, false);
+        if (msgBody >= 32 && msgBody <=126) { // printable single ASCII char
+            return String.fromCharCode(msgBody);
         } else {
-            throw "AMQP type char message body is not Buffer";
+            return "0x" + msgBody.toString(16);
         }
     };
 
