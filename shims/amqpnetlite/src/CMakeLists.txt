@@ -120,7 +120,7 @@ if (BUILD_AMQPNETLITE)
   )
 
   # Install
-  set(LITE_INSTALL_ROOT ${CMAKE_INSTALL_PREFIX}/lib/python2.7/site-packages/qpid_interop_test/shims/amqpnetlite)
+  set(LITE_INSTALL_ROOT ${CMAKE_INSTALL_PREFIX}/libexec/qpid_interop_test/shims/amqpnetlite)
   
   install(
     FILES ${CMAKE_CURRENT_BINARY_DIR}/amqp_types_test/Receiver/bin/Amqp.Net.dll

@@ -39,10 +39,11 @@ import qpid_interop_test.shims
 from qpid_interop_test.test_type_map import TestTypeMap
 
 # TODO: propose a sensible default when installation details are worked out
-QPID_INTEROP_TEST_HOME = getenv('QPID_INTEROP_TEST_HOME')
-if QPID_INTEROP_TEST_HOME is None:
-    print 'ERROR: Environment variable QPID_INTEROP_TEST_HOME is not set'
+QIT_INSTALL_PREFIX = getenv('QIT_INSTALL_PREFIX')
+if QIT_INSTALL_PREFIX is None:
+    print 'ERROR: Environment variable QIT_INSTALL_PREFIX is not set'
     sys.exit(1)
+QIT_TEST_SHIM_HOME = path.join(QIT_INSTALL_PREFIX, 'libexec', 'qpid_interop_test', 'shims')
 
 
 class AmqpPrimitiveTypes(TestTypeMap):
@@ -438,22 +439,15 @@ if __name__ == '__main__':
     # other shim in the list.
     #
     # As new shims are added, add them into this map to have them included in the test cases.
-    PROTON_CPP_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'amqp_types_test',
-                                         'Receiver')
-    PROTON_CPP_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'amqp_types_test',
-                                       'Sender')
-    PROTON_PYTHON_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'amqp_types_test',
-                                            'Receiver.py')
-    PROTON_PYTHON_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'amqp_types_test',
-                                          'Sender.py')
-    PROTON_RHEAJS_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'rhea-js', 'amqp_types_test',
-                                            'Receiver.js')
-    PROTON_RHEAJS_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'rhea-js', 'amqp_types_test',
-                                          'Sender.js')
-    AMQPNETLITE_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'amqpnetlite', 'amqp_types_test',
-                                     'Receiver.exe')
-    AMQPNETLITE_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'amqpnetlite', 'amqp_types_test',
-                                   'Sender.exe')
+    PROTON_CPP_RECEIVER_SHIM = path.join(QIT_TEST_SHIM_HOME, 'qpid-proton-cpp', 'amqp_types_test', 'Receiver')
+    PROTON_CPP_SENDER_SHIM = path.join(QIT_TEST_SHIM_HOME, 'qpid-proton-cpp', 'amqp_types_test', 'Sender')
+    PROTON_PYTHON_RECEIVER_SHIM = path.join(QIT_TEST_SHIM_HOME, 'qpid-proton-python', 'amqp_types_test', 'Receiver.py')
+    PROTON_PYTHON_SENDER_SHIM = path.join(QIT_TEST_SHIM_HOME, 'qpid-proton-python', 'amqp_types_test', 'Sender.py')
+    PROTON_RHEAJS_RECEIVER_SHIM = path.join(QIT_TEST_SHIM_HOME, 'rhea-js', 'amqp_types_test', 'Receiver.js')
+    PROTON_RHEAJS_SENDER_SHIM = path.join(QIT_TEST_SHIM_HOME, 'rhea-js', 'amqp_types_test', 'Sender.js')
+    AMQPNETLITE_RECEIVER_SHIM = path.join(QIT_TEST_SHIM_HOME, 'amqpnetlite', 'amqp_types_test', 'Receiver.exe')
+    AMQPNETLITE_SENDER_SHIM = path.join(QIT_TEST_SHIM_HOME, 'amqpnetlite', 'amqp_types_test', 'Sender.exe')
+    
     SHIM_MAP = {qpid_interop_test.shims.ProtonCppShim.NAME: \
                     qpid_interop_test.shims.ProtonCppShim(PROTON_CPP_SENDER_SHIM, PROTON_CPP_RECEIVER_SHIM),
                 qpid_interop_test.shims.ProtonPythonShim.NAME: \

@@ -20,8 +20,8 @@
 
 from distutils.core import setup
 
-PACKAGE_DIR = 'lib/python2.7/site-packages/qpid_interop_test'
-SHIM_DIR = '%s/shims' % PACKAGE_DIR
+LIBEXEC_DIR = 'libexec/qpid_interop_test'
+SHIM_DIR = '%s/shims' % LIBEXEC_DIR
 
 setup(name='qpid-interop-test',
       version='0.1',
@@ -29,35 +29,54 @@ setup(name='qpid-interop-test',
       author='Apache Qpid',
       author_email='users@qpid.apache.org',
       url='http://qpid.apache.org/',
-      packages=['qpid_interop_test',
-                'qpid_interop_test/shims/qpid-proton-python/amqp_types_test',
-                'qpid_interop_test/shims/qpid-proton-python/amqp_large_content_test',
-                'qpid_interop_test/shims/qpid-proton-python/jms_hdrs_props_test',
-                'qpid_interop_test/shims/qpid-proton-python/jms_messages_test',
-               ],
-      package_dir={'qpid_interop_test': 'src/python/qpid_interop_test',
-                   'qpid_interop_test/shims/qpid-proton-python/amqp_types_test': 'shims/qpid-proton-python/src/amqp_types_test',
-                   'qpid_interop_test/shims/qpid-proton-python/amqp_large_content_test': 'shims/qpid-proton-python/src/amqp_large_content_test',
-                   'qpid_interop_test/shims/qpid-proton-python/jms_hdrs_props_test': 'shims/qpid-proton-python/src/jms_hdrs_props_test',
-                   'qpid_interop_test/shims/qpid-proton-python/jms_messages_test': 'shims/qpid-proton-python/src/jms_messages_test',
-                  },
-      data_files=[('%s/qpid-jms' % SHIM_DIR, ['shims/qpid-jms/target/qpid-interop-test-jms-shim-0.1.0-SNAPSHOT.jar',
-                                              'shims/qpid-jms/cp.txt']),
-                  ('%s/qpid-proton-cpp/amqp_types_test' % SHIM_DIR, ['build/amqp_types_test/Receiver',
-                                                             'build/amqp_types_test/Sender',
-                                                            ]
+      packages=['qpid_interop_test'],
+      package_dir={'qpid_interop_test': 'src/python/qpid_interop_test'},
+      
+      # Shims, installed into {INSTALL_PREFIX}/libexec/qpid_interop_test/shims/
+     data_files=[('%s/qpid-proton-python/amqp_types_test' % SHIM_DIR,
+                     ['shims/qpid-proton-python/src/amqp_types_test/Receiver.py',
+                      'shims/qpid-proton-python/src/amqp_types_test/Sender.py',
+                     ]
                   ),
-                  ('%s/qpid-proton-cpp/amqp_large_content_test' % SHIM_DIR, ['build/amqp_large_content_test/Receiver',
-                                                                     'build/amqp_large_content_test/Sender',
-                                                                    ],
+                  ('%s/qpid-proton-python/amqp_large_content_test' % SHIM_DIR,
+                     ['shims/qpid-proton-python/src/amqp_large_content_test/Receiver.py',
+                      'shims/qpid-proton-python/src/amqp_large_content_test/Sender.py',
+                     ]
                   ),
-                  ('%s/qpid-proton-cpp/jms_messages_test' % SHIM_DIR, ['build/jms_messages_test/Receiver',
-                                                               'build/jms_messages_test/Sender',
-                                                              ],
+                  ('%s/qpid-proton-python/jms_hdrs_props_test' % SHIM_DIR,
+                     ['shims/qpid-proton-python/src/jms_hdrs_props_test/Receiver.py',
+                      'shims/qpid-proton-python/src/jms_hdrs_props_test/Sender.py',
+                     ]
                   ),
-                  ('%s/qpid-proton-cpp/jms_hdrs_props_test' % SHIM_DIR, ['build/jms_hdrs_props_test/Receiver',
-                                                                 'build/jms_hdrs_props_test/Sender',
-                                                                ],
+                  ('%s/qpid-proton-python/jms_messages_test' % SHIM_DIR,
+                     ['shims/qpid-proton-python/src/jms_messages_test/Receiver.py',
+                      'shims/qpid-proton-python/src/jms_messages_test/Sender.py',
+                     ]
+                  ),
+                  ('%s/qpid-jms' % SHIM_DIR,
+                     ['shims/qpid-jms/target/qpid-interop-test-jms-shim-0.1.0-SNAPSHOT.jar',
+                       'shims/qpid-jms/cp.txt',
+                     ]
+                  ),
+                  ('%s/qpid-proton-cpp/amqp_types_test' % SHIM_DIR,
+                     ['build/amqp_types_test/Receiver',
+                      'build/amqp_types_test/Sender',
+                     ]
+                  ),
+                  ('%s/qpid-proton-cpp/amqp_large_content_test' % SHIM_DIR,
+                     ['build/amqp_large_content_test/Receiver',
+                      'build/amqp_large_content_test/Sender',
+                     ],
+                  ),
+                  ('%s/qpid-proton-cpp/jms_messages_test' % SHIM_DIR,
+                     ['build/jms_messages_test/Receiver',
+                      'build/jms_messages_test/Sender',
+                     ],
+                  ),
+                  ('%s/qpid-proton-cpp/jms_hdrs_props_test' % SHIM_DIR,
+                     ['build/jms_hdrs_props_test/Receiver',
+                      'build/jms_hdrs_props_test/Sender',
+                     ],
                   ),
                  ],
      )

@@ -42,7 +42,7 @@ message(STATUS "BUILD_RHEA = ${BUILD_RHEA}")
 
 if (${BUILD_RHEA})
   # Install Rhea client dependencies
-  set(SHIM_INSTALL_PATH ${CMAKE_INSTALL_PREFIX}/lib/python2.7/site-packages/qpid_interop_test/shims/rhea-js/)
+  set(SHIM_INSTALL_PATH ${CMAKE_INSTALL_PREFIX}/libexec/qpid_interop_test/shims/rhea-js/)
   install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/amqp_types_test/Receiver.js
           DESTINATION ${SHIM_INSTALL_PATH}/amqp_types_test/)
   install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/amqp_types_test/Sender.js

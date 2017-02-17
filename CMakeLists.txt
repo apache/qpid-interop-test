@@ -43,15 +43,3 @@ install(CODE "execute_process(COMMAND chmod +x amqp_large_content_test.py
                                                jms_hdrs_props_test.py
                                                jms_messages_test.py
                               WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}/lib/python2.7/site-packages/qpid_interop_test/)")
-install(CODE "execute_process(COMMAND chmod +x Receiver.py
-                                               Sender.py
-                              WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}/lib/python2.7/site-packages/qpid_interop_test/shims/qpid-proton-python/amqp_large_content_test/)")
-install(CODE "execute_process(COMMAND chmod +x Receiver.py
-                                               Sender.py
-                              WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}/lib/python2.7/site-packages/qpid_interop_test/shims/qpid-proton-python/amqp_types_test/)")
-install(CODE "execute_process(COMMAND chmod +x Receiver.py
-                                               Sender.py
-                              WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}/lib/python2.7/site-packages/qpid_interop_test/shims/qpid-proton-python/jms_hdrs_props_test/)")
-install(CODE "execute_process(COMMAND chmod +x Receiver.py
-                                               Sender.py
-                              WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}/lib/python2.7/site-packages/qpid_interop_test/shims/qpid-proton-python/jms_messages_test/)")

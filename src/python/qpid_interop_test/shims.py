@@ -116,6 +116,8 @@ class Sender(ShimWorkerThread):
                         self.return_obj = stdoutdata
                 else: # Make a single line of all the bits and return that
                     self.return_obj = stdoutdata
+        except OSError as exc:
+            self.return_obj = str(exc) + ': shim=' + self.arg_list[0] 
         except CalledProcessError as exc:
             self.return_obj = str(exc) + '\n\nOutput:\n' + exc.output
 
@@ -148,6 +150,8 @@ class Receiver(ShimWorkerThread):
                         self.return_obj = stdoutdata
                 else: # Make a single line of all the bits and return that
                     self.return_obj = stdoutdata
+        except OSError as exc:
+            self.return_obj = str(exc) + ': shim=' + self.arg_list[0]
         except CalledProcessError as exc:
             self.return_obj = str(exc) + '\n\n' + exc.output
 
@@ -210,27 +214,9 @@ class QpidJmsShim(Shim):
     # TODO: Automate this - it gets out of date quickly
     # Maven works out all the deps, should use that
     QPID_JMS_SHIM_VER = '0.1.0-SNAPSHOT'
-    QPID_JMS_VER = '0.20.0-SNAPSHOT'
-    QPID_PROTON_J_VER = '0.15.0-SNAPSHOT'
-    JMS_API_VER = '1.1.1'
-    LOGGER_API_VER = '1.7.21'
-    LOGGER_IMPL_VER = '1.7.21'
-    NETTY_VER = '4.0.40.Final'
 
     # Classpath components
-    #QPID_INTEROP_TEST_SHIM_JAR = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-jms', 'target', 'qpid-jms-shim.jar')
     MAVEN_REPO_PATH = path.join(getenv('HOME'), '.m2', 'repository')
-    JMS_API_JAR = path.join(MAVEN_REPO_PATH, 'org', 'apache', 'geronimo', 'specs', 'geronimo-jms_1.1_spec', JMS_API_VER,
-                            'geronimo-jms_1.1_spec-%s.jar' % JMS_API_VER)
-    JMS_IMPL_JAR = path.join(MAVEN_REPO_PATH, 'org', 'apache', 'qpid', 'qpid-jms-client', QPID_JMS_VER,
-                             'qpid-jms-client-%s.jar' % QPID_JMS_VER)
-    LOGGER_API_JAR = path.join(MAVEN_REPO_PATH, 'org', 'slf4j', 'slf4j-api', LOGGER_API_VER,
-                               'slf4j-api-%s.jar' % LOGGER_API_VER)
-    LOGGER_IMPL_JAR = path.join(MAVEN_REPO_PATH, 'org', 'slf4j', 'slf4j-nop', LOGGER_IMPL_VER,
-                                'slf4j-nop-%s.jar' % LOGGER_IMPL_VER)
-    PROTON_J_JAR = path.join(MAVEN_REPO_PATH, 'org', 'apache', 'qpid', 'proton-j', QPID_PROTON_J_VER,
-                             'proton-j-%s.jar' % QPID_PROTON_J_VER)
-    NETTY_JAR = path.join(MAVEN_REPO_PATH, 'io', 'netty', 'netty-all', NETTY_VER, 'netty-all-%s.jar' % NETTY_VER)
     QPID_JMS_SHIM_JAR = path.join(MAVEN_REPO_PATH, 'org', 'apache', 'qpid', 'qpid-interop-test-jms-shim',
                                   QPID_JMS_SHIM_VER, 'qpid-interop-test-jms-shim-%s.jar' % QPID_JMS_SHIM_VER)
 
@@ -246,13 +232,6 @@ class QpidJmsShim(Shim):
     def get_java_class_path(self):
         """Method to construct and return the Java class path necessary to run the shim"""
         return ':'.join([self.QPID_JMS_SHIM_JAR, self.dependency_class_path])
-    #                     self.JMS_API_JAR,
-    #                     self.JMS_IMPL_JAR,
-    #                     self.LOGGER_API_JAR,
-    #                     self.LOGGER_IMPL_JAR,
-    #                     self.PROTON_J_JAR,
-    #                     self.NETTY_JAR])
-
 
 class AmqpNetLiteShim(Shim):
     """Shim for AMQP.Net Lite client"""

@@ -38,10 +38,11 @@ from qpid_interop_test.test_type_map import TestTypeMap
 
 
 # TODO: propose a sensible default when installation details are worked out
-QPID_INTEROP_TEST_HOME = getenv('QPID_INTEROP_TEST_HOME')
-if QPID_INTEROP_TEST_HOME is None:
-    print 'ERROR: Environment variable QPID_INTEROP_TEST_HOME is not set'
+QIT_INSTALL_PREFIX = getenv('QIT_INSTALL_PREFIX')
+if QIT_INSTALL_PREFIX is None:
+    print 'ERROR: Environment variable QIT_INSTALL_PREFIX is not set'
     sys.exit(1)
+QIT_TEST_SHIM_HOME = path.join(QIT_INSTALL_PREFIX, 'libexec', 'qpid_interop_test', 'shims')
 MAVEN_REPO_PATH = getenv('MAVEN_REPO_PATH', path.join(getenv('HOME'), '.m2', 'repository'))
 
 class JmsMessageTypes(TestTypeMap):
@@ -328,15 +329,11 @@ class TestOptions(object):
 
 if __name__ == '__main__':
 
-    PROTON_CPP_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'jms_messages_test',
-                                         'Receiver')
-    PROTON_CPP_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-cpp', 'jms_messages_test',
-                                       'Sender')
-    PROTON_PYTHON_RECEIVER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'jms_messages_test',
-                                            'Receiver.py')
-    PROTON_PYTHON_SENDER_SHIM = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-proton-python', 'jms_messages_test',
-                                          'Sender.py')
-    QIT_JMS_CLASSPATH_FILE = path.join(QPID_INTEROP_TEST_HOME, 'shims', 'qpid-jms', 'cp.txt')
+    PROTON_CPP_RECEIVER_SHIM = path.join(QIT_TEST_SHIM_HOME, 'qpid-proton-cpp', 'jms_messages_test', 'Receiver')
+    PROTON_CPP_SENDER_SHIM = path.join(QIT_TEST_SHIM_HOME, 'qpid-proton-cpp', 'jms_messages_test', 'Sender')
+    PROTON_PYTHON_RECEIVER_SHIM = path.join(QIT_TEST_SHIM_HOME, 'qpid-proton-python', 'jms_messages_test', 'Receiver.py')
+    PROTON_PYTHON_SENDER_SHIM = path.join(QIT_TEST_SHIM_HOME, 'qpid-proton-python', 'jms_messages_test', 'Sender.py')
+    QIT_JMS_CLASSPATH_FILE = path.join(QIT_TEST_SHIM_HOME, 'qpid-jms', 'cp.txt')
     with open(QIT_JMS_CLASSPATH_FILE, 'r') as classpath_file:
         QIT_JMS_CLASSPATH = classpath_file.read()
     QPID_JMS_RECEIVER_SHIM = 'org.apache.qpid.interop_test.jms_messages_test.Receiver'
