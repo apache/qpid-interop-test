@@ -36,7 +36,7 @@ class Client(MessagingHandler):
 
     def on_start(self, event):
         """Event loop start"""
-        event.container.connect(url=self.url)
+        event.container.connect(url=self.url, sasl_enabled=False)
 
     def on_connection_remote_open(self, event):
         """Callback for remote connection open"""
