@@ -46,9 +46,9 @@ class JmsMessagesTestSender(MessagingHandler):
     This shim takes the combinations of the above map and creates test cases, each of which sends a single message
     with (or without) JMS headers and properties.
     """
-    def __init__(self, broker_ip_addr, queue_name, jms_msg_type, test_parameters_list):
+    def __init__(self, broker_url, queue_name, jms_msg_type, test_parameters_list):
         super(JmsMessagesTestSender, self).__init__()
-        self.broker_ip_addr = broker_ip_addr
+        self.broker_url = broker_url
         self.queue_name = queue_name
         self.jms_msg_type = jms_msg_type
         self.test_value_map = test_parameters_list
@@ -58,7 +58,8 @@ class JmsMessagesTestSender(MessagingHandler):
 
     def on_start(self, event):
         """Event callback for when the client starts"""
-        event.container.create_sender('%s/%s' % (self.broker_ip_addr, self.queue_name))
+        connection = event.container.connect(url=self.broker_url, sasl_enabled=False)
+        event.container.create_sender(connection, target=self.queue_name)
 
     def on_sendable(self, event):
         """Event callback for when send credit is received, allowing the sending of messages"""

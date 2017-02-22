@@ -46,7 +46,8 @@ class AmqpDtxTestSender(MessagingHandler):
 
     def on_start(self, event):
         """Event callback for when the client starts"""
-        event.container.create_sender('%s/%s' % (self.broker_url, self.queue_name))
+        connection = event.container.connect(url=self.broker_url, sasl_enabled=False)
+        event.container.create_sender(connection, target=self.queue_name)
 
     def on_sendable(self, event):
         """Event callback for when send credit is received, allowing the sending of messages"""

@@ -56,7 +56,8 @@ class AmqpFeaturesTestReceiver(MessagingHandler):
 
     def on_start(self, event):
         """Event callback for when the client starts"""
-        event.container.create_receiver('%s/%s' % (self.broker_url, self.queue_name))
+        connection = event.container.connect(url=self.broker_url, sasl_enabled=False)
+        event.container.create_receiver(connection, source=self.queue_name)
 
     def on_connection_remote_open(self, event):
         """Callback for remote connection open"""
