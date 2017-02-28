@@ -17,6 +17,10 @@
 # under the License.
 #
 
+project (qpid-interop-test-cpp-shims)
+
+cmake_minimum_required(VERSION 2.8.7 FATAL_ERROR)
+
 message("PROTON_INSTALL_DIR=${PROTON_INSTALL_DIR}")
 include_directories(${PROTON_INSTALL_DIR}/include)
 include_directories(/usr/include/jsoncpp)

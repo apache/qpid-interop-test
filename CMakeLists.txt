@@ -21,7 +21,28 @@ project(qpid-interop-test)
 
 cmake_minimum_required(VERSION 2.8.7 FATAL_ERROR)
 
-set(PROTON_INSTALL_DIR "/usr/local/qpid-proton" CACHE PATH "Proton install directory")
+
+# Find Proton components
+
+find_package(Proton)
+if (Proton_FOUND)
+    get_filename_component(PROTON_INSTALL_DIR ${Proton_INCLUDE_DIRS} DIRECTORY CACHE PATH "Proton install directory")
+    message(STATUS "Qpid proton found. Version ${Proton_VERSION} at ${Proton_INCLUDE_DIRS}")
+else ()
+    message(STATUS "Qpid proton not found.")
+endif ()
+
+find_package(ProtonCpp)
+if (ProtonCpp_FOUND)
+    get_filename_component(PROTON_CPP_INSTALL_DIR ${ProtonCpp_INCLUDE_DIRS} DIRECTORY CACHE PATH "ProtonCpp install directory")
+    message(STATUS "Qpid proton c++ binding found. Version ${ProtonCpp_VERSION} at ${ProtonCpp_INCLUDE_DIRS}")
+else()
+    message(STATUS "Qpid proton c++ binding not found.")
+endif ()
+
+if (NOT Proton_FOUND OR NOT ProtonCpp_FOUND)
+    message(FATAL_ERROR "Required proton components missing, aborting configuration.")
+endif ()
 
 add_subdirectory(shims/qpid-proton-cpp/src)
 add_subdirectory(shims/amqpnetlite/src)
