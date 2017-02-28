@@ -416,6 +416,9 @@ class TestOptions(object):
                             help='Node from which test suite will receive messages.')
         parser.add_argument('--no-skip', action='store_true',
                             help='Do not skip tests that are excluded by default for reasons of a known bug')
+        parser.add_argument('--broker-type', action='store', metavar='BROKER_NAME',
+                            help='Disable test of broker type (using connection properties) by specifying the broker' +
+                            ' name, or "None".')
         type_group = parser.add_mutually_exclusive_group()
         type_group.add_argument('--include-type', action='append', metavar='AMQP-TYPE',
                                 help='Name of AMQP type to include. Supported types:\n%s' %
@@ -489,24 +492,29 @@ if __name__ == '__main__':
                 print 'No such shim: "%s". Use --help for valid shims' % shim
                 sys.exit(1) # Errors or failures present
 
-    # Connect to broker to find broker type
-    # TODO: Find out why this uses auth
-    CONNECTION_PROPS = qpid_interop_test.broker_properties.get_broker_properties(ARGS.sender)
-    if CONNECTION_PROPS is None:
-        print 'WARNING: Unable to get connection properties - unknown broker'
-        BROKER = 'unknown'
+    # Connect to broker to find broker type, or use --broker-type param if present
+    if ARGS.broker_type is not None:
+        if ARGS.broker_type == 'None':
+            BROKER = None
+        else:
+            BROKER = ARGS.broker_type
     else:
-        BROKER = CONNECTION_PROPS[symbol(u'product')] if symbol(u'product') in CONNECTION_PROPS \
-                 else '<product not found>'
-        BROKER_VERSION = CONNECTION_PROPS[symbol(u'version')] if symbol(u'version') in CONNECTION_PROPS \
-                         else '<version not found>'
-        BROKER_PLATFORM = CONNECTION_PROPS[symbol(u'platform')] if symbol(u'platform') in CONNECTION_PROPS \
-                          else '<platform not found>'
-        print 'Test Broker: %s v.%s on %s' % (BROKER, BROKER_VERSION, BROKER_PLATFORM)
-        print
-        sys.stdout.flush()
-        if ARGS.no_skip:
-            BROKER = None # Will cause all tests to run
+        CONNECTION_PROPS = qpid_interop_test.broker_properties.get_broker_properties(ARGS.sender)
+        if CONNECTION_PROPS is None:
+            print 'WARNING: Unable to get connection properties - unknown broker'
+            BROKER = 'unknown'
+        else:
+            BROKER = CONNECTION_PROPS[symbol(u'product')] if symbol(u'product') in CONNECTION_PROPS \
+                     else '<product not found>'
+            BROKER_VERSION = CONNECTION_PROPS[symbol(u'version')] if symbol(u'version') in CONNECTION_PROPS \
+                             else '<version not found>'
+            BROKER_PLATFORM = CONNECTION_PROPS[symbol(u'platform')] if symbol(u'platform') in CONNECTION_PROPS \
+                              else '<platform not found>'
+            print 'Test Broker: %s v.%s on %s' % (BROKER, BROKER_VERSION, BROKER_PLATFORM)
+            print
+            sys.stdout.flush()
+            if ARGS.no_skip:
+                BROKER = None # Will cause all tests to run
 
     TYPES = AmqpPrimitiveTypes().get_types(ARGS)
 
