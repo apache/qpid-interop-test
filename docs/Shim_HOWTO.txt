@@ -54,7 +54,7 @@ Receiver:
 Both sender and receiver should print any errors or exceptions to cerr, this
 will automatically fail the test if present.
 
-The test program will compare the values of the received JSNON list of test
+The test program will compare the values of the received JSON list of test
 values with that sent and pass the test if it matches. It is important for the
 format of the JSON test value strings to be identical. All test values are sent
 as strings, and must be sent as strings. For example, the sender may receive
@@ -142,9 +142,9 @@ The second (make install) phase compiles all non-C++ code prior to calling the
 Python installer (setup.py) to perform the actual installation of the artifacts.
 
 a. Building:
-   There are three possiblities:
+   There are three possibilities:
    1. If your shim does not need compiling, skip this step.
-   2. If your shim can use cmake directly, then add your shim direcory to the
+   2. If your shim can use cmake directly, then add your shim directory to the
       top-level CMakeLists.txt file as a subdirectory and supply your own local
       CMakeLists.txt file.
    3. If your shim uses a compiler unknown to cmake, then call it directly (or
@@ -365,7 +365,7 @@ to test against only the C++ shim, use:
 
 path/to/installed/location/of/amqp_types_test.py --include-shim Test --include-shim ProtonCpp
 
-Note that the --exclude-shim paramer can be used to exclude a shim in the full
+Note that the --exclude-shim parameter can be used to exclude a shim in the full
 list of shims in SHIM_MAP from the tests, but that it is mutually exclusive to
 the --include-shim parameter.
 

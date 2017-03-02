@@ -213,7 +213,7 @@ class AmqpPrimitiveTypes(TestTypeMap):
                   'short:8',
                   'short:9'] * 10
                 ],
-        'map': [{}, # Enpty map
+        'map': [{}, # Empty map
                 # Map with string keys
                 {'string:one': 'ubyte:1',
                  'string:two': 'ushort:2'},
