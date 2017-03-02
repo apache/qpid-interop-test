@@ -457,7 +457,9 @@ if __name__ == '__main__':
     PROTON_RHEAJS_SENDER_SHIM = path.join(QIT_TEST_SHIM_HOME, 'rhea-js', 'amqp_types_test', 'Sender.js')
     AMQPNETLITE_RECEIVER_SHIM = path.join(QIT_TEST_SHIM_HOME, 'amqpnetlite', 'amqp_types_test', 'Receiver.exe')
     AMQPNETLITE_SENDER_SHIM = path.join(QIT_TEST_SHIM_HOME, 'amqpnetlite', 'amqp_types_test', 'Sender.exe')
-    
+    PROTON_GO_RECEIVER_SHIM = path.join(QIT_TEST_SHIM_HOME, 'qpid-proton-go', 'amqp_types_test', 'Receiver')
+    PROTON_GO_SENDER_SHIM = path.join(QIT_TEST_SHIM_HOME, 'qpid-proton-go', 'amqp_types_test', 'Sender')
+
     SHIM_MAP = {qpid_interop_test.shims.ProtonCppShim.NAME: \
                     qpid_interop_test.shims.ProtonCppShim(PROTON_CPP_SENDER_SHIM, PROTON_CPP_RECEIVER_SHIM),
                 qpid_interop_test.shims.ProtonPythonShim.NAME: \
@@ -476,7 +478,12 @@ if __name__ == '__main__':
             qpid_interop_test.shims.AmqpNetLiteShim(AMQPNETLITE_SENDER_SHIM, AMQPNETLITE_RECEIVER_SHIM)
     else:
         print 'WARNING: AMQP DotNetLite shims not installed'
-
+    # Proton Go client
+    if path.isfile(PROTON_GO_RECEIVER_SHIM) and path.isfile(PROTON_GO_SENDER_SHIM):
+        SHIM_MAP[qpid_interop_test.shims.ProtonGoShim.NAME] = \
+            qpid_interop_test.shims.ProtonGoShim(PROTON_GO_SENDER_SHIM, PROTON_GO_RECEIVER_SHIM)
+    else:
+        print 'WARNING: Proton Go shims not installed'
     ARGS = TestOptions(SHIM_MAP).args
     #print 'ARGS:', ARGS # debug
 

@@ -230,3 +230,13 @@ class AmqpNetLiteShim(Shim):
         super(AmqpNetLiteShim, self).__init__(sender_shim, receiver_shim)
         self.send_params = ['mono' ,self.sender_shim]
         self.receive_params = ['mono', self.receiver_shim]
+
+
+class ProtonGoShim(Shim):
+    """Shim for qpid-proton Go client"""
+    NAME = 'ProtonGo'
+
+    def __init__(self, sender_shim, receiver_shim):
+        super(ProtonGoShim, self).__init__(sender_shim, receiver_shim)
+        self.send_params = [self.sender_shim]
+        self.receive_params = [self.receiver_shim]
