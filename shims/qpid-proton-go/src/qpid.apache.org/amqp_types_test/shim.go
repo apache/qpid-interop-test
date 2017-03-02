@@ -172,12 +172,7 @@ func Parse(type_ string, value interface{}) interface{} {
 func parseValue(v interface{}) interface{} {
 	switch v := v.(type) {
 	case string:
-		tuple := strings.SplitN(v, ":", 2)
-		if len(tuple) == 2 {
-			return parse(tuple[0], tuple[1])
-		} else {
-			return v
-		}
+		return v
 	case []interface{}:
 		return Parse("", v)
 	case map[string]interface{}:
@@ -257,7 +252,7 @@ func loadValue(v interface{}) (string, interface{}) {
 			case "list", "map":
 				l = append(l, loadedv)
 			default:
-				l = append(l, fmt.Sprintf("%s:%s", loadedt, loadedv))
+				l = append(l, fmt.Sprintf("%s", loadedv))
 			}
 		}
 		return "list", l
@@ -272,7 +267,7 @@ func loadValue(v interface{}) (string, interface{}) {
 			case "list", "map":
 				log.Fatalln("load: cannot handle list or map in a map key yet")
 			default:
-				kk = fmt.Sprintf("%s:%s", keyt, keyv.(string))
+				kk = fmt.Sprintf("%s", keyv.(string))
 			}
 
 			loadedt, loadedv := loadValue(v)
@@ -280,7 +275,7 @@ func loadValue(v interface{}) (string, interface{}) {
 			case "list", "map":
 				m[kk] = loadedv
 			default:
-				m[kk] = fmt.Sprintf("%s:%s", loadedt, loadedv)
+				m[kk] = fmt.Sprintf("%s", loadedv)
 			}
 		}
 		return "map", m
