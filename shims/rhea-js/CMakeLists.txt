@@ -22,10 +22,25 @@
 project(qpid-interop-test-rhea-shims)
 message(STATUS "Searching for Rhea shim build and run requirements...")
 
+set(RHEA_DIR "$ENV{HOME}/rhea" CACHE PATH "Path to local Rhea installation")
+find_file(RHEA package.json HINTS ${RHEA_DIR} NO_DEFAULT_PATH DOC "Rhea javascript package file")
+if (RHEA STREQUAL "RHEA-NOTFOUND")
+  message(STATUS "No local Rhea directory found, using upstream package.")
+  set(LOCAL_RHEA_PATH "")
+else()
+  message(STATUS "Local Rhea directory found at ${RHEA_DIR}")
+  set(LOCAL_RHEA_PATH ${RHEA_DIR})
+endif()
+
 find_program(PROG_NODE node)
 find_program(PROG_NPM npm)
 if ((PROG_NODE STREQUAL "PROG_NODE-NOTFOUND") OR (PROG_NPM STREQUAL "PROG_NPM-NOTFOUND"))
-  message(STATUS "Programs 'node' and/or 'npm' were not found. Rhea Javascript shim requires both of these.")
+  if (PROG_NODE STREQUAL "PROG_NODE-NOTFOUND")
+    message(STATUS "Program 'node' not found.")
+  endif()
+  if (PROG_NPM STREQUAL "PROG_NPM-NOTFOUND")
+    message(STATUS "Program 'npm' not found.")
+  endif()
   # Set option that controls the build process
   option(BUILD_RHEA "Build Rhea Javascript shim" OFF)
 else ()
@@ -49,7 +64,7 @@ if (${BUILD_RHEA})
           DESTINATION ${SHIM_INSTALL_PATH}/amqp_types_test/)
   install(CODE "execute_process(COMMAND npm install node-uuid
                                 WORKING_DIRECTORY ${SHIM_INSTALL_PATH})")
-  install(CODE "execute_process(COMMAND npm link rhea
+  install(CODE "execute_process(COMMAND npm install rhea ${LOCAL_RHEA_PATH}
                                 WORKING_DIRECTORY ${SHIM_INSTALL_PATH})")
 endif()
                               
