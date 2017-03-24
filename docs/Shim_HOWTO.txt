@@ -1,5 +1,23 @@
+Licensed to the Apache Software Foundation (ASF) under one or more
+contributor license agreements.  See the NOTICE file distributed with
+this work for additional information regarding copyright ownership.
+The ASF licenses this file to You under the Apache License, Version 2.0
+(the "License"); you may not use this file except in compliance with
+the License.  You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
 HOW TO WRITE A SHIM
 ===================
+
+See document qpid-interop-test-devel-overview.txt for an overview of
+Tests and Shims, and the relationship between them.
 
 Introduction
 ============
@@ -7,88 +25,6 @@ Introduction
 Qpid Interop Test has a number of tests. Each test must call a pair of "shims"
 or stand-alone test programs written in the language/API under test - one to
 send test messages, and one to receive them.
-
-[NOTE: DIRECTORY STRUCTURES REFERRED TO IN THIS DOCUMENT ARE UNDER REVIEW AND
-MAY CHANGE. HOWEVER, THE METHOD REMAINS FIXED. SEE QPIDIT-54, QPIDIT-58]
-
-For example, consider the JMS messages test (found in
-src/python/qpid_interop_test/jms_messages_test.py).  It uses shims for the Proton
-C++ client, the Proton Python client and the Rhea JavaScript client.  Each of
-these clients under test requires a pair of "shim" programs written in that
-language/API, one to send the test messages and one to receive them.
-
-The test program achieves interoperability testing by combining the send and
-receive shims so that they work against each other.  For example, for three
-shims A, B and C, the program will run the following combinations:
-
-A.sender -> A.receiver
-A.sender -> B.receiver
-A.sender -> C.reciever
-B.sender -> A.receiver
-B.sender -> B.receiver
-B.sender -> C.receiver
-C.sender -> A.receiver
-C.sender -> B.reciever
-C.sender -> C.reciever
-
-so that every sender is run against every receiver. The total number of tests
-run is the square of the number of shims.
-
-The shims themselves are located in a separate directory structure "shims".
-This folder contains one sub-folder per client language/API. Under each
-language/API folder is a substructure that is appropriate for that language
-and will eventually contain directories which exactly match the name of the
-test program. Under that are two program files, one called Sender and one
-called Receiver.
-
-At the time of writing this document, the directory structure looks as follows
-(in part, showing only the sections relevant to jms_messages_test):
-
-qpid-interop-test
-├── src
-│   └── python
-│       └── qpid_interop_test
-│           ├── jms_messages_test.py
-│           └── <other tests>
-└── shims/
-    ├── qpid-jms
-    │   └── src
-    │       └── main
-    │           └── java
-    │               └── org
-    │                   └── apache
-    │                       └── qpid
-    │                           └── qpid_interop_test
-    │                               ├── jms_messages_test
-    │                               │   ├── Receiver.java
-    │                               │   └── Sender.java
-    │                               └── <other tests>
-    ├── qpid-proton-cpp
-    │   └── src
-    │       └── qpidit
-    │           ├── jms_messages_test
-    │           │   ├── Receiver.cpp
-    │           │   ├── Receiver.hpp
-    │           │   ├── Sender.cpp
-    │           │   └── Sender.hpp
-    │           └── <other tests>
-    ├── qpid-proton-python
-    │   └── src
-    │       ├── jms_messages_test
-    │       │   ├── __init__.py
-    │       │   ├── Receiver.py
-    │       │   └── Sender.py
-    │       └── <other tests>
-    └── rhea-js
-        ├── jms_messages_test
-        │   ├── node_modules
-        │   │   ...
-        │   ├── Receiver.js
-        │   └── Sender.js
-        └── <other tests>
-
-NOTE: The name of the directory containing the shim code must match the test
-name for which it is written exactly. (in this example: "jms_messages_test")
 
 
 Communicating with the shims

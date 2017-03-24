@@ -1,0 +1,191 @@
+Licensed to the Apache Software Foundation (ASF) under one or more
+contributor license agreements.  See the NOTICE file distributed with
+this work for additional information regarding copyright ownership.
+The ASF licenses this file to You under the Apache License, Version 2.0
+(the "License"); you may not use this file except in compliance with
+the License.  You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+QPID INTEROP TEST DEVELOPMENT OVERVIEW
+======================================
+
+
+Introduction
+============
+This document provides an overview for developers of new tests and shims
+for qpid-interop-test.
+
+The purpose of qpid-interop-test is to test interoperability between
+Qpid's AMQP clients. The tests use "Shims" to send messages through
+any AMQP broker and to compare the received results with those sent.
+
+There are two layers in the qpid-interop-test architecture:
+* Tests
+* Shims
+
+
+Tests
+=====
+
+The test is a high-level Python program which will coordinate the running
+of individual test cases and provide the data for each test case. It will
+also check for errors and failures. A test usually consists of a number
+of test cases as described below under "Shims".
+
+
+Shims
+=====
+
+For each test case, the Test will use a pair of Shims to send and receive
+messages (or perform some other task). The Test will send and receive test
+data to/from the shims using JSON.
+
+The shims are low-level AMQP clients which are designed to perform a
+single test task - usually to send and receive messages using the data
+supplied by the Test. Because this test suite has interoperability as one of
+its primary goals, it is necessary for the test to be able to send
+test data to several shims written using the API and language of the
+target client. So, for example, the Test may organize a set of three
+send and receive shims as follows to achieve interoperability testing:
+
+Test Case  Sender Shim      Receiver Shim
+---------  -----------      -------------
+    1      Client_A_sender  Client_A_receiver
+    2      Client_A_sender  Client_B_receiver
+    3      Client_A_sender  Client_C_receiver
+    4      Client_B_sender  Client_A_receiver
+    5      Client_B_sender  Client_B_receiver
+    6      Client_B_sender  Client_C_receiver
+    7      Client_C_sender  Client_A_receiver
+    8      Client_C_sender  Client_B_receiver
+    9      Client_C_sender  Client_C_receiver
+
+Each sender shim would be sent the same JSON test data, and each receiver
+shim would return its test data to the Test for comparison and error
+checking. The test would then determine which test cases passed or
+failed.
+
+Although interoperability is the primary goal of Qpid Interop Test, it
+is up to the Test to determine the test data, the order of the test
+cases, which shims to use, and to have an understanding of what test
+data will be received by the shim.
+
+
+Relationship between Shims and Tests
+====================================
+
+Each set of shims is written specifically for a test, and knows
+how to interpret the data it is sent, and what to return (if needed).
+
+                                          1 +--------+
+                                       +--<>| Sender |
++-----+ 1  * +------+ 1  * +------+    |    +--------+
+| QIT |----<>| Test |----<>| Shim |----+
++-----+      +------+      +------+    |  1 +----------+
+                                       +--<>| Receiver |
+                                            +----------+
+
+There may be quite a lot of duplication between shims. However, it
+seems better to keep the shims as simple as possible than force
+a more complex shim architecture in which shims perform a multitude
+of tasks, but allow re-use. In addition, the patterns of re-use differ
+across client languages, and it would be difficult to achieve any
+consistency in re-use that works for all of them.
+
+The shims should be:
+* As simple as possible (modeled off the simple sender/simple_receiver
+  examples)
+* Perform only one type of test task
+* Be easy to maintain and understand
+ 
+
+Building and Installation
+-------------------------
+
+Cmake is the primary build and install mechanism. By running cmake on
+the top level CMakeLists.txt file, and subsequently a make/make install
+should build and install all components, regardless of language.
+For some client shims (depending on language), the local cmake may call
+external programs to perform compilation and installation of that shim.
+
+Interpreted languages (such as Python) don't compile, the source is
+installed directly as a script. 
+
+
+Source Directory layout
+-----------------------
+
+qpid-interop-test
+├── CMakeLists.txt
+├── src
+│   └── python
+│       └── qpid_interop_test
+│           ├── <test_1>.py
+│           ├── <test_2>.py
+│           ...
+└── shims
+    ├── <client_1>
+    │   ├── CMakeLists.txt
+    │   ├── <test_1>
+    │   │   ├── Receiver.src
+    │   │   └── Sender.src
+    │   ├── <test_2>
+    │   │   ├── Receiver.src
+    │   │   └── Sender.src
+    │   ...
+    ├── <client_2>
+    │   ├── CMakeLists.txt
+    │   ├── <test_1>
+    │   │   ├── Receiver.src
+    │   │   └── Sender.src
+    │   ├── <test_2>
+    │   │   ├── Receiver.src
+    │   │   └── Sender.src
+    ...
+
+
+Install directory layout
+------------------------
+The tests (being Python) are installed into
+${CMAKE_INSTALL_PREFIX}/lib/python2.7/site-packages/qpid_interop_test/.
+
+The shim executable pairs (a Sender and Receiver) are installed into
+${CMAKE_INSTALL_PREFIX}/libexec/qpid_interop_test/shims/.
+
+The layout is as follows:
+
+<CMAKE_INSTALL_PREFIX> (default: /usr/local/)
+├── lib
+│   └── python2.7
+│       └── site-packages
+│           └── qpid_interop_test
+│               ├── <test_1.py>
+│               ├── <test_2.py>
+│               ...
+└── libexec
+    └── qpid_interop_test
+        └── shims
+            ├── <client_1>
+            │   ├── <test_1>
+            │   │   ├── Receiver
+            │   │   └── Sender
+            │   ├── <test_2>
+            │   │   ├── Receiver
+            │   │   └── Sender
+            │   ...
+            ├── <client_2>
+            │   ├── <test_1>
+            │   │   ├── Receiver
+            │   │   └── Sender
+            │   ├── <test_2>
+            │   │   ├── Receiver
+            │   │   └── Sender
+            │   ...
+            ...

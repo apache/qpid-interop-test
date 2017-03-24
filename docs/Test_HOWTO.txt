@@ -1,0 +1,260 @@
+Licensed to the Apache Software Foundation (ASF) under one or more
+contributor license agreements.  See the NOTICE file distributed with
+this work for additional information regarding copyright ownership.
+The ASF licenses this file to You under the Apache License, Version 2.0
+(the "License"); you may not use this file except in compliance with
+the License.  You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+HOW TO WRITE A TEST
+===================
+
+See document qpid-interop-test-devel-overview.txt for an overview of
+Tests and Shims, and the relationship between them.
+
+0. Introduction
+===============
+
+The Test is the top-level entry point for a particular test objective
+in which the clients are to be tested against each other. The overall
+idea is to have the clients send and receive messages in such a way as
+to test their interoperability. The shims are stand-alone executables
+written in the client API / language which send or recieve the messages
+so as to achieve the test objectives. The Test calls the shims to
+perform the sends and receives, and evaluates the data it received in
+order to pass or fail the test objective.
+
+Each test has one or more Shims written to perform the specific
+messaging task for that test. Each shim is a stand-alone executable
+binary or script which can be called by the Test, and the parameters
+sent to the shims and the data received from the shims is
+specific to that Test. The practice of using JSON for sending
+data to and from the shims has been adopted, as it is fairly widely
+available, and can handle the necessary data structure.
+
+1. Test name and location
+=========================
+Each Test is a single stand-alone Python program located in the 
+src/python/qpid_interop_test directory. The test is named
+<test-name>_test.py
+
+2. Common modules
+=================
+The following modules are available to Tests:
+
+2.1 broker_properties.py
+------------------------
+  Opens a connection to a broker and reads the connection properties in
+  order to return a string containing the broker name. This is useful
+  if you need to know the broker name for any reason. One of the common
+  uses of this is to conditionally skip certain tests which fail based
+  on the broker against which they are running.
+
+2.2 interop_test_errors.py
+--------------------------
+  Defines error classes for use with tests. Currently this only
+  defines a single error class (InteropTestError) which accepts
+  a text error message, but more complex error classes may
+  be added if needed.
+
+2.3 jms_types.py
+----------------
+  Used by JMS tests, this module defines common QpidJMS values and
+  operations.
+
+2.4 shims.py
+------------
+  This module defines the interface for calling, sending parameters
+  to and receiving data from Shims.
+
+  The Test will use separate worker threads for launching the sender
+  and receiver shims (so that they are running simultaneously) so that
+  the broker will have both connections open at the same time. Some
+  "brokers" (like the Qpid Dispatch Router, which has no message storage
+  ability) require that the receiver is launched before the sender in
+  order that there is something to consume the message immediately
+  they are received.
+
+  Each shim object defines how the JSON parameters (and if necessary,
+  other parameters - such as Java classpath) are sent to the shim for
+  both the send and receive cases.
+
+                                 +-- Sender
+  Thread <-- ShimWorkerThread <--+
+                                 +-- Receiver
+
+  Every client API under test must have a shim object in shims.py. Note
+  that this is shared by all Tests using this cleint API. The class
+  structure is as follows:
+
+          +-- ProtonPythonShim
+          |
+          +-- ProtonCppShim
+          |
+          +-- QpidJmsShim
+  Shim <--+
+          +-- <client_4>
+          |
+          +-- <client_5>
+          |
+          ...
+
+  Each shim object contains an instance of Sender and Receiver when it is
+  created, and which can be launched on its own thread. When the Sender
+  and Receiver instance are run, they call the corresponding client Shim
+  executable with the correct parameters for the test. When the Shim
+  executable finishes, any data in stdout and stderr are piped back to
+  the shim object for processing.
+
+  HINT: There are some useful debug print statements in the shim Sender
+  and Receiver run() methods. If enabled during shim development, these
+  will print out the full parameters containing the JSON data for each
+  shim as it is launched. In addition, other statements will print
+  returned data from each shim. Once you have this, it is easy to run
+  the shim independently from the test using these parameters. This is
+  especially useful if you need to use a debugger on the shim.
+
+2.5 test_type_map.py
+--------------------
+  This module contains a map useful for storing test data vs data type
+  for some tests. This implies that the test data is saved as literals
+  within the Test itself (which is current practice). However, using
+  this technique is optional, and test data can be obtained by any
+  useful means, so long as it is easy to access and maintain.
+
+  NOTE: There is some thought going into changing this so that test data
+  is stored in some test data file rather than as literals in the Test
+  itself. Some changes to the current tests to support this may be proposed
+  soon.
+
+NOTE: There is ongoing work to condense common code into modules which
+may be shared between Tests without the need to duplicate.
+
+3. Command-line options
+=======================
+The Test should accept the following command-line options:
+parameter name | action     | default        | metavar      | help
+---------------+------------+----------------+--------------+------ 
+--sender       | store      | localhost:5672 | IP-ADDR:PORT | Node to which test suite will send messages
+--receiver     | store      | localhost:5672 | IP-ADDR:PORT | Node from which test suite will receive messages
+--no-skip      | store_true |                |              | Do not skip tests that are excluded by default for reasons of a known bug [1]
+--broker-type  | store      |                | BROKER_NAME  | Disable test of broker type (using connection properties) by specifying the broker name, or "None" [2]
+--include-shim | append     |                | SHIM-NAME    | Name of shim to include [3][4]
+--exclude-shim | append     |                | SHIM-NAME    | Name of shim to exclude [3][5]
+
+Notes:
+[1] --no-skip: Only applies if you are using the broke name (through
+    broker_properties.py) to exclude some tests bassed on the broker
+    name.
+[2] --broker-type: Should skip checking for the broker name (through
+    broker_properties.py) and use the given name. "None" may have
+    specific meaning to some tests for broker that don't return
+    connection properties.
+[3] --include-shim, --exclude-shim: These are mutually exclusive.
+[4] --include-shim: This option generally clears the list of known
+    shims and uses those supplied by this argument. This argument may
+    be used multiple times.
+[5] --exclude-shim: This option generally uses the list of known
+    shims but deletes this argument from the list. This argument may
+    be used multiple times.
+
+Parameters for allowing for filtering of test cases should also be
+provided so that by a combination of the above shim parameters and
+the test data parameters, a test can be narrowed down to a single
+test case. For example, in a type test, mutually exclusive parameters
+which include or exclude individual types would be appropriate.
+
+4. General Test layout
+======================
+Tests perform the following tasks:
+
+4.1 Define test cases (and data)
+--------------------------------
+This is generally done by subclassing TestTypeMap (see 2.5 above). However,
+any method to obtain a map containing test cases as the index and the test
+data for that case as the value is appropriate.
+
+If known test failures exist for certain brokers, then define a
+BROKER_SKIP map in which the affected test cases are the index,
+and each value consists of a sub-map with the broker name as the
+index and a text reason for the skip as the value.
+
+NOTE: Every test skipped in this manner should reference a JIRA issue
+for why that test is failing. This makes it easier to track and
+re-enable the tests when the issue is resolved. It also encourages
+reporting of issues.
+
+4.2 Define your test class
+--------------------------
+Derive your test class from unittest.TestCase. Make sure it has a run_test()
+method should receive as parameters the send and receive shim objects being
+used for this test case. This method should perform the following tasks:
+* Create a unique queue name for this test;
+* Create a Sender object by calling the shim create_sender() method;
+* Create a Receiver object by calling the shim create_receiver() method;
+* Run the Sender and Receiver by calling the start() method on each object.
+  This will cause the Shims to be called through the OS.
+* Wait for the Sender and Receiver shims to finish executing by calling
+  join().
+* Process any returned errors by failing the test
+* If no errors are present, process the returned data and make a decision
+  to pass or fail the test. Methods from unittest.TestCase (such as
+  assertEqual() or fail() will be needed.
+
+4.3 Create your test cases
+--------------------------
+These can be created either statically or dynamically. How you choose to do it
+depends on the type of test and how repetitive it is. If the tests are very
+different and specific, then using the static method will work better
+
+4.3.1 Static tests methods
+--------------------------
+Create one method per test labeled test<test_name> to the test class. See
+https://docs.python.org/2.7/library/unittest.html for details. Each test should
+accomplish a single objective using a single or limited set of similar
+messages.
+
+4.3.2 Dynamically created test methods
+--------------------------------------
+Were tests consist of the permutations and combinations of a number of test
+shims and test values, it is possible to create the test methods dynamically
+which saves a lot of error and repetition. An example may be found in
+amqp_types-test, where the method is create_testcase_class(amqp_type, shim_product).
+
+4.4 Add test options
+--------------------
+Use argparse.ArgumentParser to add test arguments. See section 3 above for
+recommended options.
+
+4.5 Create a shim map
+---------------------
+In the main section of the test, create a shim map as follows:
+
+{<shim_name>: <shim_instance>,
+ ...
+}
+
+the product of which is used to run the shims against each other when
+dynamically creating test cases.
+
+5. Write the shims
+==================
+Each test needs to call one or more shims to perform the task of sending and
+receiving messages. If only one shim exists, then it will test sending and
+receiving against itself. See Shim_HOWTO for details on shim writing.
+
+6. Test
+=======
+Get it working. 'Nuff said.
+
+7. Add to the suite at Qpid Interop Test
+========================================
+If you have added a useful test, consider adding it to Qpid Interop Test.
+Submit a JIRA at https://issues.apache.org/jira/browse/QPIDIT/.
