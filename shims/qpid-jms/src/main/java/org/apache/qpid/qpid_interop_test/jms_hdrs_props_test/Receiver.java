@@ -55,7 +55,7 @@ import org.apache.qpid.jms.JmsConnectionFactory;
 public class Receiver {
     private static final String USER = "guest";
     private static final String PASSWORD = "guest";
-    private static final int TIMEOUT = 1000;
+    private static final int TIMEOUT = 10000;
     private static final String[] SUPPORTED_JMS_MESSAGE_TYPES = {"JMS_MESSAGE_TYPE",
                                                                  "JMS_BYTESMESSAGE_TYPE",
                                                                  "JMS_MAPMESSAGE_TYPE",
@@ -143,7 +143,9 @@ public class Receiver {
                 JsonArrayBuilder jasonTestValuesArrayBuilder = Json.createArrayBuilder();
                 for (int i=0; i<numTestValuesMap.getJsonNumber(subType).intValue(); ++i) {
                     message = _messageConsumer.receive(TIMEOUT);
-                    if (message == null) break;
+                    if (message == null) {
+                        throw new Exception("Receiver::run(): No message, timeout while waiting");
+                     }
                     switch (jmsMessageType) {
                     case "JMS_MESSAGE_TYPE":
                         processJMSMessage(jasonTestValuesArrayBuilder);
@@ -192,7 +194,7 @@ public class Receiver {
     }
     
     protected void processJMSMessage(JsonArrayBuilder jasonTestValuesArrayBuilder) {
-        jasonTestValuesArrayBuilder.addNull();        
+        jasonTestValuesArrayBuilder.addNull();
     }
     
     protected void processJMSBytesMessage(String jmsMessageType, String subType, Message message, JsonArrayBuilder jasonTestValuesArrayBuilder) throws Exception, JMSException, IOException, ClassNotFoundException {
