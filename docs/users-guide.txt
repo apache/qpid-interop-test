@@ -1,0 +1,263 @@
+.Apache License
+____
+Licensed to the Apache Software Foundation (ASF) under one or more
+contributor license agreements.  See the NOTICE file distributed with
+this work for additional information regarding copyright ownership.
+The ASF licenses this file to You under the Apache License, Version 2.0
+(the "License"); you may not use this file except in compliance with
+the License.  You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+____
+
+= Qpid Interoperability Test Users Guide
+
+== 1. Introduction
+qpid-interop-test is an AMQP client interoperability test suite. It tests
+various aspects of the AMQP protocol and/or test client features against
+each other to ensure that they can interoperate.
+
+The test suite consists of tests and shims. Each test has a set of test-cases
+which make up the test. Each test case will pass or fail a specific feature
+or piece of functionality under test.
+
+Each test has a set of shims, which are small and specific clients which
+send and receive messages, and is written using one of the client libraries
+under test. For example, the amqp_types test has shims for the following
+clients:
+* AmqpNetLite
+* ProtonCpp
+* ProtonPython
+* RheaJS
+
+To obtain both self- and interoperability testing, each test program will
+run each shim against every other shim in the role of both sender and
+receiver. For the amqp-type-test example above, this will result in the
+following combinations of shims being used:
+[width="30%", cols="10%,45%,45%"]
+|===
+| |*Sender shim* |*Receiver shim*
+
+|1 |AmqpNetLite | AmqpNetLite
+|2 |AmqpNetLite | ProtonCpp
+|3 |AmqpNetLite | ProtonPython
+|4 |AmqpNetLite | RheaJS
+|5 |ProtonCpp | AmqpNetLite
+|6 |ProtonCpp | ProtonCpp
+|7 |ProtonCpp | ProtonPython
+|8 |ProtonCpp | RheaJS
+|9 |ProtonPython | AmqpNetLite
+|10 |ProtonPython | ProtonCpp
+|11 |ProtonPython | ProtonPython
+|12 |ProtonPython | RheaJS
+|13 |RheaJS | AmqpNetLite
+|14 |RheaJS | ProtonCpp
+|15 |RheaJS | ProtonPython
+|16 |RheaJS | RheaJS
+|===
+
+so that for each test case, 16 individual tests are run. The test program
+will by default run all the available shims against each other in this way,
+but it is possible to control which shims are used using the --include-shim
+or --exclude-shim arguments (see below).
+
+== 2. Obtaining
+qpid-interop-test is an Apache Qpid project.
+
+Web page: xxx
+
+Download soruce: xxx
+
+== 3. Building
+
+=== a. Install dependencies:
+   * Build tools: git, gcc, cmake
+   * Qpid Proton: qpid-proton-c-devel
+
+=== b. Decide on local vs system install
+==== Local install:
+Installs all of the Proton and QIT bits in a local directory. This is
+useful for limited testing where you don't want to have these files
+in your system directories. Also, if you don't have root privileges, then
+this is the only way to install. The drawback is that you may need to
+adjust some environment settings (`PATH`, `PYTHONPATH`, `LD_LIBRARY_PATH`) so
+that the test will run.
+
+==== System install:
+Installs the files into traditional system locations. This type of install
+requires root privileges. As the files are located in expected locations, no
+environment settings need be made.
+
+=== c. Build qpid-proton
+*System install:*
+----
+ $ cd qpid-proton
+ $ mkdir build
+ $ cd build
+ $ cmake ..
+ $ make
+ $ sudo make install
+----
+
+*Local install:*
+----
+ $ cd qpid-proton
+ $ mkdir build
+ $ cd build
+ $ cmake ..
+ $ make install
+----
+
+=== d. Build qpid-interop-test
+*System install:*
+----
+ $ cd qpid-interop-test
+ $ mkdir build
+ $ cd build
+ $ cmake ..
+ $ make
+ $ sudo make install
+----
+   
+*Local install:*
+----
+ $ cd qpid-interop-test
+ $ mkdir build
+ $ cd build
+ $ cmake ..
+ $ make install
+----
+
+== 4. Running
+
+The tests assume a broker is available and running. The assumed default is at
+`localhost:5672`. For other broker location(s), use the `--sender` and `--receiver`
+arguments to specify where the clients should interact, see below.
+
+The tests do not start or stop brokers.
+
+There are several tests in the test suite:
+
+ * *amqp_types_test.py* - Tests all of the AMQP primitive types. This primarily tests
+   the encoding and decoding of AMQP types.
+ * *amqp_large_content_test.py* - Tests large messages of various types. Messages sizes
+   are 1MB, 10MB, 100MB. Compound types (lists, maps, etc) send elements of various
+   sizes so that the total payload is the target size.
+ * *jms_messages_test.py* - Tests JMS message types (as implemented by Qpid-jms over AMQP)
+   from all the Qpid clients (including non-jms clients)
+ * *jms_hdrs_props_test.py* - Tests various combinations of JMS headers and properties
+   are correctly sent and received by the various clients.
+
+Each test is executed directly.
+
+=== Command-line arguments
+.Common to all tests
+[cols="20%,80%"]
+|===
+|`--help`         |Print help. This is useful for seeing the available argument options and
+                   defaults for some arguments.
+|`--sender`       |Node to which test suite will send messages.
+                   Format: `ip-address:port`
+                   Default: `localhost:5672`
+|`--receiver`     |Node from which test suite will receive messages.
+                   Format: `ip-address:port`
+                   Default: `localhost:5672`
+|`--no-skip`      |Do not skip tests that are excluded by default for reasons of a known bug.
+               Warning: some tests may lock up of freeze rather than fail.
+|`--broker-type`  |Specify the broker manually, which eliminates the test connection made
+               to the broker to determine its identity through connection properties. If
+               "None" is specified, then Artemis broker will be assumed, but this will
+               change in the future when Artemis fixes the connection properties issue.
+               Format: For our current brokers: one of: "ActiveMQ", "qpid-cpp",
+               "qpid-dispatch-router". Artemis does not currently pass its name
+               in connection properties, and is equivalent to "None".
+|`--include-shim` |Name of shim to include. Cannot be used together with `--exclude-shim`. May
+               be used multiple times to include more than one shim.
+|`--exclude-shim` |Name of shim to exclude. Cannot be used together with `--include-shim`. May
+               be used multiple times to exclude more that one shim.
+|===
+
+.amqp-types-test
+[cols="20%,80%"]
+|===
+|`--include-type` |Name of AMQP type to include. Cannot be used together with `--exclude-type`.
+                   May be used multiple times to include more than one type.
+|`--exclude-type` |Name of AMQP type to exclude. Cannot be used together with `--include-type`.
+                   May be used multiple times to exclude more than one type.
+|===
+
+.amqp-large-content-test
+|===
+|No other parameters. There is currently no way to select/limit the message size, but there
+an issue open to address this limitation.
+|===
+
+.jms-messages-test
+[cols="20%,80%"]
+|===
+|`--include-type` |Name of JMS message type to include. Cannot be used together with
+               `--exclude-type`. May be used multiple times to include more than one type.
+|`--exclude-type` |Name of JMS message type to exclude. Cannot be used together with
+               `--include-type`. May be used multiple times to exclude more than one type.
+|===               
+
+.jms-hdrs-props-test
+[cols="20%,80%"]
+|===
+|`--include-type` |Name of Java property type to include. Cannot be used together with
+               `--exclude-type`. May be used multiple times to include more than one type.
+|`--exclude-type` |Name of Java property type to exclude. Cannot be used together with
+               `--include-type`. May be used multiple times to exclude more than one type.
+|===
+There is currently no way to control/limit the JMS header types in this test, but there is
+an issue open to address this limitation.
+
+==== Examples:
+To limit amqp_types_test to boolean type only:
+`$ amqp_types_test --include-type boolean`
+
+To limit amqp_types_test to Qpid-cpp and Proton-python shims only:
+`$ amqp_types_test --include-shim ProtonCpp --include-shim ProtonPython`
+
+To test against a pair of Dispatch Routers and a broker running on the local machine
+as follows (first set up the brokers and routers):
+
+----
++----------+     9001 +----------+    5672 +--------+
+| sender   |--------->| dispatch |-------->|        |
+|  shim    |          | router 1 |         |        |
++----------+          +----------+         |        |
+                                           | broker |
++----------+     9002 +----------+    5672 |        |
+| receiver |<---------| dispatch |<--------|        |         
+|  shim    |          | router 2 |         |        |
++----------+          +----------+         +--------+
+----
+
+`$ amqp_types_test --sender localhost:9001 --receiver localhost:9002`
+
+== 5. Output
+All the tests will list each test as it runs and whether it passes or fails.
+If a test fails, then the details of the failure will be printed at the end of
+the test.
+
+----
+ ======================================================================
+ FAIL: test.B.MESSAGE.JMS_TYPE_HEADER:string+JMS_REPLYTO_HEADER:topic.QpidJms->ProtonCpp (__main__.PartB_JmsHeaderCombination_TestCase)
+ ----------------------------------------------------------------------
+ Traceback (most recent call last):
+   File "./install/lib/python2.7/site-packages/qpid_interop_test/jms_hdrs_props_test.py", line 422, in inner_test_method
+     receive_shim)
+   File "./install/lib/python2.7/site-packages/qpid_interop_test/jms_hdrs_props_test.py", line 313, in run_test
+     self.fail(str(receive_obj))
+ AssertionError: JmsReceiver error: Unexpected JMS message header: JMS_PRIORITY: Expected default priority (4), found priority 0
+----
+
+Currently, the tests do not produce log files.
+
