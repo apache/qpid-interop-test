@@ -62,7 +62,7 @@ class TestTypeMap(object):
         return self.TYPE_MAP.keys()
 
     def get_types(self, args):
-        if args.include_type is not None:
+        if "include_type" in args and args.include_type is not None:
             new_type_map = {}
             for type in args.include_type:
                 try:
@@ -71,7 +71,7 @@ class TestTypeMap(object):
                     print 'No such type: "%s". Use --help for valid types' % type
                     sys.exit(1) # Errors or failures present
             self.TYPE_MAP = new_type_map
-        if args.exclude_type is not None:
+        if "exclude_type" in args and args.exclude_type is not None:
             for type in args.exclude_type:
                 try:
                     self.TYPE_MAP.pop(type)
