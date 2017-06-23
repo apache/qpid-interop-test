@@ -215,11 +215,6 @@ class QpidJmsShim(Shim):
     # Maven works out all the deps, should use that
     QPID_JMS_SHIM_VER = '0.1.0-SNAPSHOT'
 
-    # Classpath components
-    MAVEN_REPO_PATH = path.join(getenv('HOME'), '.m2', 'repository')
-    QPID_JMS_SHIM_JAR = path.join(MAVEN_REPO_PATH, 'org', 'apache', 'qpid', 'qpid-interop-test-jms-shim',
-                                  QPID_JMS_SHIM_VER, 'qpid-interop-test-jms-shim-%s.jar' % QPID_JMS_SHIM_VER)
-
     JAVA_HOME = getenv('JAVA_HOME', '/usr/bin') # Default only works in Linux
     JAVA_EXEC = path.join(JAVA_HOME, 'java')
 
@@ -231,7 +226,7 @@ class QpidJmsShim(Shim):
 
     def get_java_class_path(self):
         """Method to construct and return the Java class path necessary to run the shim"""
-        return ':'.join([self.QPID_JMS_SHIM_JAR, self.dependency_class_path])
+        return self.dependency_class_path;
 
 class AmqpNetLiteShim(Shim):
     """Shim for AMQP.Net Lite client"""
