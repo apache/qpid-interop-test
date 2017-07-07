@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use XML::XPath;
 
-my $root = XML::XPath->new(filename => 'pom.xml');
+my $root = XML::XPath->new(filename => $ARGV[0]);
 for my $node ($root->find('//project/version/text()')->get_nodelist) {
   print($node->getData, "\n");
 }

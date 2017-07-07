@@ -32,7 +32,7 @@ add_custom_target(blah ALL mvn -DskipTests package
 set(JMS_INSTALL_ROOT ${CMAKE_INSTALL_PREFIX}/libexec/qpid_interop_test/shims/qpid-jms)
 
 # Find the version string from the pom.xml file (as this in included in the jar file name)
-execute_process(COMMAND ${CMAKE_SOURCE_DIR}/get-proj-ver
+execute_process(COMMAND ${CMAKE_SOURCE_DIR}/get-proj-ver ${CMAKE_SOURCE_DIR}/pom.xml
                 OUTPUT_VARIABLE QPID_JMS_SHIM_VERSION
                 OUTPUT_STRIP_TRAILING_WHITESPACE)
 message(STATUS "Qpid JMS shim version: ${QPID_JMS_SHIM_VERSION}")
