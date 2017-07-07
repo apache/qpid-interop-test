@@ -17,7 +17,7 @@
 # under the License.
 #
 
-project (qpid-interop-test-cpp-shims)
+project (qpid-interop-test-cpp-shim)
 
 cmake_minimum_required(VERSION 2.8.7 FATAL_ERROR)
 
@@ -27,6 +27,7 @@ include_directories(/usr/include/jsoncpp)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 link_directories(${PROTON_INSTALL_DIR}/lib64)
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+set(CPP_SHIM_INSTALL_ROOT "${CMAKE_INSTALL_PREFIX}/libexec/qpid_interop_test/shims/qpid-proton-cpp")
 
 
 
@@ -43,9 +44,12 @@ set(${testName}_Sender_SOURCES
 add_executable(${testName}_Sender ${${testName}_Sender_SOURCES})
 target_link_libraries(${testName}_Sender Common Common_Amqp ${Common_Link_LIBS})
 set_target_properties(${testName}_Sender PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/${testName}"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${testName}"
     OUTPUT_NAME Sender
 )
+
+install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/${testName}/Sender"
+        DESTINATION "${CPP_SHIM_INSTALL_ROOT}/${testName}")
 
 # --- Receiver ---
 
@@ -57,9 +61,12 @@ set(${testName}_Receiver_SOURCES
 add_executable(${testName}_Receiver ${${testName}_Receiver_SOURCES})
 target_link_libraries(${testName}_Receiver Common Common_Amqp ${Common_Link_LIBS})
 set_target_properties(${testName}_Receiver PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/${testName}"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${testName}"
     OUTPUT_NAME Receiver
 )
+
+install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/${testName}/Receiver"
+        DESTINATION "${CPP_SHIM_INSTALL_ROOT}/${testName}")
 
 endfunction(addAmqpTest testName)
 
@@ -78,9 +85,12 @@ set(${testName}_Sender_SOURCES
 add_executable(${testName}_Sender ${${testName}_Sender_SOURCES})
 target_link_libraries(${testName}_Sender Common Common_Jms ${Common_Link_LIBS})
 set_target_properties(${testName}_Sender PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/${testName}"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${testName}"
     OUTPUT_NAME Sender
 )
+
+install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/${testName}/Sender"
+        DESTINATION "${CPP_SHIM_INSTALL_ROOT}/${testName}")
 
 # --- Receiver ---
 
@@ -92,9 +102,12 @@ set(${testName}_Receiver_SOURCES
 add_executable(${testName}_Receiver ${${testName}_Receiver_SOURCES})
 target_link_libraries(${testName}_Receiver Common Common_Jms ${Common_Link_LIBS})
 set_target_properties(${testName}_Receiver PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/${testName}"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${testName}"
     OUTPUT_NAME Receiver
 )
+
+install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/${testName}/Receiver"
+        DESTINATION "${CPP_SHIM_INSTALL_ROOT}/${testName}")
 
 endfunction(addJmsTest testName)
 
@@ -130,10 +143,6 @@ set(Common_Link_LIBS
 
 
 addAmqpTest(amqp_types_test)
-addAmqpTest(amqp_features_test)
 addAmqpTest(amqp_large_content_test)
-addAmqpTest(amqp_dtx_test)
 addJmsTest(jms_messages_test)
 addJmsTest(jms_hdrs_props_test)
-addJmsTest(jms_large_content_test)
-addJmsTest(jms_dtx_test)

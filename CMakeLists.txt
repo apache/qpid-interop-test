@@ -45,12 +45,10 @@ if (NOT Proton_FOUND OR NOT ProtonCpp_FOUND)
 endif ()
 
 add_subdirectory(shims/qpid-proton-cpp/src)
+add_subdirectory(shims/qpid-jms)
 add_subdirectory(shims/amqpnetlite/src)
 add_subdirectory(shims/rhea-js)
-
-# Build Java code
-install(CODE "execute_process(COMMAND mvn -DskipTests install
-                              WORKING_DIRECTORY ../)")
+add_subdirectory(docs)
 
 # Install files using python setup.py
 install(CODE "execute_process(COMMAND python setup.py install --prefix ${CMAKE_INSTALL_PREFIX}

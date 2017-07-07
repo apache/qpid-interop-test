@@ -3,6 +3,7 @@
 	<name>qpid-interop-test</name>
 	<comment></comment>
 	<projects>
+		<project>qpid-proton-c</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>
