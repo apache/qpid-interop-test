@@ -23,8 +23,8 @@
 #define SRC_QPIDIT_AMQP_LARGE_CONTENT_TEST_RECEIVER_HPP_
 
 #include <json/value.h>
-#include "proton/value.hpp"
-#include "qpidit/AmqpReceiverBase.hpp"
+#include <proton/value.hpp>
+#include <qpidit/AmqpReceiverBase.hpp>
 
 namespace qpidit
 {

@@ -23,7 +23,7 @@
 #define SRC_QPIDIT_AMQPTESTBASE_HPP_
 
 #include <string>
-#include "proton/messaging_handler.hpp"
+#include <proton/messaging_handler.hpp>
 
 namespace qpidit
 {

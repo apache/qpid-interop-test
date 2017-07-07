@@ -23,9 +23,9 @@
 #define SRC_QPIDIT_AMQP_TYPES_TEST_SENDER_HPP_
 
 #include <json/value.h>
-#include "proton/message.hpp"
-#include "qpidit/AmqpSenderBase.hpp"
-#include "qpidit/QpidItErrors.hpp"
+#include <proton/message.hpp>
+#include <qpidit/AmqpSenderBase.hpp>
+#include <qpidit/QpidItErrors.hpp>
 
 namespace qpidit
 {

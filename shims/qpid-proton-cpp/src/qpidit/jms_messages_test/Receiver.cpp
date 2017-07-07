@@ -23,14 +23,16 @@
 
 #include <iostream>
 #include <json/json.h>
-#include "proton/connection.hpp"
-#include "proton/container.hpp"
-#include "proton/default_container.hpp"
-#include "proton/delivery.hpp"
-#include "proton/message.hpp"
-#include "proton/thread_safe.hpp"
-#include "proton/transport.hpp"
-#include "qpidit/QpidItErrors.hpp"
+#include <proton/connection.hpp>
+#include <proton/container.hpp>
+#include <proton/default_container.hpp>
+#include <proton/delivery.hpp>
+#include <proton/message.hpp>
+#include <proton/thread_safe.hpp>
+#include <proton/transport.hpp>
+#include <qpidit/QpidItErrors.hpp>
+
+#include <typeinfo>
 
 namespace qpidit
 {
@@ -63,9 +65,13 @@ namespace qpidit
         void Receiver::on_message(proton::delivery &d, proton::message &m) {
             try {
                 if (_received < _expected) {
-                    int8_t t = qpidit::JMS_MESSAGE_TYPE;
-                    try {t = m.message_annotations().get(proton::symbol("x-opt-jms-msg-type")).get<int8_t>();}
-                    catch (const std::exception& e) {
+                    int8_t t = qpidit::JMS_MESSAGE_TYPE; // qpidit::JMS_MESSAGE_TYPE has value 0
+                    try {
+                        t = m.message_annotations().get(proton::symbol("x-opt-jms-msg-type")).get<int8_t>();
+                    } catch (const proton::conversion_error& e) {
+                        std::cout << "JmsReceiver::on_message(): Error converting value for annotation \"x-opt-jms-msg-type\": " << e.what() << std::endl;
+                        throw;
+                    } catch (const std::exception& e) {
                         std::cout << "JmsReceiver::on_message(): Missing annotation \"x-opt-jms-msg-type\"" << std::endl;
                         throw;
                     }
@@ -282,20 +288,15 @@ namespace qpidit
  *       4: JSON Test parameters containing 2 maps: [testValuesMap, flagMap]
  */
 int main(int argc, char** argv) {
-    /*
-        for (int i=0; i<argc; ++i) {
-            std::cout << "*** argv[" << i << "] : " << argv[i] << std::endl;
-        }
-    */
-    // TODO: improve arg management a little...
-    if (argc != 5) {
-        throw qpidit::ArgumentError("Incorrect number of arguments");
-    }
-
-    std::ostringstream oss;
-    oss << argv[1] << "/" << argv[2];
-
     try {
+        // TODO: improve arg management a little...
+        if (argc != 5) {
+            throw qpidit::ArgumentError("Incorrect number of arguments (expected 4):\n\t1. Broker TCP address(ip-addr:port)\n\t2. Queue name\n\t3. JMS message type\n\t4. JSON data string\n");
+        }
+
+        std::ostringstream oss;
+        oss << argv[1] << "/" << argv[2];
+
         Json::Value testParams;
         Json::Reader jsonReader;
         if (not jsonReader.parse(argv[4], testParams, false)) {

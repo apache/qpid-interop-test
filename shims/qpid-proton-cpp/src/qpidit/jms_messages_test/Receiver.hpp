@@ -24,8 +24,8 @@
 
 #include <iomanip>
 #include <json/value.h>
-#include "proton/types.hpp"
-#include "qpidit/JmsTestBase.hpp"
+#include <proton/types.hpp>
+#include <qpidit/JmsTestBase.hpp>
 #include <sstream>
 
 namespace qpidit

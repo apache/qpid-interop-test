@@ -24,13 +24,13 @@
 #include <iostream>
 #include <json/json.h>
 #include <stdlib.h> // exit()
-#include "proton/connection.hpp"
-#include "proton/container.hpp"
-#include "proton/default_container.hpp"
-#include "proton/delivery.hpp"
-#include "proton/message.hpp"
-#include "proton/receiver.hpp"
-#include "qpidit/QpidItErrors.hpp"
+#include <proton/connection.hpp>
+#include <proton/container.hpp>
+#include <proton/default_container.hpp>
+#include <proton/delivery.hpp>
+#include <proton/message.hpp>
+#include <proton/receiver.hpp>
+#include <qpidit/QpidItErrors.hpp>
 
 namespace qpidit
 {
@@ -55,39 +55,45 @@ namespace qpidit
         }
 
         void Receiver::on_message(proton::delivery &d, proton::message &m) {
-            if (_received < _expected) {
-                if (_amqpType.compare("binary") == 0 || _amqpType.compare("string") == 0 || _amqpType.compare("symbol") == 0) {
-                    _receivedValueList.append(getTestStringSizeMb(m.body()));
-                } else {
-                    std::pair<uint32_t, uint32_t> ret;
-                    if (_amqpType.compare("list") == 0) {
-                        ret = getTestListSizeMb(m.body());
+            try {
+                if (_received < _expected) {
+                    if (_amqpType.compare("binary") == 0 || _amqpType.compare("string") == 0 || _amqpType.compare("symbol") == 0) {
+                        _receivedValueList.append(getTestStringSizeMb(m.body()));
                     } else {
-                        ret = getTestMapSizeMb(m.body());
-                    }
-                    if (_receivedValueList.empty()) {
-                        createNewListMapSize(ret);
-                    } else {
-                        bool found = false;
-                        for (Json::ValueIterator i = _receivedValueList.begin(); i != _receivedValueList.end(); ++i) {
-                            // JSON Array has exactly 2 elements: size and a JSON Array of number of elements found
-                            const uint32_t lastSize = (*i)[0].asInt(); // total size (sum of elements)
-                            if (ret.first == lastSize) {
-                                found = true;
-                                appendListMapSize((*i)[1], ret);
-                                break;
-                            }
+                        std::pair<uint32_t, uint32_t> ret;
+                        if (_amqpType.compare("list") == 0) {
+                            ret = getTestListSizeMb(m.body());
+                        } else {
+                            ret = getTestMapSizeMb(m.body());
                         }
-                        if (!found) {
+                        if (_receivedValueList.empty()) {
                             createNewListMapSize(ret);
+                        } else {
+                            bool found = false;
+                            for (Json::ValueIterator i = _receivedValueList.begin(); i != _receivedValueList.end(); ++i) {
+                                // JSON Array has exactly 2 elements: size and a JSON Array of number of elements found
+                                const uint32_t lastSize = (*i)[0].asInt(); // total size (sum of elements)
+                                if (ret.first == lastSize) {
+                                    found = true;
+                                    appendListMapSize((*i)[1], ret);
+                                    break;
+                                }
+                            }
+                            if (!found) {
+                                createNewListMapSize(ret);
+                            }
                         }
                     }
                 }
-            }
-            _received++;
-            if (_received >= _expected) {
+                _received++;
+                if (_received >= _expected) {
+                    d.receiver().close();
+                    d.connection().close();
+                }
+            } catch (const std::exception&) {
                 d.receiver().close();
                 d.connection().close();
+                throw;
             }
         }
 

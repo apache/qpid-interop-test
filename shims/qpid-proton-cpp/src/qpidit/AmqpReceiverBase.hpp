@@ -22,8 +22,8 @@
 #ifndef SRC_QPIDIT_AMQPRECEIVERBASE_HPP_
 #define SRC_QPIDIT_AMQPRECEIVERBASE_HPP_
 
-#include "proton/messaging_handler.hpp"
-#include "qpidit/AmqpTestBase.hpp"
+#include <proton/messaging_handler.hpp>
+#include <qpidit/AmqpTestBase.hpp>
 
 namespace qpidit
 {

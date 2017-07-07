@@ -24,8 +24,8 @@
 
 #include <iomanip>
 #include <json/value.h>
-#include "proton/messaging_handler.hpp"
-#include "proton/types.hpp"
+#include <proton/messaging_handler.hpp>
+#include <proton/types.hpp>
 #include <sstream>
 
 namespace qpidit

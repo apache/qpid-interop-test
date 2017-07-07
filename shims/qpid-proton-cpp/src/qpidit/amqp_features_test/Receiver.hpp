@@ -22,7 +22,7 @@
 #ifndef SRC_QPIDIT_AMQP_FEATURES_TEST_RECEIVER_HPP_
 #define SRC_QPIDIT_AMQP_FEATURES_TEST_RECEIVER_HPP_
 
-#include "proton/messaging_handler.hpp"
+#include <proton/messaging_handler.hpp>
 
 namespace qpidit
 {

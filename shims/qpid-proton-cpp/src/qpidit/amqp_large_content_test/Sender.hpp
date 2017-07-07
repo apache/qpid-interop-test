@@ -24,7 +24,7 @@
 
 #include <json/value.h>
 #include <proton/value.hpp>
-#include "qpidit/AmqpSenderBase.hpp"
+#include <qpidit/AmqpSenderBase.hpp>
 
 namespace qpidit
 {

@@ -24,7 +24,7 @@
 
 #include <stdint.h>
 #include <json/value.h>
-#include "proton/messaging_handler.hpp"
+#include <proton/messaging_handler.hpp>
 #include <string>
 
 namespace qpidit

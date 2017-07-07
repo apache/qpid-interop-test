@@ -22,9 +22,9 @@
 #include "qpidit/AmqpSenderBase.hpp"
 
 #include <sstream>
-#include "proton/container.hpp"
-#include "proton/thread_safe.hpp"
-#include "proton/tracker.hpp"
+#include <proton/container.hpp>
+#include <proton/thread_safe.hpp>
+#include <proton/tracker.hpp>
 
 namespace qpidit
 {

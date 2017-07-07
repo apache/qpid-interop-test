@@ -19,20 +19,20 @@
  *
  */
 
-#include "qpidit/amqp_types_test/Receiver.hpp"
+#include <qpidit/amqp_types_test/Receiver.hpp>
 
 #include <iostream>
 #include <json/json.h>
-#include "proton/connection.hpp"
-#include "proton/container.hpp"
-#include "proton/default_container.hpp"
-#include "proton/error_condition.hpp"
-#include "proton/delivery.hpp"
-#include "proton/message.hpp"
-#include "proton/receiver.hpp"
-#include "proton/thread_safe.hpp"
-#include "proton/transport.hpp"
-#include "qpidit/QpidItErrors.hpp"
+#include <proton/connection.hpp>
+#include <proton/container.hpp>
+#include <proton/default_container.hpp>
+#include <proton/error_condition.hpp>
+#include <proton/delivery.hpp>
+#include <proton/message.hpp>
+#include <proton/receiver.hpp>
+#include <proton/thread_safe.hpp>
+#include <proton/transport.hpp>
+#include <qpidit/QpidItErrors.hpp>
 
 namespace qpidit
 {
@@ -64,103 +64,107 @@ namespace qpidit
         }
 
         void Receiver::on_message(proton::delivery &d, proton::message &m) {
-            // TODO: Ignore m.id() if it does not exist on the message
-            //if (proton::get<uint64_t>(m.id()) < _received) return; // ignore duplicate
-            if (_received < _expected) {
-                if (_amqpType.compare("null") == 0) {
-                    checkMessageType(m, proton::NULL_TYPE);
-                    _receivedValueList.append("None");
-                } else if (_amqpType.compare("boolean") == 0) {
-                    checkMessageType(m, proton::BOOLEAN);
-                    _receivedValueList.append(m.body().get<bool>() ? "True": "False");
-                } else if (_amqpType.compare("ubyte") == 0) {
-                    checkMessageType(m, proton::UBYTE);
-                    _receivedValueList.append(toHexStr<uint8_t>(m.body().get<uint8_t>()));
-                } else if (_amqpType.compare("ushort") == 0) {
-                    checkMessageType(m, proton::USHORT);
-                    _receivedValueList.append(toHexStr<uint16_t>(m.body().get<uint16_t>()));
-                } else if (_amqpType.compare("uint") == 0) {
-                    checkMessageType(m, proton::UINT);
-                    _receivedValueList.append(toHexStr<uint32_t>(m.body().get<uint32_t>()));
-                } else if (_amqpType.compare("ulong") == 0) {
-                    checkMessageType(m, proton::ULONG);
-                    _receivedValueList.append(toHexStr<uint64_t>(m.body().get<uint64_t>()));
-                } else if (_amqpType.compare("byte") == 0) {
-                    checkMessageType(m, proton::BYTE);
-                    _receivedValueList.append(toHexStr<int8_t>(m.body().get<int8_t>()));
-                } else if (_amqpType.compare("short") == 0) {
-                    checkMessageType(m, proton::SHORT);
-                    _receivedValueList.append(toHexStr<int16_t>(m.body().get<int16_t>()));
-                } else if (_amqpType.compare("int") == 0) {
-                    checkMessageType(m, proton::INT);
-                    _receivedValueList.append(toHexStr<int32_t>(m.body().get<int32_t>()));
-                } else if (_amqpType.compare("long") == 0) {
-                    checkMessageType(m, proton::LONG);
-                    _receivedValueList.append(toHexStr<int64_t>(m.body().get<int64_t>()));
-                } else if (_amqpType.compare("float") == 0) {
-                    checkMessageType(m, proton::FLOAT);
-                    float f = m.body().get<float>();
-                    _receivedValueList.append(toHexStr<uint32_t>(*((uint32_t*)&f), true));
-                } else if (_amqpType.compare("double") == 0) {
-                    checkMessageType(m, proton::DOUBLE);
-                    double d = m.body().get<double>();
-                    _receivedValueList.append(toHexStr<uint64_t>(*((uint64_t*)&d), true));
-                } else if (_amqpType.compare("decimal32") == 0) {
-                    checkMessageType(m, proton::DECIMAL32);
-                    _receivedValueList.append(byteArrayToHexStr(m.body().get<proton::decimal32>()));
-                } else if (_amqpType.compare("decimal64") == 0) {
-                    checkMessageType(m, proton::DECIMAL64);
-                    _receivedValueList.append(byteArrayToHexStr(m.body().get<proton::decimal64>()));
-                } else if (_amqpType.compare("decimal128") == 0) {
-                    checkMessageType(m, proton::DECIMAL128);
-                    _receivedValueList.append(byteArrayToHexStr(m.body().get<proton::decimal128>()));
-                } else if (_amqpType.compare("char") == 0) {
-                    checkMessageType(m, proton::CHAR);
-                    wchar_t c = m.body().get<wchar_t>();
-                    std::stringstream oss;
-                    if (c < 0x7f && std::iswprint(c)) {
-                        oss << (char)c;
+            try {
+                if (_received < _expected) {
+                    if (_amqpType.compare("null") == 0) {
+                        checkMessageType(m, proton::NULL_TYPE);
+                        _receivedValueList.append("None");
+                    } else if (_amqpType.compare("boolean") == 0) {
+                        checkMessageType(m, proton::BOOLEAN);
+                        _receivedValueList.append(m.body().get<bool>() ? "True": "False");
+                    } else if (_amqpType.compare("ubyte") == 0) {
+                        checkMessageType(m, proton::UBYTE);
+                        _receivedValueList.append(toHexStr<uint8_t>(m.body().get<uint8_t>()));
+                    } else if (_amqpType.compare("ushort") == 0) {
+                        checkMessageType(m, proton::USHORT);
+                        _receivedValueList.append(toHexStr<uint16_t>(m.body().get<uint16_t>()));
+                    } else if (_amqpType.compare("uint") == 0) {
+                        checkMessageType(m, proton::UINT);
+                        _receivedValueList.append(toHexStr<uint32_t>(m.body().get<uint32_t>()));
+                    } else if (_amqpType.compare("ulong") == 0) {
+                        checkMessageType(m, proton::ULONG);
+                        _receivedValueList.append(toHexStr<uint64_t>(m.body().get<uint64_t>()));
+                    } else if (_amqpType.compare("byte") == 0) {
+                        checkMessageType(m, proton::BYTE);
+                        _receivedValueList.append(toHexStr<int8_t>(m.body().get<int8_t>()));
+                    } else if (_amqpType.compare("short") == 0) {
+                        checkMessageType(m, proton::SHORT);
+                        _receivedValueList.append(toHexStr<int16_t>(m.body().get<int16_t>()));
+                    } else if (_amqpType.compare("int") == 0) {
+                        checkMessageType(m, proton::INT);
+                        _receivedValueList.append(toHexStr<int32_t>(m.body().get<int32_t>()));
+                    } else if (_amqpType.compare("long") == 0) {
+                        checkMessageType(m, proton::LONG);
+                        _receivedValueList.append(toHexStr<int64_t>(m.body().get<int64_t>()));
+                    } else if (_amqpType.compare("float") == 0) {
+                        checkMessageType(m, proton::FLOAT);
+                        float f = m.body().get<float>();
+                        _receivedValueList.append(toHexStr<uint32_t>(*((uint32_t*)&f), true));
+                    } else if (_amqpType.compare("double") == 0) {
+                        checkMessageType(m, proton::DOUBLE);
+                        double d = m.body().get<double>();
+                        _receivedValueList.append(toHexStr<uint64_t>(*((uint64_t*)&d), true));
+                    } else if (_amqpType.compare("decimal32") == 0) {
+                        checkMessageType(m, proton::DECIMAL32);
+                        _receivedValueList.append(byteArrayToHexStr(m.body().get<proton::decimal32>()));
+                    } else if (_amqpType.compare("decimal64") == 0) {
+                        checkMessageType(m, proton::DECIMAL64);
+                        _receivedValueList.append(byteArrayToHexStr(m.body().get<proton::decimal64>()));
+                    } else if (_amqpType.compare("decimal128") == 0) {
+                        checkMessageType(m, proton::DECIMAL128);
+                        _receivedValueList.append(byteArrayToHexStr(m.body().get<proton::decimal128>()));
+                    } else if (_amqpType.compare("char") == 0) {
+                        checkMessageType(m, proton::CHAR);
+                        wchar_t c = m.body().get<wchar_t>();
+                        std::stringstream oss;
+                        if (c < 0x7f && std::iswprint(c)) {
+                            oss << (char)c;
+                        } else {
+                            oss << "0x" << std::hex << c;
+                        }
+                        _receivedValueList.append(oss.str());
+                    } else if (_amqpType.compare("timestamp") == 0) {
+                        checkMessageType(m, proton::TIMESTAMP);
+                        std::ostringstream oss;
+                        oss << "0x" << std::hex << m.body().get<proton::timestamp>().milliseconds();
+                        _receivedValueList.append(oss.str());
+                    } else if (_amqpType.compare("uuid") == 0) {
+                        checkMessageType(m, proton::UUID);
+                        std::ostringstream oss;
+                        oss << m.body().get<proton::uuid>();
+                        _receivedValueList.append(oss.str());
+                    } else if (_amqpType.compare("binary") == 0) {
+                        checkMessageType(m, proton::BINARY);
+                        _receivedValueList.append(std::string(m.body().get<proton::binary>()));
+                    } else if (_amqpType.compare("string") == 0) {
+                        checkMessageType(m, proton::STRING);
+                        _receivedValueList.append(m.body().get<std::string>());
+                    } else if (_amqpType.compare("symbol") == 0) {
+                        checkMessageType(m, proton::SYMBOL);
+                        _receivedValueList.append(m.body().get<proton::symbol>());
+                    } else if (_amqpType.compare("list") == 0) {
+                        checkMessageType(m, proton::LIST);
+                        Json::Value jsonList(Json::arrayValue);
+                        _receivedValueList.append(getSequence(jsonList, m.body()));
+                    } else if (_amqpType.compare("map") == 0) {
+                        checkMessageType(m, proton::MAP);
+                        Json::Value jsonMap(Json::objectValue);
+                        _receivedValueList.append(getMap(jsonMap, m.body()));
+                    } else if (_amqpType.compare("array") == 0) {
+                        throw qpidit::UnsupportedAmqpTypeError(_amqpType);
                     } else {
-                        oss << "0x" << std::hex << c;
+                        throw qpidit::UnknownAmqpTypeError(_amqpType);
                     }
-                    _receivedValueList.append(oss.str());
-                } else if (_amqpType.compare("timestamp") == 0) {
-                    checkMessageType(m, proton::TIMESTAMP);
-                    std::ostringstream oss;
-                    oss << "0x" << std::hex << m.body().get<proton::timestamp>().milliseconds();
-                    _receivedValueList.append(oss.str());
-                } else if (_amqpType.compare("uuid") == 0) {
-                    checkMessageType(m, proton::UUID);
-                    std::ostringstream oss;
-                    oss << m.body().get<proton::uuid>();
-                    _receivedValueList.append(oss.str());
-                } else if (_amqpType.compare("binary") == 0) {
-                    checkMessageType(m, proton::BINARY);
-                    _receivedValueList.append(std::string(m.body().get<proton::binary>()));
-                } else if (_amqpType.compare("string") == 0) {
-                    checkMessageType(m, proton::STRING);
-                    _receivedValueList.append(m.body().get<std::string>());
-                } else if (_amqpType.compare("symbol") == 0) {
-                    checkMessageType(m, proton::SYMBOL);
-                    _receivedValueList.append(m.body().get<proton::symbol>());
-                } else if (_amqpType.compare("list") == 0) {
-                    checkMessageType(m, proton::LIST);
-                    Json::Value jsonList(Json::arrayValue);
-                    _receivedValueList.append(getSequence(jsonList, m.body()));
-                } else if (_amqpType.compare("map") == 0) {
-                    checkMessageType(m, proton::MAP);
-                    Json::Value jsonMap(Json::objectValue);
-                    _receivedValueList.append(getMap(jsonMap, m.body()));
-                } else if (_amqpType.compare("array") == 0) {
-                    throw qpidit::UnsupportedAmqpTypeError(_amqpType);
-                } else {
-                    throw qpidit::UnknownAmqpTypeError(_amqpType);
                 }
-            }
-            _received++;
-            if (_received >= _expected) {
+                _received++;
+                if (_received >= _expected) {
+                    d.receiver().close();
+                    d.connection().close();
+                }
+            } catch (const std::exception&) {
                 d.receiver().close();
                 d.connection().close();
+                throw;
             }
         }
 

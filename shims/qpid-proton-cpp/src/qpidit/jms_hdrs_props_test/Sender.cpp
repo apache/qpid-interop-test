@@ -25,12 +25,12 @@
 #include <iomanip>
 #include <iostream>
 #include <json/json.h>
-#include "proton/connection.hpp"
-#include "proton/container.hpp"
-#include "proton/default_container.hpp"
-#include "proton/thread_safe.hpp"
-#include "proton/tracker.hpp"
-#include "proton/transport.hpp"
+#include <proton/connection.hpp>
+#include <proton/container.hpp>
+#include <proton/default_container.hpp>
+#include <proton/thread_safe.hpp>
+#include <proton/tracker.hpp>
+#include <proton/transport.hpp>
 #include <stdio.h>
 
 namespace qpidit
@@ -425,11 +425,6 @@ namespace qpidit
  */
 
 int main(int argc, char** argv) {
-/*
-    for (int i=0; i<argc; ++i) {
-        std::cout << "*** argv[" << i << "] : " << argv[i] << std::endl;
-    }
-*/
     // TODO: improve arg management a little...
     if (argc != 5) {
         throw qpidit::ArgumentError("Incorrect number of arguments");

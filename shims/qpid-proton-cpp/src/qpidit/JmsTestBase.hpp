@@ -24,9 +24,9 @@
 
 #include <stdint.h>
 #include <map>
-#include "proton/messaging_handler.hpp"
-#include "proton/symbol.hpp"
-#include "proton/transport.hpp"
+#include <proton/messaging_handler.hpp>
+#include <proton/symbol.hpp>
+#include <proton/transport.hpp>
 
 namespace qpidit
 {

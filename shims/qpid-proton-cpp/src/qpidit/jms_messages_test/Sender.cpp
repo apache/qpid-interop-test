@@ -25,12 +25,12 @@
 #include <iomanip>
 #include <iostream>
 #include <json/json.h>
-#include "proton/connection.hpp"
-#include "proton/container.hpp"
-#include "proton/default_container.hpp"
-#include "proton/thread_safe.hpp"
-#include "proton/tracker.hpp"
-#include "proton/transport.hpp"
+#include <proton/connection.hpp>
+#include <proton/container.hpp>
+#include <proton/default_container.hpp>
+#include <proton/thread_safe.hpp>
+#include <proton/tracker.hpp>
+#include <proton/transport.hpp>
 #include <stdio.h>
 
 namespace qpidit
@@ -325,20 +325,15 @@ namespace qpidit
  */
 
 int main(int argc, char** argv) {
-/*
-    for (int i=0; i<argc; ++i) {
-        std::cout << "*** argv[" << i << "] : " << argv[i] << std::endl;
-    }
-*/
-    // TODO: improve arg management a little...
-    if (argc != 5) {
-        throw qpidit::ArgumentError("Incorrect number of arguments");
-    }
-
-    std::ostringstream oss;
-    oss << argv[1] << "/" << argv[2];
-
     try {
+        // TODO: improve arg management a little...
+        if (argc != 5) {
+            throw qpidit::ArgumentError("Incorrect number of arguments (expected 4):\n\t1. Broker TCP address(ip-addr:port)\n\t2. Queue name\n\t3. JMS message type\n\t4. JSON data string\n");
+        }
+
+        std::ostringstream oss;
+        oss << argv[1] << "/" << argv[2];
+
         Json::Value testParams;
         Json::Reader jsonReader;
         if (not jsonReader.parse(argv[4], testParams, false)) {

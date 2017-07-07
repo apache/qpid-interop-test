@@ -23,13 +23,13 @@
 
 #include <iostream>
 #include <json/json.h>
-#include "proton/container.hpp"
-#include "proton/default_container.hpp"
-#include "proton/error_condition.hpp"
-#include "proton/thread_safe.hpp"
-#include "proton/tracker.hpp"
-#include "proton/transport.hpp"
-#include "qpidit/QpidItErrors.hpp"
+#include <proton/container.hpp>
+#include <proton/default_container.hpp>
+#include <proton/error_condition.hpp>
+#include <proton/thread_safe.hpp>
+#include <proton/tracker.hpp>
+#include <proton/transport.hpp>
+#include <qpidit/QpidItErrors.hpp>
 #include <stdlib.h> // exit()
 
 

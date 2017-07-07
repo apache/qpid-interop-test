@@ -22,10 +22,10 @@
 #ifndef SRC_QPIDIT_JMS_HEADERS_PROPERTIES_TEST_SENDER_HPP_
 #define SRC_QPIDIT_JMS_HEADERS_PROPERTIES_TEST_SENDER_HPP_
 
-#include "json/value.h"
-#include "proton/message.hpp"
-#include "qpidit/JmsTestBase.hpp"
-#include "qpidit/QpidItErrors.hpp"
+#include <json/value.h>
+#include <proton/message.hpp>
+#include <qpidit/JmsTestBase.hpp>
+#include <qpidit/QpidItErrors.hpp>
 #include <typeinfo>
 
 namespace proton {

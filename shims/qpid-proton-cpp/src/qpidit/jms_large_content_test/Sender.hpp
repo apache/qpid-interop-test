@@ -22,7 +22,7 @@
 #ifndef SRC_QPIDIT_JMS_LARGE_CONTENT_TEST_SENDER_HPP_
 #define SRC_QPIDIT_JMS_LARGE_CONTENT_TEST_SENDER_HPP_
 
-#include "qpidit/JmsTestBase.hpp"
+#include <qpidit/JmsTestBase.hpp>
 
 namespace qpidit
 {
