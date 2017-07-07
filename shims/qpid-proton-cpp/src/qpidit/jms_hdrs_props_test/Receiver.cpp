@@ -24,14 +24,14 @@
 #include <ctime>
 #include <iostream>
 #include <json/json.h>
-#include "proton/connection.hpp"
-#include "proton/container.hpp"
-#include "proton/default_container.hpp"
-#include "proton/delivery.hpp"
-#include "proton/message.hpp"
-#include "proton/thread_safe.hpp"
-#include "proton/transport.hpp"
-#include "qpidit/QpidItErrors.hpp"
+#include <proton/connection.hpp>
+#include <proton/container.hpp>
+#include <proton/default_container.hpp>
+#include <proton/delivery.hpp>
+#include <proton/message.hpp>
+#include <proton/thread_safe.hpp>
+#include <proton/transport.hpp>
+#include <qpidit/QpidItErrors.hpp>
 
 namespace qpidit
 {
@@ -80,9 +80,13 @@ namespace qpidit
         void Receiver::on_message(proton::delivery &d, proton::message &m) {
             try {
                 if (_received < _expected) {
-                    int8_t t = qpidit::JMS_MESSAGE_TYPE;
-                    try {t = m.message_annotations().get(proton::symbol("x-opt-jms-msg-type")).get<int8_t>();}
-                    catch (const std::exception& e) {
+                    int8_t t = qpidit::JMS_MESSAGE_TYPE; // qpidit::JMS_MESSAGE_TYPE has value 0
+                    try {
+                        t = m.message_annotations().get(proton::symbol("x-opt-jms-msg-type")).get<int8_t>();
+                    } catch (const proton::conversion_error& e) {
+                        std::cout << "JmsReceiver::on_message(): Error converting value for annotation \"x-opt-jms-msg-type\": " << e.what() << std::endl;
+                        throw;
+                    } catch (const std::exception& e) {
                         std::cout << "JmsReceiver::on_message(): Missing annotation \"x-opt-jms-msg-type\"" << std::endl;
                         throw;
                     }
@@ -319,7 +323,7 @@ namespace qpidit
             }
 
             if (_flagMap.isMember("JMS_CLIENT_CHECKS") && _flagMap["JMS_CLIENT_CHECKS"].asBool()) {
-                // Get and check message headers which are set by a JMS-compient sender
+                // Get and check message headers which are set by a JMS-compliant sender
                 // See: https://docs.oracle.com/cd/E19798-01/821-1841/bnces/index.html
                 // 1. Destination
                 std::string destination = msg.to();
@@ -344,12 +348,16 @@ namespace qpidit
                 proton::message_id mid = msg.id();
                 // TODO: Find a check for this
                 // 5. Message priority
+                // TODO: PROTON-1505: C++ client does not return the default (4) when the message header is not on
+                //       the wire but a value of 0. Disable this test until fixed.
+/*
                 int msgPriority = msg.priority();
                 if (msgPriority != 4) { // Default JMS message priority
                     std::ostringstream oss;
                     oss << "Expected default priority (4), found priority " << msgPriority;
                     throw qpidit::UnexpectedJMSMessageHeader("JMS_PRIORITY", oss.str());
                 }
+*/
                 // 6. Message timestamp
                 const time_t creationTime = msg.creation_time().milliseconds();
                 const time_t currentTime = proton::timestamp::now().milliseconds();
@@ -422,11 +430,6 @@ namespace qpidit
  *       4: JSON Test parameters containing 2 maps: [testValuesMap, flagMap]
  */
 int main(int argc, char** argv) {
-    /*
-        for (int i=0; i<argc; ++i) {
-            std::cout << "*** argv[" << i << "] : " << argv[i] << std::endl;
-        }
-    */
     // TODO: improve arg management a little...
     if (argc != 5) {
         throw qpidit::ArgumentError("Incorrect number of arguments");

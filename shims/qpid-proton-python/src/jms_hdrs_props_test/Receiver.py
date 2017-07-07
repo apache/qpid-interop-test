@@ -312,7 +312,7 @@ class JmsHdrsPropsTestReceiver(MessagingHandler):
 
         # JMS client checks
         if 'JMS_CLIENT_CHECKS' in self.flag_map and self.flag_map['JMS_CLIENT_CHECKS']:
-            # Get and check message headers which are set by a JMS-compient sender
+            # Get and check message headers which are set by a JMS-compliant sender
             # See: https://docs.oracle.com/cd/E19798-01/821-1841/bnces/index.html
             # 1. Destination
             destination = message.address
@@ -334,8 +334,10 @@ class JmsHdrsPropsTestReceiver(MessagingHandler):
                 raise InteropTestError('JMS_MESSAGEID header is empty (zero-length)')
             # TODO: Find a check for this
             # 5. Message priority
-            if message.priority != 4:
-                raise InteropTestError('JMS_PRIORITY header is not default (4): found %d' % message.priority)
+            # TODO: PROTON-1505: C++ client does not return the default (4) when the message header is not on
+            #       the wire but a value of 0. Disable this test until fixed.
+            #if message.priority != 4:
+            #    raise InteropTestError('JMS_PRIORITY header is not default (4): found %d' % message.priority)
             # 6. Message timestamp
             time_stamp = message.creation_time
             current_time = time()
