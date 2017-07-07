@@ -1,0 +1,10 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use XML::XPath;
+
+my $root = XML::XPath->new(filename => 'pom.xml');
+for my $node ($root->find('//project/version/text()')->get_nodelist) {
+  print($node->getData, "\n");
+}
