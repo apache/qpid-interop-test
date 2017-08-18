@@ -279,6 +279,12 @@ class AmqpPrimitiveTypes(TestTypeMap):
         'double': {'apache-activemq-artemis': '-NaN is stripped of its sign: ENTMQ-1686',},
         }
 
+    CLIENT_SKIP = {
+        'decimal32': {'AmqpNetLite': 'Decimal types not supported: https://github.com/Azure/amqpnetlite/issues/223', },
+        'decimal64': {'AmqpNetLite': 'Decimal types not supported: https://github.com/Azure/amqpnetlite/issues/223', },
+        'decimal128': {'AmqpNetLite': 'Decimal types not supported: https://github.com/Azure/amqpnetlite/issues/223', },
+    }
+
     def __init__(self):
         super(AmqpPrimitiveTypes, self).__init__()
 
@@ -378,6 +384,10 @@ def create_testcase_class(amqp_type, shim_product):
 
         @unittest.skipIf(TYPES.skip_test(amqp_type, BROKER),
                          TYPES.skip_test_message(amqp_type, BROKER))
+        @unittest.skipIf(TYPES.skip_client_test(amqp_type, send_shim.NAME),
+                         TYPES.skip_client_test_message(amqp_type, send_shim.NAME, "SENDER"))
+        @unittest.skipIf(TYPES.skip_client_test(amqp_type, receive_shim.NAME),
+                         TYPES.skip_client_test_message(amqp_type, receive_shim.NAME, "RECEIVER"))
         def inner_test_method(self):
             self.run_test(self.sender_addr,
                           self.receiver_addr,

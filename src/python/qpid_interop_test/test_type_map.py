@@ -36,7 +36,7 @@ class TestTypeMap(object):
     #         }
     TYPE_MAP = {}
 
-    # BROKER_SKIP: For know broker issues where a type would cause a test to fail or hang,
+    # BROKER_SKIP: For known broker issues where a type would cause a test to fail or hang,
     # entries in BROKER_SKIP will cause the test to be skipped with a message.
     # This is a map containing AMQP types as a key, and a list of brokers for which this
     # type should be skipped.
@@ -53,6 +53,24 @@ class TestTypeMap(object):
     # where broker_1, broker_2, ... are broker product names as defined by the
     # connection property string it returns.
     BROKER_SKIP = {}
+
+    # CLIENT_SKIP: For known client issues where a type would cause a test to fail or hang,
+    # entries in CLIENT_SKIP will cause the test to be skipped with a message.
+    # This is a map containing AMQP types as a key, and a list of clients for which this
+    # type should be skipped.
+    # Format: {'jms_msg_type_1' : {'client_1' : 'skip msg for client_1',
+    #                              'client_2' : 'skip msg for client_2',
+    #                               ...
+    #                             },
+    #          'jms_msg_type_2' : {'client_1' : 'skip msg for client_1',
+    #                              'client_2' : 'skip msg for client_2',
+    #                              ...
+    #                             },
+    #          ...
+    #         }
+    # where client_1, client_2, ... are client product names as defined by the
+    # test shim NAME.
+    CLIENT_SKIP = {}
 
     def __init__(self):
         pass
@@ -90,13 +108,25 @@ class TestTypeMap(object):
         """Return the message to use if a test is skipped"""
         if test_type in self.BROKER_SKIP.keys():
             if broker_name in self.BROKER_SKIP[test_type]:
-                return str(self.BROKER_SKIP[test_type][broker_name])
+                return str("BROKER: " + self.BROKER_SKIP[test_type][broker_name])
         return None
 
     def skip_test(self, test_type, broker_name):
         """Return boolean True if test should be skipped"""
         return test_type in self.BROKER_SKIP.keys() and \
             broker_name in self.BROKER_SKIP[test_type]
+
+    def skip_client_test_message(self, test_type, client_name, role):
+        """Return the message to use if a test is skipped"""
+        if test_type in self.CLIENT_SKIP.keys():
+            if client_name in self.CLIENT_SKIP[test_type]:
+                return str(role + ": " + self.CLIENT_SKIP[test_type][client_name])
+        return None
+
+    def skip_client_test(self, test_type, client_name):
+        """Return boolean True if test should be skipped"""
+        return test_type in self.CLIENT_SKIP.keys() and \
+              client_name in self.CLIENT_SKIP[test_type]
 
     @staticmethod
     def merge_dicts(*dict_args):
