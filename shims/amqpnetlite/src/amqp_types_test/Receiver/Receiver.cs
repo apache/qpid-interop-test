@@ -21,6 +21,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 using System.Threading;
 using Amqp;
@@ -471,18 +472,17 @@ namespace Qpidit
              *       3: QPIDIT AMQP type name of expected message body values
              *       4: Expected number of test values to receive
              */
-            if (args.Length != 4)
-            {
-                throw new System.ArgumentException(
-                    "Required argument count must be 4: brokerAddr queueName amqpType nValues");
-            }
             int exitCode = 0;
-
-            //Trace.TraceLevel = TraceLevel.Frame | TraceLevel.Verbose;
-            //Trace.TraceListener = (f, a) => Console.WriteLine(DateTime.Now.ToString("[hh:mm:ss.fff]") + " " + string.Format(f, a));
-
             try
             {
+                if (args.Length != 4)
+                {
+                    throw new ApplicationException(
+                        "program requires four arguments: brokerAddr queueName amqpType nValues");
+                }
+                //Trace.TraceLevel = TraceLevel.Frame | TraceLevel.Verbose;
+                //Trace.TraceListener = (f, a) => Console.WriteLine(DateTime.Now.ToString("[hh:mm:ss.fff]") + " " + string.Format(f, a));
+
                 Receiver receiver = new Qpidit.Receiver(
                     args[0], args[1], args[2], Int32.Parse(args[3]));
                 receiver.run();
@@ -492,7 +492,8 @@ namespace Qpidit
             }
             catch (Exception e)
             {
-                Console.Error.WriteLine("AmqpReceiver error: {0}.", e);
+                string firstline = new StringReader(e.ToString()).ReadLine();
+                Console.Error.WriteLine("AmqpSender error: {0}.", firstline);
                 exitCode = 1;
             }
 
