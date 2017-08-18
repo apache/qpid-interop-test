@@ -186,6 +186,11 @@ BROKER_SKIP map in which the affected test cases are the index,
 and each value consists of a sub-map with the broker name as the
 index and a text reason for the skip as the value.
 
+If a client has a known failure or if it does not support certain
+types, then define a CLIENT_SKIP map in which the affected test cases
+are the index, and each value consists of a sub-map with the client
+name as the index and a text reason for the skip as the value.
+
 NOTE: Every test skipped in this manner should reference a JIRA issue
 for why that test is failing. This makes it easier to track and
 re-enable the tests when the issue is resolved. It also encourages
