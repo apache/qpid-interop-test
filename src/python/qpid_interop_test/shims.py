@@ -100,7 +100,7 @@ class Sender(ShimWorkerThread):
     def run(self):
         """Thread starts here"""
         try:
-            #print '\n>>SNDR>>', self.arg_list # DEBUG - useful to see command-line sent to shim
+            #print str('\n>>SNDR>>' + str(self.arg_list)) # DEBUG - useful to see command-line sent to shim
             self.proc = Popen(self.arg_list, stdout=PIPE, stderr=PIPE, shell=self.use_shell_flag, preexec_fn=setsid)
             (stdoutdata, stderrdata) = self.proc.communicate()
             if len(stderrdata) > 0:
@@ -134,7 +134,7 @@ class Receiver(ShimWorkerThread):
     def run(self):
         """Thread starts here"""
         try:
-            #print '\n>>RCVR>>', self.arg_list # DEBUG - useful to see command-line sent to shim
+            #print str('\n>>RCVR>>' + str(self.arg_list)) # DEBUG - useful to see command-line sent to shim
             self.proc = Popen(self.arg_list, stdout=PIPE, stderr=PIPE, preexec_fn=setsid)
             (stdoutdata, stderrdata) = self.proc.communicate()
             if len(stderrdata) > 0:
