@@ -76,77 +76,87 @@ option(BUILD_AMQPNETLITE "Build AMQP.Net Lite shim under mono" ${lite_default})
 
 message(STATUS "BUILD_AMQPNETLITE = ${BUILD_AMQPNETLITE}")
 
+# Configure/build/install a single test
+MACRO (define_lite_test testname)
+  # Configure the csproj files
+  configure_file(               ${testname}/Receiver/Receiver.csproj.in
+    ${CMAKE_CURRENT_BINARY_DIR}/${testname}/Receiver/Receiver.csproj
+    @ONLY)
+  configure_file(               ${testname}/Sender/Sender.csproj.in
+    ${CMAKE_CURRENT_BINARY_DIR}/${testname}/Sender/Sender.csproj
+    @ONLY)
+
+  # Emit the custom build commands
+  add_custom_target(
+    amqpnetlite_${testname}_Sender
+    ALL
+    COMMAND xbuild Sender.csproj > xbuild.log
+    DEPENDS
+      ${CMAKE_CURRENT_BINARY_DIR}/${testname}/Sender/Sender.csproj
+      ${CMAKE_CURRENT_SOURCE_DIR}/${testname}/Sender/Sender.cs
+      ${CMAKE_CURRENT_SOURCE_DIR}/${testname}/Sender/Properties/AssemblyInfo.cs
+      ${CMAKE_CURRENT_SOURCE_DIR}/${testname}/Sender/App.config
+      ${CMAKE_CURRENT_SOURCE_DIR}/${testname}/Sender/packages.config
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${testname}/Sender
+    COMMENT Cross compiling amqpnetlite ${testname}/Sender
+  )
+
+  add_custom_target(
+    amqpnetlite_${testname}_Receiver
+    ALL
+    COMMAND xbuild Receiver.csproj > xbuild.log
+    DEPENDS
+      ${CMAKE_CURRENT_BINARY_DIR}/${testname}/Receiver/Receiver.csproj
+      ${CMAKE_CURRENT_SOURCE_DIR}/${testname}/Receiver/Receiver.cs
+      ${CMAKE_CURRENT_SOURCE_DIR}/${testname}/Receiver/Properties/AssemblyInfo.cs
+      ${CMAKE_CURRENT_SOURCE_DIR}/${testname}/Receiver/App.config
+      ${CMAKE_CURRENT_SOURCE_DIR}/${testname}/Receiver/packages.config
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${testname}/Receiver
+    COMMENT Cross compiling amqpnetlite ${testname}/Receiver
+  )
+
+  # Install
+  
+  install(
+    FILES ${CMAKE_CURRENT_BINARY_DIR}/${testname}/Receiver/bin/Amqp.Net.dll
+    DESTINATION ${LITE_INSTALL_ROOT}/${testname}/)
+  
+  install(
+    FILES ${CMAKE_CURRENT_BINARY_DIR}/${testname}/Receiver/bin/Receiver.exe
+    DESTINATION ${LITE_INSTALL_ROOT}/${testname}/)
+
+  install(
+    FILES ${CMAKE_CURRENT_BINARY_DIR}/${testname}/Receiver/bin/Receiver.exe.config
+    DESTINATION ${LITE_INSTALL_ROOT}/${testname}/)
+
+  install(
+    FILES ${CMAKE_CURRENT_BINARY_DIR}/${testname}/Receiver/bin/Receiver.exe.mdb
+    DESTINATION ${LITE_INSTALL_ROOT}/${testname}/)
+
+  install(
+    FILES ${CMAKE_CURRENT_BINARY_DIR}/${testname}/Sender/bin/Sender.exe
+    DESTINATION ${LITE_INSTALL_ROOT}/${testname}/)
+
+  install(
+    FILES ${CMAKE_CURRENT_BINARY_DIR}/${testname}/Sender/bin/Sender.exe.config
+    DESTINATION ${LITE_INSTALL_ROOT}/${testname}/)
+
+  install(
+    FILES ${CMAKE_CURRENT_BINARY_DIR}/${testname}/Sender/bin/Sender.exe.mdb
+    DESTINATION ${LITE_INSTALL_ROOT}/${testname}/)
+ENDMACRO (define_lite_test)
+
 # Stage the build
 if (BUILD_AMQPNETLITE)
   # Drop lite dll into build/packages
   file(GLOB LITE_LIBS "${AMQPNETLITE_LIB_DIR}/Amqp.Net.*")
   file(COPY ${LITE_LIBS} DESTINATION ${CMAKE_BINARY_DIR}/shims/amqpnetlite/packages/amqpnetlite/lib/net45/)
 
-  # Configure the csproj files
-  configure_file(               amqp_types_test/Receiver/Receiver.csproj.in
-    ${CMAKE_CURRENT_BINARY_DIR}/amqp_types_test/Receiver/Receiver.csproj
-    @ONLY)
-  configure_file(               amqp_types_test/Sender/Sender.csproj.in
-    ${CMAKE_CURRENT_BINARY_DIR}/amqp_types_test/Sender/Sender.csproj
-    @ONLY)
-
-  # Emit the custom build commands
-  add_custom_target(
-    amqpnetlite_amqp_types_test_Sender
-    ALL
-    COMMAND xbuild Sender.csproj > xbuild.log
-    DEPENDS
-      ${CMAKE_CURRENT_BINARY_DIR}/amqp_types_test/Sender/Sender.csproj
-      ${CMAKE_CURRENT_SOURCE_DIR}/amqp_types_test/Sender/Sender.cs
-      ${CMAKE_CURRENT_SOURCE_DIR}/amqp_types_test/Sender/Properties/AssemblyInfo.cs
-      ${CMAKE_CURRENT_SOURCE_DIR}/amqp_types_test/Sender/App.config
-      ${CMAKE_CURRENT_SOURCE_DIR}/amqp_types_test/Sender/packages.config
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/amqp_types_test/Sender
-    COMMENT Cross compiling amqpnetlite amqp_types_test/Sender
-  )
-
-  add_custom_target(
-    amqpnetlite_amqp_types_test_Receiver
-    ALL
-    COMMAND xbuild Receiver.csproj > xbuild.log
-    DEPENDS
-      ${CMAKE_CURRENT_BINARY_DIR}/amqp_types_test/Receiver/Receiver.csproj
-      ${CMAKE_CURRENT_SOURCE_DIR}/amqp_types_test/Receiver/Receiver.cs
-      ${CMAKE_CURRENT_SOURCE_DIR}/amqp_types_test/Receiver/Properties/AssemblyInfo.cs
-      ${CMAKE_CURRENT_SOURCE_DIR}/amqp_types_test/Receiver/App.config
-      ${CMAKE_CURRENT_SOURCE_DIR}/amqp_types_test/Receiver/packages.config
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/amqp_types_test/Receiver
-    COMMENT Cross compiling amqpnetlite amqp_types_test/Receiver
-  )
-
-  # Install
+  # define lite install root
   set(LITE_INSTALL_ROOT ${CMAKE_INSTALL_PREFIX}/libexec/qpid_interop_test/shims/amqpnetlite)
-  
-  install(
-    FILES ${CMAKE_CURRENT_BINARY_DIR}/amqp_types_test/Receiver/bin/Amqp.Net.dll
-    DESTINATION ${LITE_INSTALL_ROOT}/amqp_types_test/)
-  
-  install(
-    FILES ${CMAKE_CURRENT_BINARY_DIR}/amqp_types_test/Receiver/bin/Receiver.exe
-    DESTINATION ${LITE_INSTALL_ROOT}/amqp_types_test/)
 
-  install(
-    FILES ${CMAKE_CURRENT_BINARY_DIR}/amqp_types_test/Receiver/bin/Receiver.exe.config
-    DESTINATION ${LITE_INSTALL_ROOT}/amqp_types_test/)
+  # define tests
+  define_lite_test (amqp_types_test)
+  define_lite_test (amqp_large_content_test)
 
-  install(
-    FILES ${CMAKE_CURRENT_BINARY_DIR}/amqp_types_test/Receiver/bin/Receiver.exe.mdb
-    DESTINATION ${LITE_INSTALL_ROOT}/amqp_types_test/)
-
-  install(
-    FILES ${CMAKE_CURRENT_BINARY_DIR}/amqp_types_test/Sender/bin/Sender.exe
-    DESTINATION ${LITE_INSTALL_ROOT}/amqp_types_test/)
-
-  install(
-    FILES ${CMAKE_CURRENT_BINARY_DIR}/amqp_types_test/Sender/bin/Sender.exe.config
-    DESTINATION ${LITE_INSTALL_ROOT}/amqp_types_test/)
-
-  install(
-    FILES ${CMAKE_CURRENT_BINARY_DIR}/amqp_types_test/Sender/bin/Sender.exe.mdb
-    DESTINATION ${LITE_INSTALL_ROOT}/amqp_types_test/)
 endif ()

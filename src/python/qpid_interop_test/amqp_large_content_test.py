@@ -218,12 +218,21 @@ if __name__ == '__main__':
                                             'Receiver.py')
     PROTON_PYTHON_SENDER_SHIM = path.join(QIT_TEST_SHIM_HOME, 'qpid-proton-python', 'amqp_large_content_test',
                                           'Sender.py')
+    AMQPNETLITE_RECEIVER_SHIM = path.join(QIT_TEST_SHIM_HOME, 'amqpnetlite', 'amqp_large_content_test', 'Receiver.exe')
+    AMQPNETLITE_SENDER_SHIM = path.join(QIT_TEST_SHIM_HOME, 'amqpnetlite', 'amqp_large_content_test', 'Sender.exe')
 
     SHIM_MAP = {qpid_interop_test.shims.ProtonCppShim.NAME: \
                     qpid_interop_test.shims.ProtonCppShim(PROTON_CPP_SENDER_SHIM, PROTON_CPP_RECEIVER_SHIM),
                 qpid_interop_test.shims.ProtonPythonShim.NAME: \
                     qpid_interop_test.shims.ProtonPythonShim(PROTON_PYTHON_SENDER_SHIM, PROTON_PYTHON_RECEIVER_SHIM),
                }
+    # Add shims that need detection during installation only if the necessary bits are present
+    # AMQP DotNetLite client
+    if path.isfile(AMQPNETLITE_RECEIVER_SHIM) and path.isfile(AMQPNETLITE_SENDER_SHIM):
+        SHIM_MAP[qpid_interop_test.shims.AmqpNetLiteShim.NAME] = \
+            qpid_interop_test.shims.AmqpNetLiteShim(AMQPNETLITE_SENDER_SHIM, AMQPNETLITE_RECEIVER_SHIM)
+    else:
+        print 'WARNING: AMQP DotNetLite shims not installed'
 
     ARGS = TestOptions(SHIM_MAP).args
     #print 'ARGS:', ARGS # debug
