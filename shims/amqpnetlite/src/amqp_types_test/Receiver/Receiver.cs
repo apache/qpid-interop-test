@@ -425,7 +425,7 @@ namespace Qpidit
             {
                 while (nReceived < nExpected)
                 {
-                    Message message = receiverlink.Receive(10000);
+                    Message message = receiverlink.Receive(System.TimeSpan.FromSeconds(10));
                     if (message != null)
                     {
                         nReceived += 1;
