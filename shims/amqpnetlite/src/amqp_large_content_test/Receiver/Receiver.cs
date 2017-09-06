@@ -59,6 +59,10 @@ namespace Qpidit
         private List<MessageValue> valueMapKeys;
         private List<MessageValue> valueMapValues;
 
+        // Computed large_content object size
+        private int payloadSize;
+        private int payloadChunks;
+
         /// <summary>
         /// Constructor.
         /// User must call Decode to parse values.
@@ -73,6 +77,8 @@ namespace Qpidit
             valueList = null;
             valueMapKeys = null;
             valueMapValues = null;
+            payloadSize = 0;    // total bytes received
+            payloadChunks = 0;  // count of elements in list or map
         }
 
         /// <summary>
@@ -84,6 +90,16 @@ namespace Qpidit
         /// QpidIt type name property
         /// </summary>
         public string QpiditTypeName { get { return qpiditType; } }
+
+        /// <summary>
+        /// Large_content test object size
+        /// </summary>
+        public int PayloadSize { get { return payloadSize; } }
+
+        /// <summary>
+        /// Large_content test object number of parts
+        /// </summary>
+        public int PayloadChunks { get { return payloadChunks; } }
 
         /// <summary>
         /// Decode the value and contained sub-values.
@@ -228,6 +244,13 @@ namespace Qpidit
                     MessageValue itemValue = new Qpidit.MessageValue(item);
                     itemValue.Decode();
                     valueList.Add(itemValue);
+                    if (!itemValue.QpiditTypeName.Equals("string"))
+                    {
+                        throw new ApplicationException(String.Format(
+                        "List content expects strings but received: {0}", itemValue.GetType().Name));
+                    }
+                    payloadSize += itemValue.PayloadSize;
+                    payloadChunks += 1;
                 }
             }
             else if (liteType == "Map")
@@ -244,6 +267,8 @@ namespace Qpidit
                     valueValue.Decode();
                     valueMapKeys.Add(valueKey);
                     valueMapValues.Add(valueValue);
+                    payloadSize += valueValue.PayloadSize;
+                    payloadChunks += 1;
                 }
             }
             else
@@ -350,14 +375,17 @@ namespace Qpidit
                         qpiditType = "binary";
                         byte[] binstr = (byte[])messageValue;
                         valueString = SerializeBytes(binstr);
+                        payloadSize = binstr.Length;
                         break;
                     case "String":
                         qpiditType = "string";
                         valueString = SerializeString(messageValue);
+                        payloadSize = valueString.Length;
                         break;
                     case "Symbol":
                         qpiditType = "symbol";
                         valueString = SerializeString(messageValue);
+                        payloadSize = valueString.Length;
                         break;
                     default:
                         qpiditType = "unknown";
@@ -378,34 +406,88 @@ namespace Qpidit
         private string amqpType;
         private Int32 nExpected;
         private Int32 nReceived;
-        private List<MessageValue> receivedMessageValues;
+        private List<Int32> receivedMByteSize;
+        private List<Int32> receivedChunks;
+        private Int32 mbFactor;
 
-        public Receiver(string brokerUrl_, string queueName_, string amqpType_, Int32 expected_)
+        public Receiver(string brokerUrl_, string queueName_, string amqpType_, Int32 expected_, Int32 mbFactor_)
         {
             brokerUrl = brokerUrl_;
             queueName = queueName_;
             amqpType = amqpType_;
             nExpected = expected_;
             nReceived = 0;
-            receivedMessageValues = new List<MessageValue>();
+            receivedMByteSize = new List<Int32>();
+            receivedChunks = new List<Int32>();
+            mbFactor = mbFactor_;
         }
 
         ~Receiver()
         { }
 
-        public string ReceivedValueList
+        public string ReceivedValueListSimple
         {
             get
             {
                 StringBuilder sb = new StringBuilder();
                 sb.Append("[");
-                for (int i = 0; i < receivedMessageValues.Count; i++)
-                {
+                for (int i = 0; i < receivedMByteSize.Count; i++)
+                 {
                     if (i > 0) sb.Append(", ");
-                    sb.Append(receivedMessageValues[i].ToString());
-                }
+                    sb.Append(receivedMByteSize[i].ToString());
+                 }
                 sb.Append("]");
                 return sb.ToString();
+            }
+        }
+
+
+        public string ReceivedValueListComplex
+        {
+            get
+            {
+                StringBuilder sb = new StringBuilder();
+                sb.Append("["); // start whole list
+
+                int curMb = 0;
+                bool subsequentChunk = false;
+                for (int i = 0; i < receivedMByteSize.Count; i++)
+                {
+                    // start new MB series?
+                    if (receivedMByteSize[i] != curMb)
+                    {
+                        // start new series. Close old series?
+                        if (curMb != 0)
+                        {
+                            sb.Append("]],");
+                        }
+                        curMb = receivedMByteSize[i];
+                        sb.Append(String.Format("[{0},[", curMb.ToString()));
+                        subsequentChunk = false;
+                    }
+                    // leading chunk gets no comma, subsequent chunks do
+                    if (subsequentChunk)
+                    {
+                        sb.Append(",");
+                    }
+                    subsequentChunk = true;
+                    // the chunk size
+                    sb.Append(String.Format("{0}", receivedChunks[i].ToString()));
+                }
+
+                sb.Append("]]]"); // end current chunk list, mb size list, and whole list
+                return sb.ToString();
+            }
+        }
+
+
+        public string ReceivedValueList
+        {
+            get
+            {
+                return (String.Equals(amqpType, "list", StringComparison.OrdinalIgnoreCase) ||
+                        String.Equals(amqpType, "map", StringComparison.OrdinalIgnoreCase))
+                        ? ReceivedValueListComplex : ReceivedValueListSimple;
             }
         }
 
@@ -425,7 +507,7 @@ namespace Qpidit
             {
                 while (nReceived < nExpected)
                 {
-                    Message message = receiverlink.Receive(System.TimeSpan.FromSeconds(10));
+                    Message message = receiverlink.Receive(System.TimeSpan.FromSeconds(800));
                     if (message != null)
                     {
                         nReceived += 1;
@@ -439,8 +521,8 @@ namespace Qpidit
                                 ("Incorrect AMQP type found in message body: expected: {0}; found: {1}",
                                 amqpType, mv.QpiditTypeName));
                         }
-                        //Console.WriteLine("{0} [{1}]", mv.QpiditTypeName, mv.ToString());
-                        receivedMessageValues.Add(mv);
+                        receivedMByteSize.Add(mv.PayloadSize / mbFactor);
+                        receivedChunks.Add(mv.PayloadChunks);
                     }
                     else
                     {
@@ -473,6 +555,7 @@ namespace Qpidit
              *       4: Expected number of test values to receive
              */
             int exitCode = 0;
+            const Int32 mbFactor = 1024 * 1024; // command line specifies small(ish) numbers of megabytes. Adjust size of a megabyte here.
             try
             {
                 if (args.Length != 4)
@@ -484,7 +567,7 @@ namespace Qpidit
                 //Trace.TraceListener = (f, a) => Console.WriteLine(DateTime.Now.ToString("[hh:mm:ss.fff]") + " " + string.Format(f, a));
 
                 Receiver receiver = new Qpidit.Receiver(
-                    args[0], args[1], args[2], Int32.Parse(args[3]));
+                    args[0], args[1], args[2], Int32.Parse(args[3]), mbFactor);
                 receiver.run();
 
                 Console.WriteLine(args[2]);
@@ -493,7 +576,7 @@ namespace Qpidit
             catch (Exception e)
             {
                 string firstline = new StringReader(e.ToString()).ReadLine();
-                Console.Error.WriteLine("AmqpSender error: {0}.", firstline);
+                Console.Error.WriteLine("AmqpReceiver error: {0}.", firstline);
                 exitCode = 1;
             }
 
