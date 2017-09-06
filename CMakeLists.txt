@@ -62,3 +62,5 @@ install(CODE "execute_process(COMMAND chmod +x amqp_large_content_test.py
                                                jms_hdrs_props_test.py
                                                jms_messages_test.py
                               WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}/lib/python2.7/site-packages/qpid_interop_test/)")
+
+configure_file(config.sh.in config.sh)

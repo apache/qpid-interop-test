@@ -1,34 +1,62 @@
+<!--
+
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+
+-->
+
 # QUICKSTART GUIDE
 
-All these instructions depend on choosing an install mechanism. Two options exist:
-A: Install to default locations using root privileges (TODO: I have not tested this option!)
-B: Install to custom local location which don't require privileges (and is safer for testing). In each case,
-   you should select the SAME prefix or install path for each component.
-The text below assumes you have chosen one of these. Your choice should be consistent for all components.
+You must build *and install* qpid-interop-test before you can run the tests.
+
+By default, qpid-interop-test will install to /usr/local, but you can set any
+non-priviedged directory as the install prefix, for example $HOME/install.
+
+The following pre-requisites must be installed *before* you build and install
+qpid-interop-test:
+
+ * Qpid Proton (includes C++ Proton API)
+ * Qpid Python
+ * Qpid JMS
+ * Maven
+ * JSON cpp
+
+The following are not required, but if installed and present, will be tested:
+
+ * Rhea (a Javascript client, also requires npm and nodejs)
+ * AMQP.Net Lite (requires mono)
+
+Pre-requisites can be installed using the standard system package manager (yum,
+dnf, apt-get etc.) OR built from source and installed *to the same prefix* as
+qpid-interop-test.
+
+For example, to install standard packages on Fedora 25:
+
+    sudo dnf install qpid-jms-client nodejs-rhea npm maven jsoncpp-devel
 
 These are the install steps:
 
-1. Install and build packages required for qpid-interop-test
-   * Qpid Proton (includes C++ Proton API)
-   * Qpid Python
-   * Qpid JMS
-   * Rhea
+1. Install pre-requisites, from packages or source
 2. Download and build qpid-interop-test
 3. Install or download / build AMQP brokers to test against
 4. Run the tests
 
 
-# 0. Prerequisites
-
-* Necessary packages for building and running qpid-interop-test and its dependencies:
-TODO: Complete this list
-
-* C++: json-cpp-devel and packages required for qpid-proton
-* Python: Nothing special, should be all installed standard on Lunux
-* Maven: mvn
-* Rhea: node npm
-
-# 1. Install and build packages required for qpid-interop-test
+# 1. How to build packages required for qpid-interop-test
 
 ## a. Get and build Qpid Proton
 ````
@@ -107,18 +135,7 @@ git clone https://git-wip-us.apache.org/repos/asf/qpid-interop-test.git
 cd qpid-interop-test
 mkdir build
 cd build
-````
-
-### INSTALL OPTION A: (TODO: I have not tested this option!)
-````
-cmake ..
-make
-sudo make install
-````
-
-### INSTALL OPTION B:
-````
-cmake -DPROTON_INSTALL_DIR=/abs/path/to/local/install/dir -DCMAKE_INSTALL_PREFIX=/abs/path/to/local/install/dir ..
+cmake -DPROTON_INSTALL_DIR=<install-dir> -DCMAKE_INSTALL_PREFIX=<install-dir> ..
 make install
 ````
 
@@ -170,29 +187,19 @@ TODO: Helpful hints on obtaining/building
 
 # 4. Run the tests
 
-The following depend on which choice was made for installation above:
+## a. Set the environment
 
-## OPTION A (root install default locations):
-
-TODO: Still needs testing
-
-## OPTION B (local install)
-
-Set environment (use this in a script file)
+The config.sh script is in the build directory 
 ````
-INSTALL_PATH=/abs/path/to/local/install/dir
-export QPID_INTEROP_TEST_HOME=/abs/path/to/local/qpid-interop-test
-export PYTHONPATH=${INSTALL_PATH}/lib64/proton/bindings/python:${INSTALL_PATH}/lib/python2.7/site-packages:${QPID_INTEROP_TEST_HOME}/src/python
-export LD_LIBRARY_PATH=${INSTALL_PATH}/lib64
+source build/config.sh
 ````
 
-Start the test broker
+## b. Start the test broker
 
-All of the tests are located in ${QPID_INTEROP_TEST_HOME}/src/python/qpid_interop_test, and can be directly called:
+## c. Run chosen tests
 ````
-./src/python/qpid_interop_test/amqp_types_test.py 
-./src/python/qpid_interop_test/jms_messages_test.py
+python -m qpid_interop_test.amqp_types_test
+python -m qpid_interop_test.jms_messages_test
+...
 ````
-etc.
-
 

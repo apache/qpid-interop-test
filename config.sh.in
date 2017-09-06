@@ -1,5 +1,3 @@
-#!/usr/bin/perl
-
 #  Licensed to the Apache Software Foundation (ASF) under one or more
 #  contributor license agreements.  See the NOTICE file distributed with
 #  this work for additional information regarding copyright ownership.
@@ -15,11 +13,10 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-use strict;
-use warnings;
-use XML::XPath;
 
-my $root = XML::XPath->new(filename => $ARGV[0]);
-for my $node ($root->find('//project/version/text()')->get_nodelist) {
-  print($node->getData, "\n");
-}
+# Source this file to set up environment variables for the Qpid interop tests.
+
+export QPID_INTEROP_TEST_HOME=@CMAKE_SOURCE_DIR@
+export QIT_INSTALL_PREFIX=@CMAKE_INSTALL_PREFIX@
+export PYTHONPATH=@CMAKE_INSTALL_PREFIX@/lib64/proton/bindings/python:@CMAKE_INSTALL_PREFIX@/lib/python2.7/site-packages:$PYTHONPATH
+export LD_LIBRARY_PATH=@CMAKE_INSTALL_PREFIX@/lib64:$LD_LIBRARY_PATH
