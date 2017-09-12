@@ -24,16 +24,25 @@ under the License.
 You must build *and install* qpid-interop-test before you can run the tests.
 
 By default, qpid-interop-test will install to /usr/local, but you can set any
-non-priviedged directory as the install prefix, for example $HOME/install.
+non-priviedged directory as the install prefix using the CMAKE_INSTALL_PREFIX
+environment variable, for example $HOME/install.
 
-The following pre-requisites must be installed *before* you build and install
-qpid-interop-test:
+The following tools are needed to build qpid-interop-test:
 
- * Qpid Proton (includes C++ Proton API)
- * Qpid Python
- * Qpid JMS
+ * git
+ * gcc-c++
+ * Python 2.7.x
+ * cmake
+ * Java JDK
  * Maven
  * JSON cpp
+
+The following Qpid components must be installed *before* you build and install
+qpid-interop-test:
+
+ * Qpid Proton (including C++ Proton API)
+ * Qpid Python
+ * Qpid JMS
 
 The following are not required, but if installed and present, will be tested:
 
@@ -41,165 +50,183 @@ The following are not required, but if installed and present, will be tested:
  * AMQP.Net Lite (requires mono)
 
 Pre-requisites can be installed using the standard system package manager (yum,
-dnf, apt-get etc.) OR built from source and installed *to the same prefix* as
-qpid-interop-test.
-
-For example, to install standard packages on Fedora 25:
-
-    sudo dnf install qpid-jms-client nodejs-rhea npm maven jsoncpp-devel
+dnf, apt-get etc.) OR built from source and installed.
 
 These are the install steps:
 
-1. Install pre-requisites, from packages or source
-2. Download and build qpid-interop-test
-3. Install or download / build AMQP brokers to test against
+1. Install prerequisites, from packages or source
+2. Install or download / build AMQP brokers to test against (or set up networked brokers)
+3. Download and build qpid-interop-test
 4. Run the tests
 
+## 1. Install prerequisites
 
-# 1. How to build packages required for qpid-interop-test
+### 1.1 RHEL6
 
-## a. Get and build Qpid Proton
-````
-git clone https://git-wip-us.apache.org/repos/asf/qpid-proton.git
-cd qpid-proton
-````
+Currently RHEL6 is not supported because it uses Python 2.6.x, and the test code uses
+features of Python 2.7.x. This may be supported in a future release.
 
-### Build and install C++ components:
-````
-mkdir build
-cd build
-````
+### 1.2 RHEL7
 
-### INSTALL OPTION A: (TODO: I have not tested this option!)
+From a clean install:
+
 ````
-cmake ..
-make
-sudo make install
+yum install cmake maven java-1.8.0-openjdk-devel perl-XML-XPath
 ````
 
-### INSTALL OPTION B:
+Some packages will need to be downloaded from [EPEL](https://fedoraproject.org/wiki/EPEL).
+To set up the EPEL repo in yum:
+
 ````
-cmake -DCMAKE_INSTALL_PREFIX=/abs/path/to/local/install/dir ..
-make install
-cd ..
+wget https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+rpm -ivh epel-release-latest-6.noarch.rpm
 ````
 
-### Build and install Java components:
+then install the following packages:
+
 ````
-mvn -DskipTests install
-cd ..
+yum install jsoncpp-devel nodejs-rhea qpid-proton-cpp-devel python-qpid-proton
 ````
 
-## b. Get and install Qpid Python
-````
-git clone https://git-wip-us.apache.org/repos/asf/qpid-python.git
-cd qpid-python
-````
+Qpid-jms client is not available as a package, so it must be built:
 
-### INSTALL OPTION A: (TODO: I have not tested this option!)
-````
-sudo python setup.py install
-````
-
-### INSTALL OPTION B:
-````
-python setup.py install --prefix=/abs/path/to/local/install/dir
-cd ..
-````
-
-
-## c. Get and build Qpid JMS
 ````
 git clone https://git-wip-us.apache.org/repos/asf/qpid-jms.git
 cd qpid-jms
-
 mvn -DskipTests install
 cd ..
 ````
 
-## d. Get and install Rhea
-````
-git clone https://github.com/grs/rhea.git
-cd rhea
+### 1.3 Fedora 26
 
-npm install debug
-* NOTE: This step requires root privileges, I can't find a way around it (as it needs to install the
-  link into the folders where node is installed, and I can't get a local link to work):
-sudo npm link
-cd ..
+All packages are available directly from the Fedora repositories:
+
+````
+dnf install gcc-c++ cmake maven java-1.8.0-openjdk-devel perl-XML-XPath jsoncpp-devel nodejs-rhea qpid-proton-cpp-devel python-qpid-proton qpid-jms-client
 ````
 
-# 2. Download and build qpid-interop-test
+## 2. Obtaining a broker
+
+Qpid-interop-test requires a broker to be running against which the tests may be run. This
+may be on localhost as a local install or build, or on another machine, in which case its
+IP addresss must be known. Some local broker install options are:
+
+### 2.1 ActiveMQ 5
+
+Download from [Apache](http://activemq.apache.org/download.html).
+
+Make the following changes to the `activemq.xml` config file: For XML element
+`broker.transportConnectors.transportConnector@name="amqp"` add the attribute
+`wireFormat.allowNonSaslConnections=true`. ie:
+
+````
+<transportConnector name="amqp" uri="amqp://0.0.0.0:5672?maximumConnections=1000&amp;wireFormat.maxFrameSize=1048576000&amp;wireFormat.allowNonSaslConnections=true"/>
+````
+
+### 2.2 Artemis
+
+Download from [Apache](https://activemq.apache.org/artemis/download.html).
+
+Make the following changes to the `broker.xml` file: For XML element
+`configuration.core.address-settings.address-setting@match="#"` add the following child element:
+
+````
+<auto-create-jms-queues>true</auto-create-jms-queues>
+````
+
+### 2.3 Qpid cpp broker
+
+    yum install qpid-cpp-server
+
+and set the configuration file in /etc/qpid/qpidd.conf as follows:
+
+````
+auth=no
+queue-patterns=jms.queue.qpid-interop
+````
+
+### 2.4 Qpid Dispatch Router
+
+    yum install qpid-dispatch-router
+
+and add the following to the config file in /etc/qpid-dispatch/qdrouterd.conf:
+
+````
+listener {
+    host: ::1
+    port: amqp
+    authenticatePeer: no
+    saslMechanisms: ANONYMOUS
+}
+
+````
+
+## 3. Build and install qpid-interop-test
+
+Qpid-interop-test may be installed locally (preferred for local builds) or to the system
+(which requires root privileges). For a local install, use the `-DCMAKE_INSTALL_PREFIX`
+option to the `cmake` command. If it is omitted, then qpid-interop-test will be installed
+into the default system directories.
+
 ````
 git clone https://git-wip-us.apache.org/repos/asf/qpid-interop-test.git
 cd qpid-interop-test
 mkdir build
 cd build
-cmake -DPROTON_INSTALL_DIR=<install-dir> -DCMAKE_INSTALL_PREFIX=<install-dir> ..
+cmake [-DCMAKE_INSTALL_PREFIX=<abs-path-to-local-install-dir>] ..
 make install
 ````
 
-# 3. Install or build AMQP brokers to test against
+## 4. Run the tests
 
-The following are possible brokers to install or build for testing against:
+### 4.1 Set the environment
 
-## a. Artemis
+The config.sh script is in the qpid-interop-test build directory: 
 
-TODO: Helpful hints on obtaining/building
-Make the following changes to the broker.xml file:
-````
-configuration.core.address-settings.address-setting for match="#":
-  add the following:
-    <auto-create-jms-queues>true</auto-create-jms-queues>
-````
-
-## b. ActiveMQ
-
-TODO: Helpful hints on obtaining/building
-Make the following changes to the activemq.xml config file:
-````
-broker.transportConnectors.transportConnector for name "amqp": add "wireFormat.allowNonSaslConnections=true"; ie:
-<transportConnector name="amqp" uri="amqp://0.0.0.0:5672?maximumConnections=1000&amp;wireFormat.maxFrameSize=1048576000&amp;wireFormat.allowNonSaslConnections=true"/>
-````
-
-## c. Qpid C++
-
-TODO: Helpful hints on obtaining/building
-When starting the broker, configure or use the following parameters:
-````
-*  --load-module amqp : will enable the AMQP 1.0 protocol
-*  --queue-pattern jms.queue.qpid-interop: will automatically create queues using this prefix as needed
-*  --auth no : will disable authentication (which these tests do not use).
-````
-
-## d. Qpid Java
-
-TODO: Helpful hints on obtaining/building
-TODO: Not yet tested
-
-## e. Qpid Dispatch Router
-
-TODO: Helpful hints on obtaining/building
-* Configure the router to listen on both IP4 and IP6 ports (ie one listener for 127.0.0.1 and one for
-  ::1 respectively).
-* Set authenticatePeer to no and make sure saslMechanisms: ANONYMOUS is present (even though there is no
-  authentication). 
-
-# 4. Run the tests
-
-## a. Set the environment
-
-The config.sh script is in the build directory 
 ````
 source build/config.sh
 ````
 
-## b. Start the test broker
+### 4.2 Start the test broker
 
-## c. Run chosen tests
+If the broker is at a remote location rather than localhost, the IP address must be known.  In tests using
+the Qpid Dispatch Router, then the entire broker network must be running before the tests are run. The IP
+addresses of the sender (the broker to which messages are being sent) and receiver (the broker from which
+messages will be received) must be known.
+
+### 4.3 Run chosen tests
+
+The available tests are:
+
+| Module | Description | Clients |
+| ------ | ----------- | ------- |
+| amqp_large_content_test | Tests implementation of large messages up to 10MB | C++ Python AMQP.NetLite |
+| amqp_types_test | Tests the implementation of AMQP 1.0 types | C++ Python Rhea AMQP.NetLite |
+| jms_hdrs_props_test | Tests JMS headers and properties | C++ JMS Python |
+| jms_messages_test | Tests all JMS message types (except ObjectMessage) | C++ JMS Python |
+
+The preferred method to run the tests is using the Python module option as follows:
+
 ````
 python -m qpid_interop_test.amqp_types_test
 python -m qpid_interop_test.jms_messages_test
 ...
 ````
 
+If the broker is remote, use the following to point to the broker:
+
+````
+python -m qpid_interop_test.amqp_types_test --sender <broker-ip-addr> --receiver <broker-ip-addr>
+python -m qpid_interop_test.jms_messages_test --sender <broker-ip-addr> --receiver <broker-ip-addr>
+...
+````
+
+In tests using the Qpid dispatch router, a multi-node configuration may be set up such that messages
+are sent to a different broker to that from which they will be received. For example, to send to
+broker A and receive from broker B:
+
+````
+python -m qpid_interop_test.amqp_types_test --sender <broker-ip-addr-A> --receiver <broker-ip-addr-B>
+python -m qpid_interop_test.jms_messages_test --sender <broker-ip-addr-A> --receiver <broker-ip-addr-B>
+...
+````
