@@ -28,7 +28,6 @@
 
   <groupId>org.apache.qpid</groupId>
   <artifactId>qpid-interop-test-jms-shim</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
 
   <build>
     <plugins>
