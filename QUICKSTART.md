@@ -117,13 +117,6 @@ Make the following changes to the `activemq.xml` config file: For XML element
 
 Download from [Apache](https://activemq.apache.org/artemis/download.html).
 
-Make the following changes to the `broker.xml` file: For XML element
-`configuration.core.address-settings.address-setting@match="#"` add the following child element:
-
-````
-<auto-create-jms-queues>true</auto-create-jms-queues>
-````
-
 ### 2.3 Qpid cpp broker
 
     yum install qpid-cpp-server
