@@ -42,7 +42,6 @@ qpid-interop-test:
 
  * Qpid Proton (including C++ Proton API)
  * Qpid Python
- * Qpid JMS
 
 The following are not required, but if installed and present, will be tested:
 
@@ -56,7 +55,7 @@ These are the install steps:
 
 1. Install prerequisites, from packages or source
 2. Install or download / build AMQP brokers to test against (or set up networked brokers)
-3. Download and build qpid-interop-test
+3. Build qpid-interop-test
 4. Run the tests
 
 ## 1. Install prerequisites
@@ -88,26 +87,17 @@ then install the following packages:
 yum install jsoncpp-devel nodejs-rhea qpid-proton-cpp-devel python-qpid-proton
 ````
 
-Qpid-jms client is not available as a package, so it must be built:
-
-````
-git clone https://git-wip-us.apache.org/repos/asf/qpid-jms.git
-cd qpid-jms
-mvn -DskipTests install
-cd ..
-````
-
 ### 1.3 Fedora 26
 
 All packages are available directly from the Fedora repositories:
 
 ````
-dnf install gcc-c++ cmake maven java-1.8.0-openjdk-devel perl-XML-XPath jsoncpp-devel nodejs-rhea qpid-proton-cpp-devel python-qpid-proton qpid-jms-client
+dnf install gcc-c++ cmake maven java-1.8.0-openjdk-devel perl-XML-XPath jsoncpp-devel nodejs-rhea qpid-proton-cpp-devel python-qpid-proton
 ````
 
 ## 2. Obtaining a broker
 
-Qpid-interop-test requires a broker to be running against which the tests may be run. This
+Qpid-interop-test requires a running broker to be available. This
 may be on localhost as a local install or build, or on another machine, in which case its
 IP addresss must be known. Some local broker install options are:
 
@@ -161,20 +151,39 @@ listener {
 
 ````
 
-## 3. Build and install qpid-interop-test
+## 3. Install qpid-interop-test
 
 Qpid-interop-test may be installed locally (preferred for local builds) or to the system
 (which requires root privileges). For a local install, use the `-DCMAKE_INSTALL_PREFIX`
 option to the `cmake` command. If it is omitted, then qpid-interop-test will be installed
-into the default system directories.
+into the default system directories.  The source may be unpacked, or (if you need to use the
+latest and greatest), cloned from git:
 
 ````
 git clone https://git-wip-us.apache.org/repos/asf/qpid-interop-test.git
+````
+
+Assuming the source tree is located in directory {{qpid-interop-test}}:
+
+````
 cd qpid-interop-test
 mkdir build
 cd build
-cmake [-DCMAKE_INSTALL_PREFIX=<abs-path-to-local-install-dir>] ..
+````
+For a local install:
+
+````
+cmake -DCMAKE_INSTALL_PREFIX=<abs-path-to-local-install-dir> ..
 make install
+````
+
+For a system install, root privileges are required:
+
+````
+cmake ..
+make
+sudo make install
+
 ````
 
 ## 4. Run the tests
@@ -213,7 +222,7 @@ python -m qpid_interop_test.jms_messages_test
 ...
 ````
 
-If the broker is remote, use the following to point to the broker:
+If the broker is remote, use the following to point to the broker(s):
 
 ````
 python -m qpid_interop_test.amqp_types_test --sender <broker-ip-addr> --receiver <broker-ip-addr>

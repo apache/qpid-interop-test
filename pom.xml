@@ -49,12 +49,49 @@
     <maven.compiler.source>1.7</maven.compiler.source>
     <maven.compiler.target>1.7</maven.compiler.target>
     <maven-assembly-plugin-version>2.6</maven-assembly-plugin-version>
+    
+    <!-- Dependency versions -->
+    <geronimo.jms.2.spec-version>1.0-alpha-2</geronimo.jms.2.spec-version>
+    <json-version>1.1</json-version>
+    <qpid-jms-client-version>[0.25.0-SNAPSHOT,)</qpid-jms-client-version>
+    <slf4j-version>1.7.25</slf4j-version>
+    
   </properties>
 
   <modules>
     <module>shims/qpid-jms</module>
     <module>utils</module>
   </modules>
+  
+  <dependencyManagement>
+    <dependencies>
+	  <dependency>
+	    <groupId>org.apache.geronimo.specs</groupId>
+	    <artifactId>geronimo-jms_2.0_spec</artifactId>
+	    <version>${geronimo.jms.2.spec-version}</version>
+	  </dependency>
+	  <dependency>
+	    <groupId>javax.json</groupId>
+	    <artifactId>javax.json-api</artifactId>
+	    <version>${json-version}</version>
+	  </dependency>
+	  <dependency>
+	    <groupId>org.glassfish</groupId>
+	    <artifactId>javax.json</artifactId>
+	    <version>${json-version}</version>
+	  </dependency>
+	  <dependency>
+	    <groupId>org.apache.qpid</groupId>
+	    <artifactId>qpid-jms-client</artifactId>
+	    <version>${qpid-jms-client-version}</version>
+	  </dependency>
+	  <dependency>
+	    <groupId>org.slf4j</groupId>
+	    <artifactId>slf4j-nop</artifactId>
+	    <version>${slf4j-version}</version>
+	  </dependency>
+    </dependencies>
+  </dependencyManagement>
 
   <build>
     <plugins>
