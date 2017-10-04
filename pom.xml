@@ -23,7 +23,7 @@
   <groupId>org.apache.qpid</groupId>
   <artifactId>qpid-interop-test-parent</artifactId>
   <packaging>pom</packaging>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>0.1.0</version>
   <url>https://qpid.apache.org</url>
   <name>Qpid Interop Test</name>
   <description>Qpid client interoperability test suite for AMQP 1.0 clients</description>
@@ -53,7 +53,7 @@
     <!-- Dependency versions -->
     <geronimo.jms.2.spec-version>1.0-alpha-2</geronimo.jms.2.spec-version>
     <json-version>1.1</json-version>
-    <qpid-jms-client-version>[0.25.0-SNAPSHOT,)</qpid-jms-client-version>
+    <qpid-jms-client-version>0.25.0</qpid-jms-client-version>
     <slf4j-version>1.7.25</slf4j-version>
     
   </properties>

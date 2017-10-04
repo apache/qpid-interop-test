@@ -210,11 +210,6 @@ class QpidJmsShim(Shim):
     NAME = 'QpidJms'
     JMS_CLIENT = True
 
-    # Installed versions
-    # TODO: Automate this - it gets out of date quickly
-    # Maven works out all the deps, should use that
-    QPID_JMS_SHIM_VER = '0.1.0-SNAPSHOT'
-
     JAVA_HOME = getenv('JAVA_HOME', '/usr/bin') # Default only works in Linux
     JAVA_EXEC = path.join(JAVA_HOME, 'java')
 

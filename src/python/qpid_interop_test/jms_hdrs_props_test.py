@@ -43,6 +43,7 @@ if QIT_INSTALL_PREFIX is None:
     print 'ERROR: Environment variable QIT_INSTALL_PREFIX is not set'
     sys.exit(1)
 QIT_TEST_SHIM_HOME = path.join(QIT_INSTALL_PREFIX, 'libexec', 'qpid_interop_test', 'shims')
+QPID_JMS_SHIM_VER = '0.1.0'
 
 class JmsMessageTypes(TestTypeMap):
     """
@@ -634,9 +635,10 @@ if __name__ == '__main__':
       with open(QIT_JMS_CLASSPATH_FILE, 'r') as classpath_file:
           QIT_JMS_CLASSPATH = classpath_file.read()
     else:
-      QIT_JMS_CLASSPATH = path.join(QIT_TEST_SHIM_HOME, 'qpid-jms', '*')
-    QPID_JMS_RECEIVER_SHIM = 'org.apache.qpid.interop_test.jms_hdrs_props_test.Receiver'
-    QPID_JMS_SENDER_SHIM = 'org.apache.qpid.interop_test.jms_hdrs_props_test.Sender'
+      QIT_JMS_CLASSPATH = path.join(QIT_TEST_SHIM_HOME, 'qpid-jms',
+                                    'qpid-interop-test-jms-shim-%s-jar-with-dependencies.jar' % QPID_JMS_SHIM_VER)
+    QPID_JMS_RECEIVER_SHIM = 'org.apache.qpid.qpid_interop_test.jms_hdrs_props_test.Receiver'
+    QPID_JMS_SENDER_SHIM = 'org.apache.qpid.qpid_interop_test.jms_hdrs_props_test.Sender'
 
     # SHIM_MAP contains an instance of each client language shim that is to be tested as a part of this test. For
     # every shim in this list, a test is dynamically constructed which tests it against itself as well as every

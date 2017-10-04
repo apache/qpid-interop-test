@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.qpid.interop_test.jms_large_content_test;
+package org.apache.qpid.qpid_interop_test.jms_dtx_test;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
