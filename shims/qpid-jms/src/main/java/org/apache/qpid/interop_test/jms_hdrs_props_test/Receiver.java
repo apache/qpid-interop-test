@@ -14,13 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.qpid.qpid_interop_test.jms_dtx_test;
+package org.apache.qpid.interop_test.jms_hdrs_props_test;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.StringReader;
 import java.io.StringWriter;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -29,6 +30,7 @@ import java.util.List;
 import javax.jms.BytesMessage;
 import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
+import javax.jms.DeliveryMode;
 import javax.jms.Destination;
 import javax.jms.ExceptionListener;
 import javax.jms.JMSException;
@@ -53,7 +55,7 @@ import org.apache.qpid.jms.JmsConnectionFactory;
 public class Receiver {
     private static final String USER = "guest";
     private static final String PASSWORD = "guest";
-    private static final int TIMEOUT = 1000;
+    private static final int TIMEOUT = 10000;
     private static final String[] SUPPORTED_JMS_MESSAGE_TYPES = {"JMS_MESSAGE_TYPE",
                                                                  "JMS_BYTESMESSAGE_TYPE",
                                                                  "JMS_MAPMESSAGE_TYPE",
@@ -67,11 +69,13 @@ public class Receiver {
     Queue _queue;
     MessageConsumer _messageConsumer;
     JsonObjectBuilder _jsonTestValueMapBuilder;
+    JsonObjectBuilder _jsonMessageHeaderMapBuilder;
+    JsonObjectBuilder _jsonMessagePropertiesMapBuilder;
     
     // args[0]: Broker URL
     // args[1]: Queue name
     // args[2]: JMS message type
-    // args[3]: JSON Test parameters containing testValuesMap
+    // args[3]: JSON Test parameters containing 2 maps: [testValuesMap, flagMap]
     public static void main(String[] args) throws Exception {
         if (args.length != 4) {
             System.out.println("JmsReceiverShim: Incorrect number of arguments");
@@ -87,11 +91,19 @@ public class Receiver {
         }
 
         JsonReader jsonReader = Json.createReader(new StringReader(args[3]));
-        JsonObject numTestValuesMap = jsonReader.readObject();
+        JsonArray testParamsList = jsonReader.readArray();
         jsonReader.close();
+
+        if (testParamsList.size() != 2) {
+            System.err.println("ERROR: Incorrect number of JSON parameters: Expected 2, got " + Integer.toString(testParamsList.size()));
+            System.exit(1);
+        }
+
+        JsonObject numTestValuesMap = testParamsList.getJsonObject(0);
+        JsonObject flagMap = testParamsList.getJsonObject(1);
         
         Receiver shim = new Receiver(brokerAddress, queueName);
-        shim.run(jmsMessageType, numTestValuesMap);
+        shim.run(jmsMessageType, numTestValuesMap, flagMap);
     }
 
     public Receiver(String brokerAddress, String queueName) {
@@ -109,6 +121,8 @@ public class Receiver {
             _messageConsumer = _session.createConsumer(_queue);
 
             _jsonTestValueMapBuilder = Json.createObjectBuilder();
+            _jsonMessageHeaderMapBuilder = Json.createObjectBuilder();
+            _jsonMessagePropertiesMapBuilder = Json.createObjectBuilder();
         } catch (Exception exc) {
             if (_connection != null)
                 try { _connection.close(); } catch (JMSException e) {}
@@ -118,7 +132,7 @@ public class Receiver {
         }
     }
     
-    public void run(String jmsMessageType, JsonObject numTestValuesMap) {
+    public void run(String jmsMessageType, JsonObject numTestValuesMap, JsonObject flagMap) {
         try {
             List<String> subTypeKeyList = new ArrayList<String>(numTestValuesMap.keySet());
             Collections.sort(subTypeKeyList);
@@ -129,7 +143,9 @@ public class Receiver {
                 JsonArrayBuilder jasonTestValuesArrayBuilder = Json.createArrayBuilder();
                 for (int i=0; i<numTestValuesMap.getJsonNumber(subType).intValue(); ++i) {
                     message = _messageConsumer.receive(TIMEOUT);
-                    if (message == null) break;
+                    if (message == null) {
+                        throw new Exception("Receiver::run(): No message, timeout while waiting");
+                     }
                     switch (jmsMessageType) {
                     case "JMS_MESSAGE_TYPE":
                         processJMSMessage(jasonTestValuesArrayBuilder);
@@ -153,6 +169,9 @@ public class Receiver {
                         _connection.close();
                         throw new Exception("JmsReceiverShim: Internal error: Unknown or unsupported JMS message type \"" + jmsMessageType + "\"");
                     }
+                    
+                    processMessageHeaders(message, flagMap);
+                    processMessageProperties(message);
                 }
                 _jsonTestValueMapBuilder.add(subType, jasonTestValuesArrayBuilder);
             }
@@ -160,7 +179,11 @@ public class Receiver {
     
             System.out.println(jmsMessageType);
             StringWriter out = new StringWriter();
-            writeJsonObject(_jsonTestValueMapBuilder, out);
+            JsonArrayBuilder returnList = Json.createArrayBuilder();
+            returnList.add(_jsonTestValueMapBuilder);
+            returnList.add(_jsonMessageHeaderMapBuilder);
+            returnList.add(_jsonMessagePropertiesMapBuilder);
+            writeJsonArray(returnList, out);
             System.out.println(out.toString());        
         } catch (Exception exp) {
             try { _connection.close(); } catch (JMSException e) {}
@@ -171,7 +194,7 @@ public class Receiver {
     }
     
     protected void processJMSMessage(JsonArrayBuilder jasonTestValuesArrayBuilder) {
-        jasonTestValuesArrayBuilder.addNull();        
+        jasonTestValuesArrayBuilder.addNull();
     }
     
     protected void processJMSBytesMessage(String jmsMessageType, String subType, Message message, JsonArrayBuilder jasonTestValuesArrayBuilder) throws Exception, JMSException, IOException, ClassNotFoundException {
@@ -338,9 +361,146 @@ public class Receiver {
         jasonTestValuesArrayBuilder.add(((TextMessage)message).getText());
     }
 
-    protected static void writeJsonObject(JsonObjectBuilder builder, StringWriter out) {
+    protected void processMessageHeaders(Message message, JsonObject flagMap) throws Exception, JMSException {
+        addMessageHeaderString("JMS_TYPE_HEADER", message.getJMSType());
+        if (flagMap.containsKey("JMS_CORRELATIONID_AS_BYTES") && flagMap.getBoolean("JMS_CORRELATIONID_AS_BYTES")) {
+            addMessageHeaderByteArray("JMS_CORRELATIONID_HEADER", message.getJMSCorrelationIDAsBytes());
+        } else {
+            addMessageHeaderString("JMS_CORRELATIONID_HEADER", message.getJMSCorrelationID());
+        }
+        if (flagMap.containsKey("JMS_REPLYTO_AS_TOPIC") && flagMap.getBoolean("JMS_REPLYTO_AS_TOPIC")) {
+            addMessageHeaderDestination("JMS_REPLYTO_HEADER", JMS_DESTINATION_TYPE.JMS_TOPIC, message.getJMSReplyTo());
+        } else {
+            addMessageHeaderDestination("JMS_REPLYTO_HEADER", JMS_DESTINATION_TYPE.JMS_QUEUE, message.getJMSReplyTo());
+        }
+        if (flagMap.containsKey("JMS_CLIENT_CHECKS") && flagMap.getBoolean("JMS_CLIENT_CHECKS")) {
+            // Get and check message headers which are set by a JMS-compient sender
+            // See: https://docs.oracle.com/cd/E19798-01/821-1841/bnces/index.html
+            // 1. Destination
+            Destination destination = message.getJMSDestination();
+            if (destination.toString().compareTo(_queue.toString()) != 0) {
+                throw new Exception("JMS_DESTINATION header invalid: found \"" + destination.toString() +
+                                    "\"; expected \"" + _queue.toString() + "\"");
+            }
+            // 2. Delivery Mode (persistence)
+            int deliveryMode = message.getJMSDeliveryMode();
+            if (deliveryMode != DeliveryMode.NON_PERSISTENT && deliveryMode != DeliveryMode.PERSISTENT) {
+                throw new Exception("JMS_DELIVERY_MODE header invalid: " + deliveryMode);
+            }
+            // 3. Expiration
+            long expiration = message.getJMSExpiration();
+            if (expiration != 0) {
+                throw new Exception("JMS_EXPIRATION header is non-zero");
+            }
+            // 4. Message ID
+            String message_id = message.getJMSMessageID();
+            // TODO: Find a check for this
+            // 5. Message priority
+            int message_priority = message.getJMSPriority();
+            if (message_priority != 4) { // Default JMS message priority
+                throw new Exception("JMS_PRIORITY header is not default (4): found " + message_priority);
+            }
+            // 6. Message timestamp
+            long timeStamp = message.getJMSTimestamp();
+            long currentTime = System.currentTimeMillis();
+            if (currentTime - timeStamp > 60 * 1000) { // More than 1 minute old
+                SimpleDateFormat df = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss.S z");
+                throw new Exception("JMS_TIMESTAMP header contains suspicious value: found " + timeStamp +
+                                    " (" + df.format(timeStamp) + ") is not within 1 minute of " + currentTime +
+                                    " (" + df.format(currentTime) + ")");
+            }
+        }
+    }
+
+    protected void addMessageHeaderString(String headerName, String value) {
+        if (value != null) {
+            JsonObjectBuilder valueMap = Json.createObjectBuilder();
+            valueMap.add("string", value);
+            _jsonMessageHeaderMapBuilder.add(headerName, valueMap);
+        }
+    }
+
+    protected void addMessageHeaderByteArray(String headerName, byte[] value) {
+        if (value != null) {
+            JsonObjectBuilder valueMap = Json.createObjectBuilder();
+            valueMap.add("bytes", new String(value));
+            _jsonMessageHeaderMapBuilder.add(headerName, valueMap);
+        }        
+    }
+
+    protected void addMessageHeaderDestination(String headerName, JMS_DESTINATION_TYPE destinationType, Destination destination) throws Exception {
+        if (destination != null) {
+            JsonObjectBuilder valueMap = Json.createObjectBuilder();
+            switch (destinationType) {
+            case JMS_QUEUE:
+                valueMap.add("queue", ((Queue)destination).getQueueName());
+                break;
+            case JMS_TOPIC:
+                valueMap.add("topic", ((Topic)destination).getTopicName());
+                break;
+            default:
+                throw new Exception("Internal error: JMSDestination type not supported");
+            }
+            _jsonMessageHeaderMapBuilder.add(headerName, valueMap);
+        }
+    }
+
+    protected void processMessageProperties(Message message) throws Exception, JMSException {
+        Enumeration<String> propertyNames = message.getPropertyNames(); 
+        while (propertyNames.hasMoreElements()) {
+            JsonObjectBuilder valueMap = Json.createObjectBuilder();
+            String propertyName = propertyNames.nextElement();
+            int underscoreIndex1 = propertyName.indexOf('_');
+            int underscoreIndex2 = propertyName.indexOf('_', underscoreIndex1 + 1);
+            if (underscoreIndex1 == 4 && underscoreIndex2 > 5) {
+                String propType = propertyName.substring(underscoreIndex1 + 1, underscoreIndex2);
+                switch (propType) {
+                case "boolean":
+                    valueMap.add(propType, message.getBooleanProperty(propertyName) ? "True" : "False");
+                    _jsonMessagePropertiesMapBuilder.add(propertyName, valueMap);
+                    break;
+                case "byte":
+                    valueMap.add(propType, formatByte(message.getByteProperty(propertyName)));
+                    _jsonMessagePropertiesMapBuilder.add(propertyName, valueMap);
+                    break;
+                case "double":
+                    long l = Double.doubleToRawLongBits(message.getDoubleProperty(propertyName));
+                    valueMap.add(propType, String.format("0x%16s", Long.toHexString(l)).replace(' ', '0'));
+                    _jsonMessagePropertiesMapBuilder.add(propertyName, valueMap);
+                    break;
+                case "float":
+                    int i = Float.floatToRawIntBits(message.getFloatProperty(propertyName));
+                    valueMap.add(propType, String.format("0x%8s", Integer.toHexString(i)).replace(' ', '0'));
+                    _jsonMessagePropertiesMapBuilder.add(propertyName, valueMap);
+                    break;
+                case "int":
+                    valueMap.add(propType, formatInt(message.getIntProperty(propertyName)));
+                    _jsonMessagePropertiesMapBuilder.add(propertyName, valueMap);
+                    break;
+                case "long":
+                    valueMap.add(propType, formatLong(message.getLongProperty(propertyName)));
+                    _jsonMessagePropertiesMapBuilder.add(propertyName, valueMap);
+                    break;
+                case "short":
+                    valueMap.add(propType, formatShort(message.getShortProperty(propertyName)));
+                    _jsonMessagePropertiesMapBuilder.add(propertyName, valueMap);
+                    break;
+                case "string":
+                    valueMap.add(propType, message.getStringProperty(propertyName));
+                    _jsonMessagePropertiesMapBuilder.add(propertyName, valueMap);
+                    break;
+                default:
+                    ; // Ignore any other property the broker may add
+                }
+            } else {
+                // TODO: handle other non-test properties that might exist here
+            }
+        }
+    }
+
+    protected static void writeJsonArray(JsonArrayBuilder builder, StringWriter out) {
         JsonWriter jsonWriter = Json.createWriter(out);
-        jsonWriter.writeObject(builder.build());
+        jsonWriter.writeArray(builder.build());
         jsonWriter.close();        
     }
 

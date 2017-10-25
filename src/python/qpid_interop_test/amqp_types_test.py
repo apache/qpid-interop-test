@@ -259,9 +259,6 @@ class AmqpPrimitiveTypes(TestTypeMap):
     # This section contains tests that should be skipped because of know issues that would cause the test to fail.
     # As the issues are resolved, these should be removed.
     BROKER_SKIP = {
-        'null': {'ActiveMQ': 'Null type not sent in Proton Python binding: PROTON-1091',
-                 'qpid-cpp': 'Null type not sent in Proton Python binding: PROTON-1091',
-                 'qpid-dispatch-router': 'router with qpid or activemq broker',},
         'decimal32': {'ActiveMQ': 'decimal32 and decimal64 sent byte reversed: PROTON-1160',
                       'qpid-cpp': 'decimal32 not supported on qpid-cpp broker: QPIDIT-5, QPID-6328',
                       'apache-activemq-artemis': 'decimal32 and decimal64 sent byte reversed: PROTON-1160',

@@ -637,8 +637,8 @@ if __name__ == '__main__':
     else:
       QIT_JMS_CLASSPATH = path.join(QIT_TEST_SHIM_HOME, 'qpid-jms',
                                     'qpid-interop-test-jms-shim-%s-jar-with-dependencies.jar' % QPID_JMS_SHIM_VER)
-    QPID_JMS_RECEIVER_SHIM = 'org.apache.qpid.qpid_interop_test.jms_hdrs_props_test.Receiver'
-    QPID_JMS_SENDER_SHIM = 'org.apache.qpid.qpid_interop_test.jms_hdrs_props_test.Sender'
+    QPID_JMS_RECEIVER_SHIM = 'org.apache.qpid.interop_test.jms_hdrs_props_test.Receiver'
+    QPID_JMS_SENDER_SHIM = 'org.apache.qpid.interop_test.jms_hdrs_props_test.Sender'
 
     # SHIM_MAP contains an instance of each client language shim that is to be tested as a part of this test. For
     # every shim in this list, a test is dynamically constructed which tests it against itself as well as every
