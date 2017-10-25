@@ -101,39 +101,39 @@ namespace qpidit
 
         std::pair<uint32_t, uint32_t> Receiver::getTestListSizeMb(const proton::value& pvTestList) {
             // Uniform elt size assumed
-            const std::vector<proton::value>& testList(pvTestList.get<std::vector<proton::value> >());
+            const std::vector<proton::value>& testList(proton::get<std::vector<proton::value> >(pvTestList));
             if (testList.empty()) {
                 std::ostringstream oss;
                 oss << _testName << "::Receiver::getTestListSizeMb: List empty";
                 throw qpidit::ArgumentError(oss.str());
             }
-            std::string elt = testList[0].get<std::string>();
+            std::string elt = proton::get<std::string>(testList[0]);
             uint32_t numElements = testList.size();
             return std::pair<uint32_t, uint32_t>(numElements * elt.size() / 1024 / 1024, numElements);
         }
 
         std::pair<uint32_t, uint32_t> Receiver::getTestMapSizeMb(const proton::value& pvTestMap) {
             // Uniform elt size assumed
-            const std::map<std::string, proton::value>& testMap(pvTestMap.get<std::map<std::string, proton::value> >());
+            const std::map<std::string, proton::value>& testMap(proton::get<std::map<std::string, proton::value> >(pvTestMap));
             if (testMap.empty()) {
                 std::ostringstream oss;
                 oss << _testName << "::Receiver::getTestMapSizeMb: Map empty";
                 throw qpidit::ArgumentError(oss.str());
             }
-            std::string elt = testMap.begin()->second.get<std::string>();
+            std::string elt = proton::get<std::string>(testMap.begin()->second);
             uint32_t numElements = testMap.size();
             return std::pair<uint32_t, uint32_t>(numElements * elt.size() / 1024 / 1024, numElements);
         }
 
         uint32_t Receiver::getTestStringSizeMb(const proton::value& testString) {
             if (_amqpType.compare("binary") == 0) {
-                return testString.get<proton::binary>().size() / 1024 / 1024;
+                return proton::get<proton::binary>(testString).size() / 1024 / 1024;
             }
             if (_amqpType.compare("string") == 0) {
-                return testString.get<std::string>().size() / 1024 / 1024;
+                return proton::get<std::string>(testString).size() / 1024 / 1024;
             }
             if (_amqpType.compare("symbol") == 0) {
-                return testString.get<proton::symbol>().size() / 1024 / 1024;
+                return proton::get<proton::symbol>(testString).size() / 1024 / 1024;
             }
         }
 

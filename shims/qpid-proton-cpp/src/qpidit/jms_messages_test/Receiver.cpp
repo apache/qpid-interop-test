@@ -67,7 +67,7 @@ namespace qpidit
                 if (_received < _expected) {
                     int8_t t = qpidit::JMS_MESSAGE_TYPE; // qpidit::JMS_MESSAGE_TYPE has value 0
                     try {
-                        t = m.message_annotations().get(proton::symbol("x-opt-jms-msg-type")).get<int8_t>();
+                        t = proton::get<int8_t>(m.message_annotations().get(proton::symbol("x-opt-jms-msg-type")));
                     } catch (const proton::conversion_error& e) {
                         std::cout << "JmsReceiver::on_message(): Error converting value for annotation \"x-opt-jms-msg-type\": " << e.what() << std::endl;
                         throw;
@@ -145,7 +145,7 @@ namespace qpidit
             }
             std::string subType(_subTypeList[_subTypeIndex]);
             std::map<std::string, proton::value> m;
-            msg.body().get(m);
+            proton::get(msg.body(), m);
             for (std::map<std::string, proton::value>::const_iterator i=m.begin(); i!=m.end(); ++i) {
                 std::string key = i->first;
                 if (subType.compare(key.substr(0, key.size()-3)) != 0) {
@@ -153,29 +153,29 @@ namespace qpidit
                 }
                 proton::value val = i->second;
                 if (subType.compare("boolean") == 0) {
-                    _receivedSubTypeList.append(val.get<bool>() ? Json::Value("True") : Json::Value("False"));
+                    _receivedSubTypeList.append(proton::get<bool>(val) ? Json::Value("True") : Json::Value("False"));
                 } else if (subType.compare("byte") == 0) {
-                    _receivedSubTypeList.append(Json::Value(toHexStr<int8_t>(val.get<int8_t>())));
+                    _receivedSubTypeList.append(Json::Value(toHexStr<int8_t>(proton::get<int8_t>(val))));
                 } else if (subType.compare("bytes") == 0) {
-                    _receivedSubTypeList.append(Json::Value(std::string(val.get<proton::binary>())));
+                    _receivedSubTypeList.append(Json::Value(std::string(proton::get<proton::binary>(val))));
                 } else if (subType.compare("char") == 0) {
                     std::ostringstream oss;
-                    oss << (char)val.get<wchar_t>();
+                    oss << (char)proton::get<wchar_t>(val);
                     _receivedSubTypeList.append(Json::Value(oss.str()));
                 } else if (subType.compare("double") == 0) {
-                    double d = val.get<double>();
+                    double d = proton::get<double>(val);
                     _receivedSubTypeList.append(Json::Value(toHexStr<int64_t>(*((int64_t*)&d), true, false)));
                 } else if (subType.compare("float") == 0) {
-                    float f = val.get<float>();
+                    float f = proton::get<float>(val);
                     _receivedSubTypeList.append(Json::Value(toHexStr<int32_t>(*((int32_t*)&f), true, false)));
                 } else if (subType.compare("int") == 0) {
-                    _receivedSubTypeList.append(Json::Value(toHexStr<int32_t>(val.get<int32_t>())));
+                    _receivedSubTypeList.append(Json::Value(toHexStr<int32_t>(proton::get<int32_t>(val))));
                 } else if (subType.compare("long") == 0) {
-                    _receivedSubTypeList.append(Json::Value(toHexStr<int64_t>(val.get<int64_t>())));
+                    _receivedSubTypeList.append(Json::Value(toHexStr<int64_t>(proton::get<int64_t>(val))));
                 } else if (subType.compare("short") == 0) {
-                    _receivedSubTypeList.append(Json::Value(toHexStr<int16_t>(val.get<int16_t>())));
+                    _receivedSubTypeList.append(Json::Value(toHexStr<int16_t>(proton::get<int16_t>(val))));
                 } else if (subType.compare("string") == 0) {
-                    _receivedSubTypeList.append(Json::Value(val.get<std::string>()));
+                    _receivedSubTypeList.append(Json::Value(proton::get<std::string>(val)));
                 } else {
                     throw qpidit::UnknownJmsMessageSubTypeError(subType);
                 }
@@ -187,7 +187,7 @@ namespace qpidit
                 throw qpidit::IncorrectMessageBodyTypeError(_jmsMessageType, "JMS_BYTESMESSAGE_TYPE");
             }
             std::string subType(_subTypeList[_subTypeIndex]);
-            proton::binary body = msg.body().get<proton::binary>();
+            proton::binary body = proton::get<proton::binary>(msg.body());
             if (subType.compare("boolean") == 0) {
                 if (body.size() != 1) throw IncorrectMessageBodyLengthError("JmsReceiver::receiveJmsBytesMessage, subType=boolean", 1, body.size());
                 _receivedSubTypeList.append(body[0] ? Json::Value("True") : Json::Value("False"));
@@ -238,32 +238,32 @@ namespace qpidit
             }
             std::string subType(_subTypeList[_subTypeIndex]);
             std::vector<proton::value> l;
-            msg.body().get(l);
+            proton::get(msg.body(), l);
             for (std::vector<proton::value>::const_iterator i=l.begin(); i!=l.end(); ++i) {
                 if (subType.compare("boolean") == 0) {
-                    _receivedSubTypeList.append(i->get<bool>() ? Json::Value("True") : Json::Value("False"));
+                    _receivedSubTypeList.append(proton::get<bool>(*i) ? Json::Value("True") : Json::Value("False"));
                 } else if (subType.compare("byte") == 0) {
-                    _receivedSubTypeList.append(Json::Value(toHexStr<int8_t>(i->get<int8_t>())));
+                    _receivedSubTypeList.append(Json::Value(toHexStr<int8_t>(proton::get<int8_t>(*i))));
                 } else if (subType.compare("bytes") == 0) {
-                    _receivedSubTypeList.append(Json::Value(std::string(i->get<proton::binary>())));
+                    _receivedSubTypeList.append(Json::Value(std::string(proton::get<proton::binary>(*i))));
                 } else if (subType.compare("char") == 0) {
                     std::ostringstream oss;
-                    oss << (char)i->get<wchar_t>();
+                    oss << (char)proton::get<wchar_t>(*i);
                     _receivedSubTypeList.append(Json::Value(oss.str()));
                 } else if (subType.compare("double") == 0) {
-                    double d = i->get<double>();
+                    double d = proton::get<double>(*i);
                     _receivedSubTypeList.append(Json::Value(toHexStr<int64_t>(*((int64_t*)&d), true, false)));
                 } else if (subType.compare("float") == 0) {
-                    float f = i->get<float>();
+                    float f = proton::get<float>(*i);
                     _receivedSubTypeList.append(Json::Value(toHexStr<int32_t>(*((int32_t*)&f), true, false)));
                 } else if (subType.compare("int") == 0) {
-                    _receivedSubTypeList.append(Json::Value(toHexStr<int32_t>(i->get<int32_t>())));
+                    _receivedSubTypeList.append(Json::Value(toHexStr<int32_t>(proton::get<int32_t>(*i))));
                 } else if (subType.compare("long") == 0) {
-                    _receivedSubTypeList.append(Json::Value(toHexStr<int64_t>(i->get<int64_t>())));
+                    _receivedSubTypeList.append(Json::Value(toHexStr<int64_t>(proton::get<int64_t>(*i))));
                 } else if (subType.compare("short") == 0) {
-                    _receivedSubTypeList.append(Json::Value(toHexStr<int16_t>(i->get<int16_t>())));
+                    _receivedSubTypeList.append(Json::Value(toHexStr<int16_t>(proton::get<int16_t>(*i))));
                 } else if (subType.compare("string") == 0) {
-                    _receivedSubTypeList.append(Json::Value(i->get<std::string>()));
+                    _receivedSubTypeList.append(Json::Value(proton::get<std::string>(*i)));
                 } else {
                     throw qpidit::UnknownJmsMessageSubTypeError(subType);
                 }
@@ -275,7 +275,7 @@ namespace qpidit
             if(_jmsMessageType.compare("JMS_TEXTMESSAGE_TYPE") != 0) {
                 throw qpidit::IncorrectMessageBodyTypeError(_jmsMessageType, "JMS_TEXTMESSAGE_TYPE");
             }
-            _receivedSubTypeList.append(Json::Value(msg.body().get<std::string>()));
+            _receivedSubTypeList.append(Json::Value(proton::get<std::string>(msg.body())));
         }
 
     } /* namespace jms_messages_test */

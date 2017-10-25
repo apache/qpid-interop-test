@@ -71,51 +71,51 @@ namespace qpidit
                         _receivedValueList.append("None");
                     } else if (_amqpType.compare("boolean") == 0) {
                         checkMessageType(m, proton::BOOLEAN);
-                        _receivedValueList.append(m.body().get<bool>() ? "True": "False");
+                        _receivedValueList.append(proton::get<bool>(m.body()) ? "True": "False");
                     } else if (_amqpType.compare("ubyte") == 0) {
                         checkMessageType(m, proton::UBYTE);
-                        _receivedValueList.append(toHexStr<uint8_t>(m.body().get<uint8_t>()));
+                        _receivedValueList.append(toHexStr<uint8_t>(proton::get<uint8_t>(m.body())));
                     } else if (_amqpType.compare("ushort") == 0) {
                         checkMessageType(m, proton::USHORT);
-                        _receivedValueList.append(toHexStr<uint16_t>(m.body().get<uint16_t>()));
+                        _receivedValueList.append(toHexStr<uint16_t>(proton::get<uint16_t>(m.body())));
                     } else if (_amqpType.compare("uint") == 0) {
                         checkMessageType(m, proton::UINT);
-                        _receivedValueList.append(toHexStr<uint32_t>(m.body().get<uint32_t>()));
+                        _receivedValueList.append(toHexStr<uint32_t>(proton::get<uint32_t>(m.body())));
                     } else if (_amqpType.compare("ulong") == 0) {
                         checkMessageType(m, proton::ULONG);
-                        _receivedValueList.append(toHexStr<uint64_t>(m.body().get<uint64_t>()));
+                        _receivedValueList.append(toHexStr<uint64_t>(proton::get<uint64_t>(m.body())));
                     } else if (_amqpType.compare("byte") == 0) {
                         checkMessageType(m, proton::BYTE);
-                        _receivedValueList.append(toHexStr<int8_t>(m.body().get<int8_t>()));
+                        _receivedValueList.append(toHexStr<int8_t>(proton::get<int8_t>(m.body())));
                     } else if (_amqpType.compare("short") == 0) {
                         checkMessageType(m, proton::SHORT);
-                        _receivedValueList.append(toHexStr<int16_t>(m.body().get<int16_t>()));
+                        _receivedValueList.append(toHexStr<int16_t>(proton::get<int16_t>(m.body())));
                     } else if (_amqpType.compare("int") == 0) {
                         checkMessageType(m, proton::INT);
-                        _receivedValueList.append(toHexStr<int32_t>(m.body().get<int32_t>()));
+                        _receivedValueList.append(toHexStr<int32_t>(proton::get<int32_t>(m.body())));
                     } else if (_amqpType.compare("long") == 0) {
                         checkMessageType(m, proton::LONG);
-                        _receivedValueList.append(toHexStr<int64_t>(m.body().get<int64_t>()));
+                        _receivedValueList.append(toHexStr<int64_t>(proton::get<int64_t>(m.body())));
                     } else if (_amqpType.compare("float") == 0) {
                         checkMessageType(m, proton::FLOAT);
-                        float f = m.body().get<float>();
+                        float f = proton::get<float>(m.body());
                         _receivedValueList.append(toHexStr<uint32_t>(*((uint32_t*)&f), true));
                     } else if (_amqpType.compare("double") == 0) {
                         checkMessageType(m, proton::DOUBLE);
-                        double d = m.body().get<double>();
+                        double d = proton::get<double>(m.body());
                         _receivedValueList.append(toHexStr<uint64_t>(*((uint64_t*)&d), true));
                     } else if (_amqpType.compare("decimal32") == 0) {
                         checkMessageType(m, proton::DECIMAL32);
-                        _receivedValueList.append(byteArrayToHexStr(m.body().get<proton::decimal32>()));
+                        _receivedValueList.append(byteArrayToHexStr(proton::get<proton::decimal32>(m.body())));
                     } else if (_amqpType.compare("decimal64") == 0) {
                         checkMessageType(m, proton::DECIMAL64);
-                        _receivedValueList.append(byteArrayToHexStr(m.body().get<proton::decimal64>()));
+                        _receivedValueList.append(byteArrayToHexStr(proton::get<proton::decimal64>(m.body())));
                     } else if (_amqpType.compare("decimal128") == 0) {
                         checkMessageType(m, proton::DECIMAL128);
-                        _receivedValueList.append(byteArrayToHexStr(m.body().get<proton::decimal128>()));
+                        _receivedValueList.append(byteArrayToHexStr(proton::get<proton::decimal128>(m.body())));
                     } else if (_amqpType.compare("char") == 0) {
                         checkMessageType(m, proton::CHAR);
-                        wchar_t c = m.body().get<wchar_t>();
+                        wchar_t c = proton::get<wchar_t>(m.body());
                         std::stringstream oss;
                         if (c < 0x7f && std::iswprint(c)) {
                             oss << (char)c;
@@ -126,22 +126,22 @@ namespace qpidit
                     } else if (_amqpType.compare("timestamp") == 0) {
                         checkMessageType(m, proton::TIMESTAMP);
                         std::ostringstream oss;
-                        oss << "0x" << std::hex << m.body().get<proton::timestamp>().milliseconds();
+                        oss << "0x" << std::hex << proton::get<proton::timestamp>(m.body()).milliseconds();
                         _receivedValueList.append(oss.str());
                     } else if (_amqpType.compare("uuid") == 0) {
                         checkMessageType(m, proton::UUID);
                         std::ostringstream oss;
-                        oss << m.body().get<proton::uuid>();
+                        oss << proton::get<proton::uuid>(m.body());
                         _receivedValueList.append(oss.str());
                     } else if (_amqpType.compare("binary") == 0) {
                         checkMessageType(m, proton::BINARY);
-                        _receivedValueList.append(std::string(m.body().get<proton::binary>()));
+                        _receivedValueList.append(std::string(proton::get<proton::binary>(m.body())));
                     } else if (_amqpType.compare("string") == 0) {
                         checkMessageType(m, proton::STRING);
-                        _receivedValueList.append(m.body().get<std::string>());
+                        _receivedValueList.append(proton::get<std::string>(m.body()));
                     } else if (_amqpType.compare("symbol") == 0) {
                         checkMessageType(m, proton::SYMBOL);
-                        _receivedValueList.append(m.body().get<proton::symbol>());
+                        _receivedValueList.append(proton::get<proton::symbol>(m.body()));
                     } else if (_amqpType.compare("list") == 0) {
                         checkMessageType(m, proton::LIST);
                         Json::Value jsonList(Json::arrayValue);
@@ -200,25 +200,25 @@ namespace qpidit
         //static
         Json::Value& Receiver::getMap(Json::Value& jsonMap, const proton::value& val) {
             std::map<proton::value, proton::value> msgMap;
-            val.get(msgMap);
+            proton::get(val, msgMap);
             for (std::map<proton::value, proton::value>::const_iterator i = msgMap.begin(); i != msgMap.end(); ++i) {
                 switch (i->second.type()) {
                 case proton::LIST:
                 {
                     Json::Value jsonSubList(Json::arrayValue);
-                    jsonMap[i->first.get<std::string>()] = getSequence(jsonSubList, i->second);
+                    jsonMap[proton::get<std::string>(i->first)] = getSequence(jsonSubList, i->second);
                     break;
                 }
                 case proton::MAP:
                 {
                     Json::Value jsonSubMap(Json::objectValue);
-                    jsonMap[i->first.get<std::string>()] = getMap(jsonSubMap, i->second);
+                    jsonMap[proton::get<std::string>(i->first)] = getMap(jsonSubMap, i->second);
                     break;
                 }
                 case proton::ARRAY:
                     break;
                 case proton::STRING:
-                    jsonMap[i->first.get<std::string>()] = Json::Value(i->second.get<std::string>());
+                    jsonMap[proton::get<std::string>(i->first)] = Json::Value(proton::get<std::string>(i->second));
                     break;
                 default:
                     throw qpidit::IncorrectValueTypeError(i->second);
@@ -230,7 +230,7 @@ namespace qpidit
         //static
         Json::Value& Receiver::getSequence(Json::Value& jsonList, const proton::value& val) {
             std::vector<proton::value> msgList;
-            val.get(msgList);
+            proton::get(val, msgList);
             for (std::vector<proton::value>::const_iterator i=msgList.begin(); i!=msgList.end(); ++i) {
                 switch ((*i).type()) {
                 case proton::LIST:
@@ -248,7 +248,7 @@ namespace qpidit
                 case proton::ARRAY:
                     break;
                 case proton::STRING:
-                    jsonList.append(Json::Value((*i).get<std::string>()));
+                    jsonList.append(Json::Value(proton::get<std::string>(*i)));
                     break;
                 default:
                     throw qpidit::IncorrectValueTypeError(*i);
