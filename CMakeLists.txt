@@ -21,11 +21,45 @@ project(qpid-interop-test)
 
 cmake_minimum_required(VERSION 2.8.7 FATAL_ERROR)
 
-# Find Python 2.x install path
+set (ErrorFlag FALSE)
 
+# Find xpath
+
+find_program(Xpath xpath)
+if (Xpath STREQUAL "Xpath-NOTFOUND")
+    message(WARNING "xpath not found")
+    set (ErrorFlag TRUE)
+else ()
+    message(STATUS "xpath found: ${Xpath}")
+endif ()
+
+# Find Python 2.7.x install path
+
+find_package( PythonInterp 2.7 REQUIRED )
 execute_process(COMMAND ${CMAKE_SOURCE_DIR}/get-python-dir-name
                 OUTPUT_VARIABLE PYTHON_DIR_NAME)
 message(STATUS "Python install directory name: ${PYTHON_DIR_NAME}")
+
+# Find Java
+
+find_package(Java 1.8 COMPONENTS Development)
+if (Java_FOUND)
+    message(STATUS "Java ${Java_VERSION_STRING} found")
+    message(STATUS "Java compiler: ${Java_JAVAC_EXECUTABLE}")
+else ()
+    message(WARNING "Java compiler not found")
+    set (ErrorFlag TRUE)
+endif ()
+
+# Find Maven
+
+find_program(Maven mvn)
+if (Maven STREQUAL "Maven-NOTFOUND")
+    message (WARNING "Maven not found")
+    set (ErrorFlag TRUE)
+else ()
+    message (STATUS "Maven found: ${Maven}")
+endif ()
 
 # Find Proton components
 
@@ -34,7 +68,8 @@ if (Proton_FOUND)
     get_filename_component(PROTON_INSTALL_DIR ${Proton_INCLUDE_DIRS} PATH CACHE PATH "Proton install directory")
     message(STATUS "Qpid proton found. Version ${Proton_VERSION} at ${Proton_INCLUDE_DIRS}")
 else ()
-    message(STATUS "Qpid proton not found.")
+    message(WARNING "Qpid proton not found.")
+    set (ErrorFlag TRUE)
 endif ()
 
 find_package(ProtonCpp)
@@ -42,11 +77,12 @@ if (ProtonCpp_FOUND)
     get_filename_component(PROTON_CPP_INSTALL_DIR ${ProtonCpp_INCLUDE_DIRS} PATH CACHE PATH "ProtonCpp install directory")
     message(STATUS "Qpid proton c++ binding found. Version ${ProtonCpp_VERSION} at ${ProtonCpp_INCLUDE_DIRS}")
 else()
-    message(STATUS "Qpid proton c++ binding not found.")
+    message(WARNING "Qpid proton c++ binding not found.")
+    set (ErrorFlag TRUE)
 endif ()
 
-if (NOT Proton_FOUND OR NOT ProtonCpp_FOUND)
-    message(FATAL_ERROR "Required proton components missing, aborting configuration.")
+if (ErrorFlag)
+    message(FATAL_ERROR "Required component(s) missing, aborting configuration.")
 endif ()
 
 add_subdirectory(shims/qpid-proton-cpp/src)
