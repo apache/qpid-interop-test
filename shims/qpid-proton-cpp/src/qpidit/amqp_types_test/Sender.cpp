@@ -26,7 +26,6 @@
 #include <json/json.h>
 #include <proton/connection.hpp>
 #include <proton/container.hpp>
-#include <proton/default_container.hpp>
 #include <proton/sender.hpp>
 #include <proton/tracker.hpp>
 
@@ -320,7 +319,7 @@ int main(int argc, char** argv) {
         }
 
         qpidit::amqp_types_test::Sender sender(argv[1], argv[2], argv[3], testValues);
-        proton::default_container(sender).run();
+        proton::container(sender).run();
     } catch (const std::exception& e) {
         std::cerr << "amqp_types_test Sender error: " << e.what() << std::endl;
         exit(1);

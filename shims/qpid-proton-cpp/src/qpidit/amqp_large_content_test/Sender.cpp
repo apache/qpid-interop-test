@@ -25,7 +25,6 @@
 #include <iostream>
 #include <json/json.h>
 #include <proton/container.hpp>
-#include <proton/default_container.hpp>
 #include <proton/connection.hpp>
 #include <proton/message.hpp>
 #include <proton/sender.hpp>
@@ -164,7 +163,7 @@ int main(int argc, char** argv) {
         }
 
         qpidit::amqp_large_content_test::Sender sender(argv[1], argv[2], argv[3], testValues);
-        proton::default_container(sender).run();
+        proton::container(sender).run();
     } catch (const std::exception& e) {
         std::cerr << "amqp_large_content_test Sender error: " << e.what() << std::endl;
         exit(1);

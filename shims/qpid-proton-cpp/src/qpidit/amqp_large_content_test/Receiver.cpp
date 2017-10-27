@@ -26,7 +26,6 @@
 #include <stdlib.h> // exit()
 #include <proton/connection.hpp>
 #include <proton/container.hpp>
-#include <proton/default_container.hpp>
 #include <proton/delivery.hpp>
 #include <proton/message.hpp>
 #include <proton/receiver.hpp>
@@ -170,7 +169,7 @@ int main(int argc, char** argv) {
 
     try {
         qpidit::amqp_large_content_test::Receiver receiver(argv[1], argv[2], argv[3], std::strtoul(argv[4], NULL, 0));
-        proton::default_container(receiver).run();
+        proton::container(receiver).run();
 
         std::cout << argv[3] << std::endl;
         Json::FastWriter fw;

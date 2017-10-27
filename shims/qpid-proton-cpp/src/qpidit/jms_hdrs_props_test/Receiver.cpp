@@ -26,7 +26,6 @@
 #include <json/json.h>
 #include <proton/connection.hpp>
 #include <proton/container.hpp>
-#include <proton/default_container.hpp>
 #include <proton/delivery.hpp>
 #include <proton/message.hpp>
 #include <proton/thread_safe.hpp>
@@ -443,7 +442,7 @@ int main(int argc, char** argv) {
         }
 
         qpidit::jms_hdrs_props_test::Receiver receiver(argv[1], argv[2], argv[3], testParams[0], testParams[1]);
-        proton::default_container(receiver).run();
+        proton::container(receiver).run();
 
         Json::FastWriter fw;
         std::cout << argv[3] << std::endl;

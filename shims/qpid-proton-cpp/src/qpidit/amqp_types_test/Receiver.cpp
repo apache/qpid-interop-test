@@ -25,7 +25,6 @@
 #include <json/json.h>
 #include <proton/connection.hpp>
 #include <proton/container.hpp>
-#include <proton/default_container.hpp>
 #include <proton/error_condition.hpp>
 #include <proton/delivery.hpp>
 #include <proton/message.hpp>
@@ -287,7 +286,7 @@ int main(int argc, char** argv) {
 
     try {
         qpidit::amqp_types_test::Receiver receiver(argv[1], argv[2], argv[3], std::strtoul(argv[4], NULL, 0));
-        proton::default_container(receiver).run();
+        proton::container(receiver).run();
 
         std::cout << argv[3] << std::endl;
         Json::FastWriter fw;

@@ -27,7 +27,6 @@
 #include <json/json.h>
 #include <proton/connection.hpp>
 #include <proton/container.hpp>
-#include <proton/default_container.hpp>
 #include <proton/thread_safe.hpp>
 #include <proton/tracker.hpp>
 #include <proton/transport.hpp>
@@ -441,7 +440,7 @@ int main(int argc, char** argv) {
         }
 
         qpidit::jms_hdrs_props_test::Sender sender(oss.str(), argv[3], testParams);
-        proton::default_container(sender).run();
+        proton::container(sender).run();
     } catch (const std::exception& e) {
         std::cout << "Sender error: " << e.what() << std::endl;
     }
