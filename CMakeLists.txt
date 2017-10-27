@@ -66,7 +66,7 @@ endif ()
 
 # Find Proton components
 
-find_package(Proton 0.18)
+find_package(Proton 0.17)
 if (Proton_FOUND)
     get_filename_component(PROTON_INSTALL_DIR ${Proton_INCLUDE_DIRS} PATH CACHE PATH "Proton install directory")
     message(STATUS "Qpid proton found. Version ${Proton_VERSION} at ${Proton_INCLUDE_DIRS}")
@@ -75,7 +75,7 @@ else ()
     set (ErrorFlag TRUE)
 endif ()
 
-find_package(ProtonCpp 0.18)
+find_package(ProtonCpp 0.17)
 if (ProtonCpp_FOUND)
     get_filename_component(PROTON_CPP_INSTALL_DIR ${ProtonCpp_INCLUDE_DIRS} PATH CACHE PATH "ProtonCpp install directory")
     message(STATUS "Qpid proton c++ binding found. Version ${ProtonCpp_VERSION} at ${ProtonCpp_INCLUDE_DIRS}")

@@ -20,9 +20,9 @@
 # Building Rhea requires that node.js is installed.
 
 project(qpid-interop-test-rhea-shims)
-message(STATUS "Searching for Rhea shim build and run requirements...")
-
 set(RHEA_DIR "$ENV{HOME}/rhea" CACHE PATH "Path to local Rhea installation")
+message(STATUS "Searching for Rhea shim build and run requirements... RHEA_DIR=${RHEA_DIR}")
+
 find_file(RHEA package.json HINTS ${RHEA_DIR} NO_DEFAULT_PATH DOC "Rhea javascript package file")
 if (RHEA STREQUAL "RHEA-NOTFOUND")
   message(STATUS "No local Rhea directory found, using upstream package.")
