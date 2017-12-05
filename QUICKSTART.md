@@ -156,7 +156,7 @@ latest and greatest), cloned from git:
 git clone https://git-wip-us.apache.org/repos/asf/qpid-interop-test.git
 ````
 
-Assuming the source tree is located in directory {{qpid-interop-test}}:
+Assuming the source tree is located in directory qpid-interop-test:
 
 ````
 cd qpid-interop-test
