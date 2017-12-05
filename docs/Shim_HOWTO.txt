@@ -168,23 +168,23 @@ b. Installing:
    value of CMAKE_INSTALL_PREFIX:
    
    CMAKE_INSTALL_PREFIX
-   └── lib
-       └── python2.7
-           └── site-packages
-               └── qpid_interop_test
-                   ├── test-name-1.py
-                   ├── test-name-2.py
+   +-- lib
+       +-- python2.7
+           +-- site-packages
+               +-- qpid_interop_test
+                   +-- test-name-1.py
+                   +-- test-name-2.py
                    ...
-                   └── shims
-                       ├── client-1
-                       │   ├── test-name-1.py
-                       │   │   ├── Sender
-                       │   │   └── Receiver
-                       │   ├── test-name-2.py
-                       │   │   ├── Sender
-                       │   │   └── Receiver
-                       │   ...
-                       ├── client-2
+                   +-- shims
+                       +-- client-1
+                       |   +-- test-name-1.py
+                       |   |   +-- Sender
+                       |   |   +-- Receiver
+                       |   +-- test-name-2.py
+                       |   |   +-- Sender
+                       |   |   +-- Receiver
+                       |   ...
+                       +-- client-2
                        ...
 
    It will be necessary to add your shim to the install scripts in setup.py so

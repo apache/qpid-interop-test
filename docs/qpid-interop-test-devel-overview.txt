@@ -123,31 +123,31 @@ Source Directory layout
 -----------------------
 
 qpid-interop-test
-├── CMakeLists.txt
-├── src
-│   └── python
-│       └── qpid_interop_test
-│           ├── <test_1>.py
-│           ├── <test_2>.py
-│           ...
-└── shims
-    ├── <client_1>
-    │   ├── CMakeLists.txt
-    │   ├── <test_1>
-    │   │   ├── Receiver.src
-    │   │   └── Sender.src
-    │   ├── <test_2>
-    │   │   ├── Receiver.src
-    │   │   └── Sender.src
-    │   ...
-    ├── <client_2>
-    │   ├── CMakeLists.txt
-    │   ├── <test_1>
-    │   │   ├── Receiver.src
-    │   │   └── Sender.src
-    │   ├── <test_2>
-    │   │   ├── Receiver.src
-    │   │   └── Sender.src
++-- CMakeLists.txt
++-- src
+|   +-- python
+|       +-- qpid_interop_test
+|           +-- <test_1>.py
+|           +-- <test_2>.py
+|           ...
++-- shims
+    +-- <client_1>
+    |   +-- CMakeLists.txt
+    |   +-- <test_1>
+    |   |   +-- Receiver.src
+    |   |   +-- Sender.src
+    |   +-- <test_2>
+    |   |   +-- Receiver.src
+    |   |   +-- Sender.src
+    |   ...
+    +-- <client_2>
+    |   +-- CMakeLists.txt
+    |   +-- <test_1>
+    |   |   +-- Receiver.src
+    |   |   +-- Sender.src
+    |   +-- <test_2>
+    |   |   +-- Receiver.src
+    |   |   +-- Sender.src
     ...
 
 
@@ -162,30 +162,30 @@ ${CMAKE_INSTALL_PREFIX}/libexec/qpid_interop_test/shims/.
 The layout is as follows:
 
 <CMAKE_INSTALL_PREFIX> (default: /usr/local/)
-├── lib
-│   └── python2.7
-│       └── site-packages
-│           └── qpid_interop_test
-│               ├── <test_1.py>
-│               ├── <test_2.py>
-│               ...
-└── libexec
-    └── qpid_interop_test
-        └── shims
-            ├── <client_1>
-            │   ├── <test_1>
-            │   │   ├── Receiver
-            │   │   └── Sender
-            │   ├── <test_2>
-            │   │   ├── Receiver
-            │   │   └── Sender
-            │   ...
-            ├── <client_2>
-            │   ├── <test_1>
-            │   │   ├── Receiver
-            │   │   └── Sender
-            │   ├── <test_2>
-            │   │   ├── Receiver
-            │   │   └── Sender
-            │   ...
++-- lib
+|   +-- python2.7
+|       +-- site-packages
+|           +-- qpid_interop_test
+|               +-- <test_1.py>
+|               +-- <test_2.py>
+|               ...
++-- libexec
+    +-- qpid_interop_test
+        +-- shims
+            +-- <client_1>
+            |   +-- <test_1>
+            |   |   +-- Receiver
+            |   |   +-- Sender
+            |   +-- <test_2>
+            |   |   +-- Receiver
+            |   |   +-- Sender
+            |   ...
+            +-- <client_2>
+            |   +-- <test_1>
+            |   |   +-- Receiver
+            |   |   +-- Sender
+            |   +-- <test_2>
+            |   |   +-- Receiver
+            |   |   +-- Sender
+            |   ...
             ...
