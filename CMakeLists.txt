@@ -56,7 +56,8 @@ endif ()
 
 # Find Maven
 
-find_program(Maven mvn)
+find_program(Maven mvn
+             HINT /usr/local/maven/bin) # common location for local install
 if (Maven STREQUAL "Maven-NOTFOUND")
     message (WARNING "Maven not found")
     set (ErrorFlag TRUE)
