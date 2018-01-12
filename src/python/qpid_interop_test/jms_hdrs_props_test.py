@@ -162,7 +162,7 @@ class JmsMessageTypes(TestTypeMap):
                            },
         }
 
-    PROPERTIES_MAP = COMMON_SUBMAP # disabled until PROTON-1284 is fixed
+    PROPERTIES_MAP = COMMON_SUBMAP
 
     TYPE_MAP = {
         'JMS_MESSAGE_TYPE': {'none': [None]},
@@ -226,6 +226,51 @@ class JmsMessageTypes(TestTypeMap):
         }
 
     BROKER_SKIP = {}
+
+    def get_types(self, args):
+        if 'include_hdr' in args and args.include_hdr is not None:
+            new_hdrs_map = {}
+            for hdr in args.include_hdr:
+                try:
+                    new_hdrs_map[hdr] = self.HEADERS_MAP[hdr]
+                except KeyError:
+                    print 'No such JMS header: "%s". Use --help for valid headers' % hdr
+                    sys.exit(1)
+            self.HEADERS_MAP = new_hdrs_map
+        elif 'exclude_hdr' in args and args.exclude_hdr is not None:
+            if len(args.exclude_hdr) == 1 and args.exclude_hdr[0] == 'ALL':
+                print 'NOTE: Command-line option has excluded all headers from test\n'
+                self.HEADERS_MAP.clear()
+            else:
+                for hdr in args.exclude_hdr:
+                    try:
+                        self.HEADERS_MAP.pop(hdr)
+                    except KeyError:
+                        print 'No such JMS header: "%s". Use --help for valid headers' % hdr
+                        sys.exit(1)
+
+        if 'include_prop' in args and args.include_prop is not None:
+            new_props_map = {}
+            for prop in args.include_prop:
+                try:
+                    new_props_map[prop] = self.PROPERTIES_MAP[prop]
+                except KeyError:
+                    print 'No such JMS property: "%s". Use --help for valid property types' % prop
+                    sys.exit(1)
+            self.PROPERTIES_MAP = new_props_map
+        elif 'exclude_prop' in args and args.exclude_prop is not None:
+            if len(args.exclude_prop) == 1 and args.exclude_prop[0] == 'ALL':
+                print 'NOTE: Command-line option has excluded all properties from test\n'
+                self.PROPERTIES_MAP.clear()
+            else:
+                for prop in args.exclude_prop:
+                    try:
+                        self.PROPERTIES_MAP.pop(prop)
+                    except KeyError:
+                        print 'No such JMS property: "%s". Use --help for valid property types' % prop
+                        sys.exit(1)
+
+        return self
 
 
 class JmsMessageHdrsPropsTestCase(unittest.TestCase):
@@ -325,7 +370,7 @@ def create_testcases():
     test_case_class_b = create_part_b_testcase_class()
     TEST_SUITE.addTest(unittest.makeSuite(test_case_class_b))
 
-    # TODO: Add part C and D (properties) when C++ cleint can handle them
+    # TODO: Add part C and D (properties) when C++ client can handle them
 
     # Part C: Single message property on each message
     #test_case_class_c = create_part_c_testcase_class()
@@ -583,7 +628,7 @@ def create_part_d_testcase_class(jms_message_type):
         add_test_method(new_class,
                         'HDRS+PROPS',
                         ('hdrs', all_hdrs),
-                        ('pros', all_props),
+                        ('props', all_props),
                         send_shim,
                         receive_shim)
     return new_class
@@ -605,19 +650,31 @@ class TestOptions(object):
         parser.add_argument('--broker-type', action='store', metavar='BROKER_NAME',
                             help='Disable test of broker type (using connection properties) by specifying the broker' +
                             ' name, or "None".')
-        # TODO: This test only uses JMS_MESSAGE_TYPE. It should be possible to set the type used, but if these
-        #       options are used, it errors. [QPIDIT-80]
-        #type_group = parser.add_mutually_exclusive_group()
-        #type_group.add_argument('--include-type', action='append', metavar='JMS_MESSAGE-TYPE',
-        #                        help='Name of AMQP type to include. Supported types:\n%s' %
-        #                        sorted(JmsMessageTypes.TYPE_MAP.keys()))
-        #type_group.add_argument('--exclude-type', action='append', metavar='JMS_MESSAGE-TYPE',
-        #                        help='Name of AMQP type to exclude. Supported types: see "include-type" above')
+
+        # Control over JMS message headers
+        hdrs_group = parser.add_mutually_exclusive_group()
+        hdrs_group.add_argument('--include-hdr', action='append', metavar='HDR-NAME',
+                                help='Name of JMS header to include. Supported headers:\n%s' %
+                                sorted(JmsMessageTypes.HEADERS_MAP.keys()))
+        hdrs_group.add_argument('--exclude-hdr', action='append', metavar='HDR-NAME',
+                                help='Name of JMS header to exclude. Supported types: see "include-hdr" above' +
+                                ' or "ALL" to exclude all header tests')
+
+        # Control over JMS message properties
+        props_group = parser.add_mutually_exclusive_group()
+        props_group.add_argument('--include-prop', action='append', metavar='PROP-TYPE',
+                                 help='Name of JMS property type to include. Supported property types:\n%s' %
+                                 sorted(JmsMessageTypes.PROPERTIES_MAP.keys()))
+        props_group.add_argument('--exclude-prop', action='append', metavar='PROP-TYPE',
+                                 help='Name of JMS property type to exclude. Supported types: see "include-prop"' +
+                                ' above or "ALL" to exclude all properties tests')
+
         shim_group = parser.add_mutually_exclusive_group()
         shim_group.add_argument('--include-shim', action='append', metavar='SHIM-NAME',
                                 help='Name of shim to include. Supported shims:\n%s' % sorted(shim_map.keys()))
         shim_group.add_argument('--exclude-shim', action='append', metavar='SHIM-NAME',
-                            help='Name of shim to exclude. Supported shims: see "include-shim" above')
+                                help='Name of shim to exclude. Supported shims: see "include-shim" above')
+
         self.args = parser.parse_args()
 
 
