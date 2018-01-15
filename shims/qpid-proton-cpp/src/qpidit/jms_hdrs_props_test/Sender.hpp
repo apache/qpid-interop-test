@@ -72,10 +72,6 @@ namespace qpidit
             static proton::message& setJmsReplyTo(proton::message& msg, const std::string& dt, const std::string& d);
 
             proton::message& addMessageProperties(proton::message& msg);
-            template<typename T> proton::message& setMessageProperty(proton::message& msg, const std::string& propertyName, T val) {
-                msg.properties().put(propertyName, val);
-                return msg;
-            }
 
             static proton::binary getJavaObjectBinary(const std::string& javaClassName, const std::string& valAsString);
             static uint32_t getTotalNumMessages(const Json::Value& testValueMap);

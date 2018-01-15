@@ -404,9 +404,51 @@ namespace qpidit
         }
 
         void Receiver::processMessageProperties(const proton::message& msg) {
-            // TODO: Add this function when PROTON-1284 is fixed
-//            std::map<proton::value, proton::value> props;
-//            msg.properties().value() >> props;
+            // Find keys in map, iterate through them
+            typedef std::map<std::string, proton::scalar> property_map;
+            property_map props;
+            proton::get(msg.properties(), props);
+            for (property_map::const_iterator i=props.begin(); i!=props.end(); ++i) {
+                std::size_t ui1 = i->first.find('_');
+                std::size_t ui2 = i->first.find('_', ui1 + 1);
+                if (ui1 == 4 && ui2 > 5) { // ignore other properties that may be present
+                    std::string jmsPropertyType(i->first.substr(ui1+1, ui2-ui1-1));
+                    proton::scalar value(props[i->first]);
+                    Json::Value valueMap(Json::objectValue);
+                    if (jmsPropertyType.compare("boolean") == 0) {
+                        valueMap["boolean"] = proton::get<bool>(value)?"True":"False";
+                        _receivedPropertiesMap[i->first] = valueMap;
+                    } else if (jmsPropertyType.compare("byte") == 0) {
+                        valueMap["byte"] = toHexStr<int8_t>(proton::get<int8_t>(value));
+                        _receivedPropertiesMap[i->first] = valueMap;
+                    } else if (jmsPropertyType.compare("double") == 0) {
+                        //int64_t val = be64toh(*((int64_t*)body.data()));
+                        //std::cout << "value=" << value << std::endl;
+                        double d = proton::get<double>(value);
+                        //std::cout << "d=" << d << std::endl;
+                        //std::cout << std::hex << "d=0x" << (*((int64_t*)&d)) << std::endl;
+                        valueMap["double"] = toHexStr<int64_t>(*((int64_t*)&d), true, false);
+                        _receivedPropertiesMap[i->first] = valueMap;
+                    } else if (jmsPropertyType.compare("float") == 0) {
+                        float f = proton::get<float>(value);
+                        valueMap["float"] = toHexStr<int32_t>(*((int32_t*)&f), true, false);
+                        _receivedPropertiesMap[i->first] = valueMap;
+                    } else if (jmsPropertyType.compare("int") == 0) {
+                        valueMap["int"] = toHexStr<int32_t>(proton::get<int32_t>(value));;
+                        _receivedPropertiesMap[i->first] = valueMap;
+                    } else if (jmsPropertyType.compare("long") == 0) {
+                        valueMap["long"] = toHexStr<int64_t>(proton::get<int64_t>(value));
+                        _receivedPropertiesMap[i->first] = valueMap;
+                    } else if (jmsPropertyType.compare("short") == 0) {
+                        valueMap["short"] = toHexStr<int16_t>(proton::get<int16_t>(value));
+                        _receivedPropertiesMap[i->first] = valueMap;
+                    } else if (jmsPropertyType.compare("string") == 0) {
+                        valueMap["string"] = proton::get<std::string>(value);
+                        _receivedPropertiesMap[i->first] = valueMap;
+                    }
+                    // Ignore any non-compliant types, no final else or throw
+                }
+            }
         }
 
         //static

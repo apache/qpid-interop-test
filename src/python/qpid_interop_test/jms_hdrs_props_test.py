@@ -373,8 +373,8 @@ def create_testcases():
     # TODO: Add part C and D (properties) when C++ client can handle them
 
     # Part C: Single message property on each message
-    #test_case_class_c = create_part_c_testcase_class()
-    #TEST_SUITE.addTest(unittest.makeSuite(test_case_class_c))
+    test_case_class_c = create_part_c_testcase_class()
+    TEST_SUITE.addTest(unittest.makeSuite(test_case_class_c))
 
     # Part D: All headers and all properties on one of each type of JMS message
     #for jms_message_type in sorted(TYPES.TYPE_MAP.keys()):

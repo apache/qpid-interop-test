@@ -359,23 +359,23 @@ namespace qpidit
                 const std::string propertyValueType = _subMap.getMemberNames()[0]; // There is always only one entry in map
                 std::string val = _subMap[propertyValueType].asString();
                 if (propertyValueType.compare("boolean") == 0) {
-                    if (val.compare("False") == 0) setMessageProperty(msg, *i, false);
-                    else if (val.compare("True") == 0) setMessageProperty(msg, *i, true);
+                    if (val.compare("False") == 0) msg.properties().put(*i, false);
+                    else if (val.compare("True") == 0) msg.properties().put(*i, true);
                     else throw InvalidTestValueError(propertyValueType, val);
                 } else if (propertyValueType.compare("byte") == 0) {
-                    setMessageProperty(msg, *i, getIntegralValue<int8_t>(val));
+                    msg.properties().put(*i, getIntegralValue<int8_t>(val));
                 } else if (propertyValueType.compare("double") == 0) {
-                    setMessageProperty(msg, *i, getFloatValue<double, uint64_t>(val));
+                    msg.properties().put(*i, getFloatValue<double, uint64_t>(val));
                 } else if (propertyValueType.compare("float") == 0) {
-                    setMessageProperty(msg, *i, getFloatValue<float, uint64_t>(val));
+                    msg.properties().put(*i, getFloatValue<float, uint64_t>(val));
                 } else if (propertyValueType.compare("int") == 0) {
-                    setMessageProperty(msg, *i, getIntegralValue<int32_t>(val));
+                    msg.properties().put(*i, getIntegralValue<int32_t>(val));
                 } else if (propertyValueType.compare("long") == 0) {
-                    setMessageProperty(msg, *i, getIntegralValue<int64_t>(val));
+                    msg.properties().put(*i, getIntegralValue<int64_t>(val));
                 } else if (propertyValueType.compare("short") == 0) {
-                    setMessageProperty(msg, *i, getIntegralValue<int16_t>(val));
+                    msg.properties().put(*i, getIntegralValue<int16_t>(val));
                 } else if (propertyValueType.compare("string") == 0) {
-                    setMessageProperty(msg, *i, val);
+                    msg.properties().put(*i, val);
                 } else {
                     throw qpidit::UnknownJmsPropertyTypeError(propertyValueType);
                 }
