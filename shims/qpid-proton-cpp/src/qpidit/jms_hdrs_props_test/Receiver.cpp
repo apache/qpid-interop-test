@@ -422,11 +422,7 @@ namespace qpidit
                         valueMap["byte"] = toHexStr<int8_t>(proton::get<int8_t>(value));
                         _receivedPropertiesMap[i->first] = valueMap;
                     } else if (jmsPropertyType.compare("double") == 0) {
-                        //int64_t val = be64toh(*((int64_t*)body.data()));
-                        //std::cout << "value=" << value << std::endl;
                         double d = proton::get<double>(value);
-                        //std::cout << "d=" << d << std::endl;
-                        //std::cout << std::hex << "d=0x" << (*((int64_t*)&d)) << std::endl;
                         valueMap["double"] = toHexStr<int64_t>(*((int64_t*)&d), true, false);
                         _receivedPropertiesMap[i->first] = valueMap;
                     } else if (jmsPropertyType.compare("float") == 0) {
