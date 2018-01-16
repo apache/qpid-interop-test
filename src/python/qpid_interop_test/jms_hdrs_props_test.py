@@ -370,16 +370,13 @@ def create_testcases():
     test_case_class_b = create_part_b_testcase_class()
     TEST_SUITE.addTest(unittest.makeSuite(test_case_class_b))
 
-    # TODO: Add part C and D (properties) when C++ client can handle them
-
     # Part C: Single message property on each message
     test_case_class_c = create_part_c_testcase_class()
     TEST_SUITE.addTest(unittest.makeSuite(test_case_class_c))
 
     # Part D: All headers and all properties on one of each type of JMS message
-    #for jms_message_type in sorted(TYPES.TYPE_MAP.keys()):
-    #    test_case_class_d = create_part_d_testcase_class(jms_message_type)
-    #    TEST_SUITE.addTest(unittest.makeSuite(test_case_class_d))
+    test_case_class_d = create_part_d_testcase_class()
+    TEST_SUITE.addTest(unittest.makeSuite(test_case_class_d))
 
 
 def create_part_a_testcase_class():
@@ -568,7 +565,7 @@ def create_part_c_testcase_class():
     return new_class
 
 
-def create_part_d_testcase_class(jms_message_type):
+def create_part_d_testcase_class():
     """
     Class factory function which creates new subclasses to JmsMessageTypeTestCase. Creates a test case class for
     all message headers and properties on each type of JMS message
@@ -587,7 +584,7 @@ def create_part_d_testcase_class(jms_message_type):
             self.run_test(self.sender_addr,
                           self.receiver_addr,
                           queue_name_fragment,
-                          jms_message_type,
+                          self.jms_message_type,
                           self.test_values,
                           hdrs[1],
                           props[1],
