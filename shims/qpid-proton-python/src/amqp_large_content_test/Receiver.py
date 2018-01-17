@@ -32,6 +32,8 @@ from proton import symbol
 from proton.handlers import MessagingHandler
 from proton.reactor import Container
 
+import _compat
+
 class AmqpLargeContentTestReceiver(MessagingHandler):
     """
     Reciver shim for AMQP dtx test
@@ -65,7 +67,7 @@ class AmqpLargeContentTestReceiver(MessagingHandler):
                     size, num_elts = self.get_list_size(event.message.body)
                 else:
                     size, num_elts = self.get_map_size(event.message.body)
-                if len(self.received_value_list) == 0: # list is empty
+                if not self.received_value_list: # list is empty
                     self.received_value_list.append((size, [num_elts]))
                 else:
                     found = False
@@ -84,8 +86,12 @@ class AmqpLargeContentTestReceiver(MessagingHandler):
     @staticmethod
     def get_str_message_size(message):
         """Find the size of a bytes, unicode or symbol message in MB"""
-        if isinstance(message, bytes) or isinstance(message, unicode) or isinstance(message, symbol):
-            return len(str(message)) / 1024 / 1024 # in MB
+        if _compat.IS_PY3:
+            if isinstance(message, (bytes, string, symbol)):
+                return len(str(message)) / 1024 / 1024 # in MB
+        else:
+            if isinstance(message, (bytes, unicode, symbol)):
+                return len(str(message)) / 1024 / 1024 # in MB
         return None
 
     @staticmethod
@@ -121,10 +127,10 @@ class AmqpLargeContentTestReceiver(MessagingHandler):
 try:
     RECEIVER = AmqpLargeContentTestReceiver(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
     Container(RECEIVER).run()
-    print sys.argv[3]
-    print dumps(RECEIVER.get_received_value_list())
+    print(sys.argv[3])
+    print(dumps(RECEIVER.get_received_value_list()))
 except KeyboardInterrupt:
     pass
 except Exception as exc:
-    print os.path.basename(sys.argv[0]), 'EXCEPTION', exc
-    print format_exc()
+    print(os.path.basename(sys.argv[0]), 'EXCEPTION', exc)
+    print(format_exc())

@@ -33,7 +33,10 @@ setup(name='qpid-interop-test',
       package_dir={'qpid_interop_test': 'src/python/qpid_interop_test'},
       
       # Shims, installed into {INSTALL_PREFIX}/libexec/qpid_interop_test/shims/
-     data_files=[('%s/qpid-proton-python/amqp_types_test' % SHIM_DIR,
+     data_files=[ ('%s/qpid-proton-python' % SHIM_DIR,
+                      ['shims/qpid-proton-python/src/_compat.py']
+                  ),
+                  ('%s/qpid-proton-python/amqp_types_test' % SHIM_DIR,
                      ['shims/qpid-proton-python/src/amqp_types_test/Receiver.py',
                       'shims/qpid-proton-python/src/amqp_types_test/Sender.py',
                      ]

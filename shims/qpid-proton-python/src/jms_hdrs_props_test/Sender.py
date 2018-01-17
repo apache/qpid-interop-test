@@ -23,19 +23,21 @@ JMS message headers and properties test sender shim for qpid-interop-test
 # under the License.
 #
 
-from json import loads
 import os.path
 from struct import pack, unpack
 from subprocess import check_output
 import sys
 from traceback import format_exc
+from json import loads
 
-from qpid_interop_test.jms_types import create_annotation
 from proton import byte, char, float32, int32, Message, short, symbol
 from proton.handlers import MessagingHandler
 from proton.reactor import Container
 from qpid_interop_test.interop_test_errors import InteropTestError
+from qpid_interop_test.jms_types import create_annotation
 from qpid_interop_test.test_type_map import TestTypeMap
+
+import _compat
 
 
 class JmsHdrsPropsTestSender(MessagingHandler):
@@ -75,13 +77,13 @@ class JmsHdrsPropsTestSender(MessagingHandler):
                     return
 
     def on_connection_error(self, event):
-        print 'JmsSenderShim.on_connection_error'
+        print('JmsSenderShim.on_connection_error')
 
     def on_session_error(self, event):
-        print 'JmsSenderShim.on_session_error'
+        print('JmsSenderShim.on_session_error')
 
     def on_link_error(self, event):
-        print 'JmsSenderShim.on_link_error'
+        print('JmsSenderShim.on_link_error')
 
     def on_accepted(self, event):
         """Event callback for when a sent message is accepted by the broker"""
@@ -126,20 +128,19 @@ class JmsHdrsPropsTestSender(MessagingHandler):
         """Create a single message of the appropriate JMS message type"""
         if self.jms_msg_type == 'JMS_MESSAGE_TYPE':
             return self._create_jms_message(test_value_type, test_value, hdr_kwargs, hdr_annotations)
-        elif self.jms_msg_type == 'JMS_BYTESMESSAGE_TYPE':
+        if self.jms_msg_type == 'JMS_BYTESMESSAGE_TYPE':
             return self._create_jms_bytesmessage(test_value_type, test_value, hdr_kwargs, hdr_annotations)
-        elif self.jms_msg_type == 'JMS_MAPMESSAGE_TYPE':
+        if self.jms_msg_type == 'JMS_MAPMESSAGE_TYPE':
             return self._create_jms_mapmessage(test_value_type, test_value, "%s%03d" % (test_value_type, value_num),
                                                hdr_kwargs, hdr_annotations)
-        elif self.jms_msg_type == 'JMS_OBJECTMESSAGE_TYPE':
+        if self.jms_msg_type == 'JMS_OBJECTMESSAGE_TYPE':
             return self._create_jms_objectmessage('%s:%s' % (test_value_type, test_value), hdr_kwargs, hdr_annotations)
-        elif self.jms_msg_type == 'JMS_STREAMMESSAGE_TYPE':
+        if self.jms_msg_type == 'JMS_STREAMMESSAGE_TYPE':
             return self._create_jms_streammessage(test_value_type, test_value, hdr_kwargs, hdr_annotations)
-        elif self.jms_msg_type == 'JMS_TEXTMESSAGE_TYPE':
+        if self.jms_msg_type == 'JMS_TEXTMESSAGE_TYPE':
             return self._create_jms_textmessage(test_value, hdr_kwargs, hdr_annotations)
-        else:
-            print 'jms-send: Unsupported JMS message type "%s"' % self.jms_msg_type
-            return None
+        print('jms-send: Unsupported JMS message type "%s"' % self.jms_msg_type)
+        return None
 
     def _create_jms_message(self, test_value_type, test_value, hdr_kwargs, hdr_annotations):
         """Create a JMS message type (without message body)"""
@@ -173,7 +174,7 @@ class JmsHdrsPropsTestSender(MessagingHandler):
         elif test_value_type == 'int':
             body_bytes = pack('!i', int(test_value, 16))
         elif test_value_type == 'long':
-            body_bytes = pack('!q', long(test_value, 16))
+            body_bytes = pack('!q', _compat._long(test_value, 16))
         elif test_value_type == 'short':
             body_bytes = pack('!h', short(test_value, 16))
         elif test_value_type == 'string':
@@ -208,7 +209,7 @@ class JmsHdrsPropsTestSender(MessagingHandler):
         elif test_value_type == 'int':
             value = int32(int(test_value, 16))
         elif test_value_type == 'long':
-            value = long(test_value, 16)
+            value = _compat._long(test_value, 16)
         elif test_value_type == 'short':
             value = short(int(test_value, 16))
         elif test_value_type == 'string':
@@ -265,7 +266,7 @@ class JmsHdrsPropsTestSender(MessagingHandler):
         elif test_value_type == 'int':
             body_list = [int32(int(test_value, 16))]
         elif test_value_type == 'long':
-            body_list = [long(test_value, 16)]
+            body_list = [_compat._long(test_value, 16)]
         elif test_value_type == 'short':
             body_list = [short(int(test_value, 16))]
         elif test_value_type == 'string':
@@ -283,7 +284,7 @@ class JmsHdrsPropsTestSender(MessagingHandler):
     def _create_jms_textmessage(self, test_value_text, hdr_kwargs, hdr_annotations):
         """Create a JMS text message"""
         return Message(id=(self.sent+1),
-                       body=unicode(test_value_text),
+                       body=_compat._unicode(test_value_text),
                        annotations=TestTypeMap.merge_dicts(create_annotation('JMS_TEXTMESSAGE_TYPE'),
                                                            hdr_annotations),
                        **hdr_kwargs)
@@ -350,7 +351,7 @@ class JmsHdrsPropsTestSender(MessagingHandler):
             elif value_type == 'int':
                 message.properties[property_name] = int(value, 16)
             elif value_type == 'long':
-                message.properties[property_name] = long(value, 16)
+                message.properties[property_name] = _compat._long(value, 16)
             elif value_type == 'short':
                 message.properties[property_name] = short(int(value, 16))
             elif value_type == 'string':
@@ -366,13 +367,13 @@ class JmsHdrsPropsTestSender(MessagingHandler):
 #       2: Queue name
 #       3: JMS message type
 #       4: JSON Test parameters containing 3 maps: [testValueMap, testHeadersMap, testPropertiesMap]
-#print '#### sys.argv=%s' % sys.argv
-#print '>>> test_values=%s' % loads(sys.argv[4])
+#print('#### sys.argv=%s' % sys.argv)
+#print('>>> test_values=%s' % loads(sys.argv[4]))
 try:
     SENDER = JmsHdrsPropsTestSender(sys.argv[1], sys.argv[2], sys.argv[3], loads(sys.argv[4]))
     Container(SENDER).run()
 except KeyboardInterrupt:
     pass
 except Exception as exc:
-    print os.path.basename(sys.argv[0]), 'EXCEPTION:', exc
-    print format_exc()
+    print(os.path.basename(sys.argv[0]), 'EXCEPTION:', exc)
+    print(format_exc())

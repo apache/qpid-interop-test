@@ -178,13 +178,23 @@ class Shim(object):
         receiver.daemon = True
         return receiver
 
-class ProtonPythonShim(Shim):
+
+class ProtonPython2Shim(Shim):
     """Shim for qpid-proton Python client"""
-    NAME = 'ProtonPython'
+    NAME = 'ProtonPython2'
     def __init__(self, sender_shim, receiver_shim):
-        super(ProtonPythonShim, self).__init__(sender_shim, receiver_shim)
-        self.send_params = [self.sender_shim]
-        self.receive_params = [self.receiver_shim]
+        super(ProtonPython2Shim, self).__init__(sender_shim, receiver_shim)
+        self.send_params = ['python', self.sender_shim]
+        self.receive_params = ['python', self.receiver_shim]
+
+
+class ProtonPython3Shim(Shim):
+    """Shim for qpid-proton Python client"""
+    NAME = 'ProtonPython3'
+    def __init__(self, sender_shim, receiver_shim):
+        super(ProtonPython3Shim, self).__init__(sender_shim, receiver_shim)
+        self.send_params = ['python3', self.sender_shim]
+        self.receive_params = ['python3', self.receiver_shim]
 
 
 class ProtonCppShim(Shim):

@@ -29,11 +29,12 @@ from struct import pack, unpack
 import sys
 from traceback import format_exc
 
-from qpid_interop_test.jms_types import create_annotation
-from proton import byte, char, float32, int32, Message, short, symbol
+from proton import byte, char, float32, int32, Message, short
 from proton.handlers import MessagingHandler
 from proton.reactor import Container
 from qpid_interop_test.interop_test_errors import InteropTestError
+from qpid_interop_test.jms_types import create_annotation
+import _compat
 
 class JmsMessagesTestSender(MessagingHandler):
     """
@@ -70,13 +71,13 @@ class JmsMessagesTestSender(MessagingHandler):
                     return
 
     def on_connection_error(self, event):
-        print 'JmsMessagesTestSender.on_connection_error'
+        print('JmsMessagesTestSender.on_connection_error')
 
     def on_session_error(self, event):
-        print 'JmsMessagesTestSender.on_session_error'
+        print('JmsMessagesTestSender.on_session_error')
 
     def on_link_error(self, event):
-        print 'JmsMessagesTestSender.on_link_error'
+        print('JmsMessagesTestSender.on_link_error')
 
     def on_accepted(self, event):
         """Event callback for when a sent message is accepted by the broker"""
@@ -118,19 +119,18 @@ class JmsMessagesTestSender(MessagingHandler):
         """Create a single message of the appropriate JMS message type"""
         if self.jms_msg_type == 'JMS_MESSAGE_TYPE':
             return self._create_jms_message(test_value_type, test_value)
-        elif self.jms_msg_type == 'JMS_BYTESMESSAGE_TYPE':
+        if self.jms_msg_type == 'JMS_BYTESMESSAGE_TYPE':
             return self._create_jms_bytesmessage(test_value_type, test_value)
-        elif self.jms_msg_type == 'JMS_MAPMESSAGE_TYPE':
+        if self.jms_msg_type == 'JMS_MAPMESSAGE_TYPE':
             return self._create_jms_mapmessage(test_value_type, test_value, "%s%03d" % (test_value_type, value_num))
-        elif self.jms_msg_type == 'JMS_OBJECTMESSAGE_TYPE':
+        if self.jms_msg_type == 'JMS_OBJECTMESSAGE_TYPE':
             return self._create_jms_objectmessage('%s:%s' % (test_value_type, test_value))
-        elif self.jms_msg_type == 'JMS_STREAMMESSAGE_TYPE':
+        if self.jms_msg_type == 'JMS_STREAMMESSAGE_TYPE':
             return self._create_jms_streammessage(test_value_type, test_value)
-        elif self.jms_msg_type == 'JMS_TEXTMESSAGE_TYPE':
+        if self.jms_msg_type == 'JMS_TEXTMESSAGE_TYPE':
             return self._create_jms_textmessage(test_value)
-        else:
-            print 'JmsMessagesTestSender: Unsupported JMS message type "%s"' % self.jms_msg_type
-            return None
+        print('JmsMessagesTestSender: Unsupported JMS message type "%s"' % self.jms_msg_type)
+        return None
 
     def _create_jms_message(self, test_value_type, test_value):
         """Create a JMS message type (without message body)"""
@@ -162,7 +162,7 @@ class JmsMessagesTestSender(MessagingHandler):
         elif test_value_type == 'int':
             body_bytes = pack('!i', int(test_value, 16))
         elif test_value_type == 'long':
-            body_bytes = pack('!q', long(test_value, 16))
+            body_bytes = pack('!q', _compat._long(test_value, 16))
         elif test_value_type == 'short':
             body_bytes = pack('!h', short(test_value, 16))
         elif test_value_type == 'string':
@@ -195,7 +195,7 @@ class JmsMessagesTestSender(MessagingHandler):
         elif test_value_type == 'int':
             value = int32(int(test_value, 16))
         elif test_value_type == 'long':
-            value = long(test_value, 16)
+            value = _compat._long(test_value, 16)
         elif test_value_type == 'short':
             value = short(int(test_value, 16))
         elif test_value_type == 'string':
@@ -248,7 +248,7 @@ class JmsMessagesTestSender(MessagingHandler):
         elif test_value_type == 'int':
             body_list = [int32(int(test_value, 16))]
         elif test_value_type == 'long':
-            body_list = [long(test_value, 16)]
+            body_list = [_compat._long(test_value, 16)]
         elif test_value_type == 'short':
             body_list = [short(int(test_value, 16))]
         elif test_value_type == 'string':
@@ -264,7 +264,7 @@ class JmsMessagesTestSender(MessagingHandler):
     def _create_jms_textmessage(self, test_value_text):
         """Create a JMS text message"""
         return Message(id=(self.sent+1),
-                       body=unicode(test_value_text),
+                       body=_compat._unicode(test_value_text),
                        annotations=create_annotation('JMS_TEXTMESSAGE_TYPE'))
 
 
@@ -275,13 +275,13 @@ class JmsMessagesTestSender(MessagingHandler):
 #       2: Queue name
 #       3: JMS message type
 #       4: JSON Test parameters containing 3 maps: [testValueMap, testHeadersMap, testPropertiesMap]
-#print '#### sys.argv=%s' % sys.argv
-#print '>>> test_values=%s' % loads(sys.argv[4])
+#print('#### sys.argv=%s' % sys.argv)
+#print('>>> test_values=%s' % loads(sys.argv[4]))
 try:
     SENDER = JmsMessagesTestSender(sys.argv[1], sys.argv[2], sys.argv[3], loads(sys.argv[4]))
     Container(SENDER).run()
 except KeyboardInterrupt:
     pass
 except Exception as exc:
-    print 'jms-sender-shim EXCEPTION:', exc
-    print format_exc()
+    print('jms-sender-shim EXCEPTION:', exc)
+    print(format_exc())

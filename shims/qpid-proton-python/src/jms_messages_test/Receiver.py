@@ -29,11 +29,11 @@ from subprocess import check_output
 import sys
 from traceback import format_exc
 
-from qpid_interop_test.jms_types import QPID_JMS_TYPE_ANNOTATION_NAME
-from proton import byte, symbol
+from proton import byte
 from proton.handlers import MessagingHandler
 from proton.reactor import Container
 from qpid_interop_test.interop_test_errors import InteropTestError
+from qpid_interop_test.jms_types import QPID_JMS_TYPE_ANNOTATION_NAME
 
 class JmsMessagesTestReceiver(MessagingHandler):
     """
@@ -83,13 +83,13 @@ class JmsMessagesTestReceiver(MessagingHandler):
             event.connection.close()
 
     def on_connection_error(self, event):
-        print 'JmsMessagesTestReceiver.on_connection_error'
+        print('JmsMessagesTestReceiver.on_connection_error')
 
     def on_session_error(self, event):
-        print 'JmsMessagesTestReceiver.on_session_error'
+        print('JmsMessagesTestReceiver.on_session_error')
 
     def on_link_error(self, event):
-        print 'JmsMessagesTestReceiver.on_link_error'
+        print('JmsMessagesTestReceiver.on_link_error')
 
     def _handle_message(self, message):
         """Handles the analysis of a received message"""
@@ -105,7 +105,7 @@ class JmsMessagesTestReceiver(MessagingHandler):
             return self._receive_jms_streammessage(message)
         if self.jms_msg_type == 'JMS_TEXTMESSAGE_TYPE':
             return self._receive_jms_textmessage(message)
-        print 'jms-receive: Unsupported JMS message type "%s"' % self.jms_msg_type
+        print('jms-receive: Unsupported JMS message type "%s"' % self.jms_msg_type)
         return None
 
     def _get_tot_num_messages(self):
@@ -274,14 +274,14 @@ class JmsMessagesTestReceiver(MessagingHandler):
 #       2: Queue name
 #       3: JMS message type
 #       4: JSON Test parameters containing 2 maps: [testValuesMap, flagMap]
-#print '#### sys.argv=%s' % sys.argv
+#print('#### sys.argv=%s' % sys.argv)
 try:
     RECEIVER = JmsMessagesTestReceiver(sys.argv[1], sys.argv[2], sys.argv[3], loads(sys.argv[4]))
     Container(RECEIVER).run()
-    print sys.argv[3]
-    print dumps(RECEIVER.get_received_value_map())
+    print(sys.argv[3])
+    print(dumps(RECEIVER.get_received_value_map()))
 except KeyboardInterrupt:
     pass
 except Exception as exc:
-    print 'jms-receiver-shim EXCEPTION:', exc
-    print format_exc()
+    print('jms-receiver-shim EXCEPTION:', exc)
+    print(format_exc())

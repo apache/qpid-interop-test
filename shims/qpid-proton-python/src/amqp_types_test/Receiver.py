@@ -28,13 +28,16 @@ AMQP type test receiver shim for qpid-interop-test
 
 from json import dumps
 import os.path
-from string import digits, letters, punctuation
+#from string import digits, letters, punctuation
+import string
 from struct import pack, unpack
 import sys
 from traceback import format_exc
 
 from proton.handlers import MessagingHandler
 from proton.reactor import Container
+
+import _compat
 
 class AmqpTypesTestReceiver(MessagingHandler):
     """
@@ -95,7 +98,8 @@ class AmqpTypesTestReceiver(MessagingHandler):
             elif self.amqp_type == 'decimal128':
                 self.received_value_list.append('0x' + ''.join(['%02x' % ord(c) for c in event.message.body]).strip())
             elif self.amqp_type == 'char':
-                if ord(event.message.body) < 0x80 and event.message.body in digits + letters + punctuation + " ":
+                if ord(event.message.body) < 0x80 and event.message.body in \
+                   string.digits + _compat._letters + string.punctuation + " ":
                     self.received_value_list.append(event.message.body)
                 else:
                     self.received_value_list.append(hex(ord(event.message.body)))
@@ -107,7 +111,7 @@ class AmqpTypesTestReceiver(MessagingHandler):
                  self.amqp_type == 'map':
                 self.received_value_list.append(event.message.body)
             else:
-                print 'receive: Unsupported AMQP type "%s"' % self.amqp_type
+                print('receive: Unsupported AMQP type "%s"' % self.amqp_type)
                 return
             self.received += 1
         if self.received >= self.expected:
@@ -122,10 +126,10 @@ class AmqpTypesTestReceiver(MessagingHandler):
 try:
     RECEIVER = AmqpTypesTestReceiver(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
     Container(RECEIVER).run()
-    print sys.argv[3]
-    print dumps(RECEIVER.get_received_value_list())
+    print(sys.argv[3])
+    print(dumps(RECEIVER.get_received_value_list()))
 except KeyboardInterrupt:
     pass
 except Exception as exc:
-    print os.path.basename(sys.argv[0]), 'EXCEPTION', exc
-    print format_exc()
+    print(os.path.basename(sys.argv[0]), 'EXCEPTION', exc)
+    print(format_exc())

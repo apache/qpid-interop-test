@@ -32,6 +32,8 @@ from proton import Message, symbol
 from proton.handlers import MessagingHandler
 from proton.reactor import Container
 
+import _compat
+
 class AmqpLargeContentTestSender(MessagingHandler):
     """
     Sender shim for AMQP dtx test
@@ -79,7 +81,7 @@ class AmqpLargeContentTestSender(MessagingHandler):
         if self.amqp_type == 'binary':
             return Message(body=bytes(AmqpLargeContentTestSender.create_test_string(tot_size_bytes)))
         if self.amqp_type == 'string':
-            return Message(body=unicode(AmqpLargeContentTestSender.create_test_string(tot_size_bytes)))
+            return Message(body=_compat._unicode(AmqpLargeContentTestSender.create_test_string(tot_size_bytes)))
         if self.amqp_type == 'symbol':
             return Message(body=symbol(AmqpLargeContentTestSender.create_test_string(tot_size_bytes)))
         if self.amqp_type == 'list':
@@ -102,7 +104,7 @@ class AmqpLargeContentTestSender(MessagingHandler):
         size_per_elt_bytes = tot_size_bytes / num_elts
         test_list = []
         for _ in range(num_elts):
-            test_list.append(unicode(AmqpLargeContentTestSender.create_test_string(size_per_elt_bytes)))
+            test_list.append(_compat._unicode(AmqpLargeContentTestSender.create_test_string(size_per_elt_bytes)))
         return test_list
 
     @staticmethod
@@ -111,8 +113,8 @@ class AmqpLargeContentTestSender(MessagingHandler):
         size_per_elt_bytes = tot_size_bytes / num_elts
         test_map = {}
         for elt_no in range(num_elts):
-            test_map[unicode('elt_%06d' % elt_no)] = \
-                unicode(AmqpLargeContentTestSender.create_test_string(size_per_elt_bytes))
+            test_map[_compat._unicode('elt_%06d' % elt_no)] = \
+                _compat._unicode(AmqpLargeContentTestSender.create_test_string(size_per_elt_bytes))
         return test_map
 
     def on_accepted(self, event):
@@ -137,6 +139,6 @@ try:
 except KeyboardInterrupt:
     pass
 except Exception as exc:
-    print os.path.basename(sys.argv[0]), 'EXCEPTION:', exc
-    print format_exc()
+    print(os.path.basename(sys.argv[0]), 'EXCEPTION:', exc)
+    print(format_exc())
         

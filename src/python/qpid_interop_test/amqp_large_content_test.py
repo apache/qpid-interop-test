@@ -49,14 +49,25 @@ class AmqpVariableSizeTypes(TestTypeMap):
     """
 
     TYPE_MAP = {
-        # List of sizes in Mb
-        'binary': [1, 10, 100],
-        'string': [1, 10, 100],
-        'symbol': [1, 10, 100],
+        # List of sizes in Mb (1024*1024 bytes)
+        # TODO: Until the issue of SLOW Proton performance for large messages is solved, the 100MB tests are
+        # disabled.
+        'binary': [1, 10, #100],
+                  ],
+        'string': [1, 10, #100],
+                  ],
+        'symbol': [1, 10, #100],
+                  ],
         # Tuple of two elements: (tot size of list/map in MB, List of no elements in list)
         # The num elements lists are powers of 2 so that they divide evenly into the size in MB (1024 * 1024 bytes)
-        'list': [[1, [1, 16, 256, 4096]], [10, [1, 16, 256, 4096]], [100, [1, 16, 256, 4096]]],
-        'map': [[1, [1, 16, 256, 4096]], [10, [1, 16, 256, 4096]], [100, [1, 16, 256, 4096]]],
+        'list': [[1, [1, 16, 256, 4096]],
+                 [10, [1, 16, 256, 4096]],
+                 #[100, [1, 16, 256, 4096]]
+                ],
+        'map': [[1, [1, 16, 256, 4096]],
+                [10, [1, 16, 256, 4096]],
+                #[100, [1, 16, 256, 4096]]],
+               ],
         #'array': [[1, [1, 16, 256, 4096]], [10, [1, 16, 256, 4096]], [100, [1, 16, 256, 4096]]]
         }
 
@@ -223,8 +234,11 @@ if __name__ == '__main__':
 
     SHIM_MAP = {qpid_interop_test.shims.ProtonCppShim.NAME: \
                     qpid_interop_test.shims.ProtonCppShim(PROTON_CPP_SENDER_SHIM, PROTON_CPP_RECEIVER_SHIM),
-                qpid_interop_test.shims.ProtonPythonShim.NAME: \
-                    qpid_interop_test.shims.ProtonPythonShim(PROTON_PYTHON_SENDER_SHIM, PROTON_PYTHON_RECEIVER_SHIM),
+                qpid_interop_test.shims.ProtonPython2Shim.NAME: \
+                    qpid_interop_test.shims.ProtonPython2Shim(PROTON_PYTHON_SENDER_SHIM, PROTON_PYTHON_RECEIVER_SHIM),
+                # TODO: Enable the Python3 shim when Proton can build both Python2 and Python3 bindings
+                #qpid_interop_test.shims.ProtonPython3Shim.NAME: \
+                #    qpid_interop_test.shims.ProtonPython3Shim(PROTON_PYTHON_SENDER_SHIM, PROTON_PYTHON_RECEIVER_SHIM),
                }
     # Add shims that need detection during installation only if the necessary bits are present
     # AMQP DotNetLite client
