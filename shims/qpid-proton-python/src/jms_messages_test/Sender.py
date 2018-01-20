@@ -153,12 +153,12 @@ class JmsMessagesTestSender(MessagingHandler):
         elif test_value_type == 'byte':
             body_bytes = pack('b', int(test_value, 16))
         elif test_value_type == 'bytes':
-            body_bytes = str(test_value) # remove unicode
+            body_bytes = test_value.encode('utf-8')
         elif test_value_type == 'char':
             # JMS expects two-byte chars, ASCII chars can be prefixed with '\x00'
-            body_bytes = '\x00' + str(test_value) # remove unicode
+            body_bytes = b'\x00' + test_value.encode('utf-8')
         elif test_value_type == 'double' or test_value_type == 'float':
-            body_bytes = test_value[2:].decode('hex')
+            body_bytes = _compat._decode_hex(test_value[2:])
         elif test_value_type == 'int':
             body_bytes = pack('!i', int(test_value, 16))
         elif test_value_type == 'long':
@@ -168,7 +168,7 @@ class JmsMessagesTestSender(MessagingHandler):
         elif test_value_type == 'string':
             # NOTE: First two bytes must be string length
             test_value_str = str(test_value) # remove unicode
-            body_bytes = pack('!H', len(test_value_str)) + test_value_str
+            body_bytes = pack('!H', len(test_value_str)) + test_value_str.encode('utf-8')
         else:
             raise InteropTestError('JmsMessagesTestSender._create_jms_bytesmessage: Unknown or unsupported subtype "%s"' %
                                    test_value_type)
@@ -185,13 +185,13 @@ class JmsMessagesTestSender(MessagingHandler):
         elif test_value_type == 'byte':
             value = byte(int(test_value, 16))
         elif test_value_type == 'bytes':
-            value = str(test_value) # remove unicode
+            value = test_value.encode('utf-8')
         elif test_value_type == 'char':
             value = char(test_value)
         elif test_value_type == 'double':
-            value = unpack('!d', test_value[2:].decode('hex'))[0]
+            value = unpack('!d', _compat._decode_hex(test_value[2:]))[0]
         elif test_value_type == 'float':
-            value = float32(unpack('!f', test_value[2:].decode('hex'))[0])
+            value = float32(unpack('!f', _compat._decode_hex(test_value[2:]))[0])
         elif test_value_type == 'int':
             value = int32(int(test_value, 16))
         elif test_value_type == 'long':
@@ -229,7 +229,7 @@ class JmsMessagesTestSender(MessagingHandler):
         if out_str_list[0] != java_class_str:
             raise InteropTestError('JmsMessagesTestSender._s_get_java_obj_binary(): Call to JavaObjToBytes failed\n%s' %
                                    out_str)
-        return out_str_list[1].decode('hex')
+        return _compat._decode_hex(out_str_list[1])
 
     def _create_jms_streammessage(self, test_value_type, test_value):
         """Create a JMS stream message"""
@@ -238,13 +238,13 @@ class JmsMessagesTestSender(MessagingHandler):
         elif test_value_type == 'byte':
             body_list = [byte(int(test_value, 16))]
         elif test_value_type == 'bytes':
-            body_list = [str(test_value)]
+            body_list = [test_value.encode('utf-8')]
         elif test_value_type == 'char':
             body_list = [char(test_value)]
         elif test_value_type == 'double':
-            body_list = [unpack('!d', test_value[2:].decode('hex'))[0]]
+            body_list = [unpack('!d', _compat._decode_hex(test_value[2:]))[0]]
         elif test_value_type == 'float':
-            body_list = [float32(unpack('!f', test_value[2:].decode('hex'))[0])]
+            body_list = [float32(unpack('!f', _compat._decode_hex(test_value[2:]))[0])]
         elif test_value_type == 'int':
             body_list = [int32(int(test_value, 16))]
         elif test_value_type == 'long':

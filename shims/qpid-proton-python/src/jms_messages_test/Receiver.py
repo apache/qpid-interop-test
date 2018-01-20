@@ -34,6 +34,7 @@ from proton.handlers import MessagingHandler
 from proton.reactor import Container
 from qpid_interop_test.interop_test_errors import InteropTestError
 from qpid_interop_test.jms_types import QPID_JMS_TYPE_ANNOTATION_NAME
+import _compat
 
 class JmsMessagesTestReceiver(MessagingHandler):
     """
@@ -56,7 +57,7 @@ class JmsMessagesTestReceiver(MessagingHandler):
         self.current_subtype_msg_list = None
 
     def get_received_value_map(self):
-        """"Return the collected message values received"""
+        """Return the collected message values received"""
         return self.received_value_map
 
     def on_start(self, event):
@@ -66,11 +67,14 @@ class JmsMessagesTestReceiver(MessagingHandler):
 
     def on_message(self, event):
         """Event callback when a message is received by the client"""
-        if event.message.id and event.message.id < self.received:
+        if event.message.id and isinstance(event.message.id, int) and event.message.id < self.received:
             return # ignore duplicate message
         if self.received < self.expected:
             if self.current_subtype is None:
-                self.current_subtype = self.subtype_itr.next()
+                if _compat.IS_PY3:
+                    self.current_subtype = next(self.subtype_itr)
+                else:
+                    self.current_subtype = self.subtype_itr.next()
                 self.current_subtype_msg_list = []
             self.current_subtype_msg_list.append(self._handle_message(event.message))
             if len(self.current_subtype_msg_list) >= self.expteced_msg_map[self.current_subtype]:
@@ -109,14 +113,14 @@ class JmsMessagesTestReceiver(MessagingHandler):
         return None
 
     def _get_tot_num_messages(self):
-        """"Counts up the total number of messages which should be received from the expected message map"""
+        """Counts up the total number of messages which should be received from the expected message map"""
         total = 0
         for key in self.expteced_msg_map:
             total += int(self.expteced_msg_map[key])
         return total
 
     def _receive_jms_message(self, message):
-        """"Receives a JMS message (without a body)"""
+        """Receives a JMS message (without a body)"""
         assert self.jms_msg_type == 'JMS_MESSAGE_TYPE'
         assert message.annotations[QPID_JMS_TYPE_ANNOTATION_NAME] == byte(0)
         if message.body is not None:
@@ -125,7 +129,7 @@ class JmsMessagesTestReceiver(MessagingHandler):
         return None
 
     def _receive_jms_bytesmessage(self, message):
-        """"Receives a JMS bytes message"""
+        """Receives a JMS bytes message"""
         assert self.jms_msg_type == 'JMS_BYTESMESSAGE_TYPE'
         assert message.annotations[QPID_JMS_TYPE_ANNOTATION_NAME] == byte(3)
         if self.current_subtype == 'boolean':
@@ -138,11 +142,14 @@ class JmsMessagesTestReceiver(MessagingHandler):
         if self.current_subtype == 'byte':
             return hex(unpack('b', message.body)[0])
         if self.current_subtype == 'bytes':
-            return str(message.body)
+            return message.body.decode('utf-8')
         if self.current_subtype == 'char':
             if len(message.body) == 2: # format 'a' or '\xNN'
-                return str(message.body[1]) # strip leading '\x00' char
-            raise InteropTestError('Unexpected strring length for type char: %d' % len(message.body))
+                if _compat.IS_PY3:
+                    return chr(message.body[1]) # strip leading '\x00' char
+                else:
+                    return str(message.body[1]) # strip leading '\x00' char
+            raise InteropTestError('Unexpected string length for type char: %d' % len(message.body))
         if self.current_subtype == 'double':
             return '0x%016x' % unpack('!Q', message.body)[0]
         if self.current_subtype == 'float':
@@ -157,7 +164,7 @@ class JmsMessagesTestReceiver(MessagingHandler):
             # NOTE: first 2 bytes are string length, must be present
             if len(message.body) >= 2:
                 str_len = unpack('!H', message.body[:2])[0]
-                str_body = str(message.body[2:])
+                str_body = message.body[2:].decode('utf-8')
                 if len(str_body) != str_len:
                     raise InteropTestError('String length mismatch: size=%d, but len(\'%s\')=%d' %
                                            (str_len, str_body, len(str_body)))
@@ -169,17 +176,17 @@ class JmsMessagesTestReceiver(MessagingHandler):
                                (self.jms_msg_type, self.current_subtype))
 
     def _recieve_jms_mapmessage(self, message):
-        """"Receives a JMS map message"""
+        """Receives a JMS map message"""
         assert self.jms_msg_type == 'JMS_MAPMESSAGE_TYPE'
         assert message.annotations[QPID_JMS_TYPE_ANNOTATION_NAME] == byte(2)
-        key, value = message.body.items()[0]
+        key, value = list(message.body.items())[0]
         assert key[:-3] == self.current_subtype
         if self.current_subtype == 'boolean':
             return str(value)
         if self.current_subtype == 'byte':
             return hex(value)
         if self.current_subtype == 'bytes':
-            return str(value)
+            return value.decode('utf-8')
         if self.current_subtype == 'char':
             return str(value)
         if self.current_subtype == 'double':
@@ -198,7 +205,7 @@ class JmsMessagesTestReceiver(MessagingHandler):
                                (self.jms_msg_type, self.current_subtype))
 
     def _recieve_jms_objectmessage(self, message):
-        """"Receives a JMS Object message"""
+        """Receives a JMS Object message"""
         assert self.jms_msg_type == 'JMS_OBJECTMESSAGE_TYPE'
         assert message.annotations[QPID_JMS_TYPE_ANNOTATION_NAME] == byte(1)
         return self._get_java_obj(message.body)
@@ -242,7 +249,7 @@ class JmsMessagesTestReceiver(MessagingHandler):
         if self.current_subtype == 'byte':
             return hex(value)
         if self.current_subtype == 'bytes':
-            return str(value)
+            return value.decode('utf-8')
         if self.current_subtype == 'char':
             return str(value)
         if self.current_subtype == 'double':
@@ -262,7 +269,7 @@ class JmsMessagesTestReceiver(MessagingHandler):
                                (self.jms_msg_type, self.current_subtype))
 
     def _receive_jms_textmessage(self, message):
-        """"Receives a JMS text message"""
+        """Receives a JMS text message"""
         assert self.jms_msg_type == 'JMS_TEXTMESSAGE_TYPE'
         assert message.annotations[QPID_JMS_TYPE_ANNOTATION_NAME] == byte(5)
         return message.body

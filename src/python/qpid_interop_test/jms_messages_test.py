@@ -122,10 +122,10 @@ class JmsMessageTypes(TestTypeMap):
                   b'\\x01\\x02\\x03\\x04\\x05abcde\\x80\\x81\\xfe\\xff',
                   b'The quick brown fox jumped over the lazy dog 0123456789.' #* 100],
                  ],
-        'char': ['a',
-                 'Z',
-                 '\x01',
-                 '\x7f'],
+        'char': [b'a',
+                 b'Z',
+                 b'\x01',
+                 b'\x7f'],
         }
 
     # The TYPE_SUBMAP defines test values for JMS message types that allow typed message content. Note that the
@@ -356,9 +356,8 @@ if __name__ == '__main__':
                     qpid_interop_test.shims.ProtonCppShim(PROTON_CPP_SENDER_SHIM, PROTON_CPP_RECEIVER_SHIM),
                 qpid_interop_test.shims.ProtonPython2Shim.NAME: \
                     qpid_interop_test.shims.ProtonPython2Shim(PROTON_PYTHON_SENDER_SHIM, PROTON_PYTHON_RECEIVER_SHIM),
-                # TODO: Enable the Python3 shim when Proton can build both Python2 and Python3 bindings
-                #qpid_interop_test.shims.ProtonPython3Shim.NAME: \
-                #    qpid_interop_test.shims.ProtonPython3Shim(PROTON_PYTHON_SENDER_SHIM, PROTON_PYTHON_RECEIVER_SHIM),
+                qpid_interop_test.shims.ProtonPython3Shim.NAME: \
+                    qpid_interop_test.shims.ProtonPython3Shim(PROTON_PYTHON_SENDER_SHIM, PROTON_PYTHON_RECEIVER_SHIM),
                 qpid_interop_test.shims.QpidJmsShim.NAME: \
                     qpid_interop_test.shims.QpidJmsShim(QIT_JMS_CLASSPATH, QPID_JMS_SENDER_SHIM, QPID_JMS_RECEIVER_SHIM),
                }

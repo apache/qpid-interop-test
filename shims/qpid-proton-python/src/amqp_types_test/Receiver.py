@@ -103,8 +103,9 @@ class AmqpTypesTestReceiver(MessagingHandler):
                     self.received_value_list.append(event.message.body)
                 else:
                     self.received_value_list.append(hex(ord(event.message.body)))
-            elif self.amqp_type == 'binary' or \
-                 self.amqp_type == 'string' or \
+            elif self.amqp_type == 'binary':
+                self.received_value_list.append(event.message.body.decode('utf-8'))
+            elif self.amqp_type == 'string' or \
                  self.amqp_type == 'symbol':
                 self.received_value_list.append(event.message.body)
             elif self.amqp_type == 'list' or \

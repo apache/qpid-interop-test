@@ -29,6 +29,8 @@ import types
 IS_PY3 = sys.version_info[0] == 3
 
 if IS_PY3:
+    def _decode_hex(s):
+        return bytes.fromhex(s)
     def _letters():
         return string.ascii_letters
     def _long(i, r):
@@ -39,6 +41,8 @@ if IS_PY3:
         return str(i)
 
 else:
+    def _decode_hex(s):
+        return s.decode('hex')
     def _letters():
         return string.letters
     def _long(i, r):

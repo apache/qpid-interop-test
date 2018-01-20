@@ -16,8 +16,3 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-
-import broker_properties
-import interop_test_errors
-import shims
-import test_type_map

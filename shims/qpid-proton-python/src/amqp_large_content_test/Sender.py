@@ -79,7 +79,7 @@ class AmqpLargeContentTestSender(MessagingHandler):
         AMQP value.
         """
         if self.amqp_type == 'binary':
-            return Message(body=bytes(AmqpLargeContentTestSender.create_test_string(tot_size_bytes)))
+            return Message(body=AmqpLargeContentTestSender.create_test_string(tot_size_bytes).encode('utf-8'))
         if self.amqp_type == 'string':
             return Message(body=_compat._unicode(AmqpLargeContentTestSender.create_test_string(tot_size_bytes)))
         if self.amqp_type == 'symbol':
@@ -101,7 +101,7 @@ class AmqpLargeContentTestSender(MessagingHandler):
     @staticmethod
     def create_test_list(tot_size_bytes, num_elts):
         """Create a list containing num_elts with a sum of all elements being tot_size_bytes"""
-        size_per_elt_bytes = tot_size_bytes / num_elts
+        size_per_elt_bytes = int(tot_size_bytes / num_elts)
         test_list = []
         for _ in range(num_elts):
             test_list.append(_compat._unicode(AmqpLargeContentTestSender.create_test_string(size_per_elt_bytes)))
@@ -110,7 +110,7 @@ class AmqpLargeContentTestSender(MessagingHandler):
     @staticmethod
     def create_test_map(tot_size_bytes, num_elts):
         """Create a map containing num_elts with a sum of all elements being tot_size_bytes (excluding keys)"""
-        size_per_elt_bytes = tot_size_bytes / num_elts
+        size_per_elt_bytes = int(tot_size_bytes / num_elts)
         test_map = {}
         for elt_no in range(num_elts):
             test_map[_compat._unicode('elt_%06d' % elt_no)] = \

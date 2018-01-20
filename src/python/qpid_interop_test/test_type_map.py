@@ -86,7 +86,7 @@ class TestTypeMap(object):
                 try:
                     new_type_map[type] = self.TYPE_MAP[type]
                 except KeyError:
-                    print 'No such type: "%s". Use --help for valid types' % type
+                    print('No such type: "%s". Use --help for valid types' % type)
                     sys.exit(1) # Errors or failures present
             self.TYPE_MAP = new_type_map
         if "exclude_type" in args and args.exclude_type is not None:
@@ -94,7 +94,7 @@ class TestTypeMap(object):
                 try:
                     self.TYPE_MAP.pop(type)
                 except KeyError:
-                    print 'No such type: "%s". Use --help for valid types' % type
+                    print('No such type: "%s". Use --help for valid types' % type)
                     sys.exit(1) # Errors or failures present
         return self
 

@@ -21,7 +21,7 @@ Module containing Error classes for interop testing
 # under the License.
 #
 
-class InteropTestError(StandardError):
+class InteropTestError(Exception):
     """
     Generic simple error class for use in interop tests
     """

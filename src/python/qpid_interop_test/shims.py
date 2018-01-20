@@ -20,8 +20,9 @@ Module containing worker thread classes and shims
 # under the License.
 #
 
+from copy import deepcopy
 from json import loads
-from os import getenv, getpgid, killpg, path, setsid
+from os import environ, getenv, getpgid, killpg, path, setsid
 from signal import SIGKILL, SIGTERM
 from subprocess import Popen, PIPE, CalledProcessError
 from sys import stdout
@@ -50,6 +51,9 @@ class ShimWorkerThread(Thread):
         killed
         """
         self.join(timeout)
+        self.kill()
+
+    def kill(self, num_attempts=2, wait_time=2):
         if self.is_alive():
             if self.proc is not None:
                 if self._terminate_pg_loop():
@@ -89,19 +93,22 @@ class ShimWorkerThread(Thread):
 
 class Sender(ShimWorkerThread):
     """Sender class for multi-threaded send"""
-    def __init__(self, use_shell_flag, send_shim_args, broker_addr, queue_name, test_key, json_test_str):
+    def __init__(self, use_shell_flag, send_shim_args, broker_addr, queue_name, test_key, json_test_str, python3_flag):
         super(Sender, self).__init__('sender_thread_%s' % queue_name)
         if send_shim_args is None:
             print 'ERROR: Sender: send_shim_args == None'
         self.use_shell_flag = use_shell_flag
         self.arg_list.extend(send_shim_args)
         self.arg_list.extend([broker_addr, queue_name, test_key, json_test_str])
+        self.env = deepcopy(environ)
+        if python3_flag:
+            self.env['PYTHONPATH']=self.env['PYTHON3PATH']
 
     def run(self):
         """Thread starts here"""
         try:
             #print str('\n>>SNDR>>' + str(self.arg_list)) # DEBUG - useful to see command-line sent to shim
-            self.proc = Popen(self.arg_list, stdout=PIPE, stderr=PIPE, shell=self.use_shell_flag, preexec_fn=setsid)
+            self.proc = Popen(self.arg_list, stdout=PIPE, stderr=PIPE, shell=self.use_shell_flag, preexec_fn=setsid, env=self.env)
             (stdoutdata, stderrdata) = self.proc.communicate()
             if len(stderrdata) > 0:
                 #print '<<SNDR ERROR<<', stderrdata # DEBUG - useful to see shim's failure message
@@ -124,18 +131,21 @@ class Sender(ShimWorkerThread):
 
 class Receiver(ShimWorkerThread):
     """Receiver class for multi-threaded receive"""
-    def __init__(self, receive_shim_args, broker_addr, queue_name, test_key, json_test_str):
+    def __init__(self, receive_shim_args, broker_addr, queue_name, test_key, json_test_str, python3_flag):
         super(Receiver, self).__init__('receiver_thread_%s' % queue_name)
         if receive_shim_args is None:
             print 'ERROR: Receiver: receive_shim_args == None'
         self.arg_list.extend(receive_shim_args)
         self.arg_list.extend([broker_addr, queue_name, test_key, json_test_str])
+        self.env = deepcopy(environ)
+        if python3_flag:
+            self.env['PYTHONPATH']=self.env['PYTHON3PATH']
 
     def run(self):
         """Thread starts here"""
         try:
             #print str('\n>>RCVR>>' + str(self.arg_list)) # DEBUG - useful to see command-line sent to shim
-            self.proc = Popen(self.arg_list, stdout=PIPE, stderr=PIPE, preexec_fn=setsid)
+            self.proc = Popen(self.arg_list, stdout=PIPE, stderr=PIPE, preexec_fn=setsid, env=self.env)
             (stdoutdata, stderrdata) = self.proc.communicate()
             if len(stderrdata) > 0:
                 #print '<<RCVR ERROR<<', stderrdata # DEBUG - useful to see shim's failure message
@@ -168,13 +178,15 @@ class Shim(object):
 
     def create_sender(self, broker_addr, queue_name, test_key, json_test_str):
         """Create a new sender instance"""
-        sender = Sender(self.use_shell_flag, self.send_params, broker_addr, queue_name, test_key, json_test_str)
+        sender = Sender(self.use_shell_flag, self.send_params, broker_addr, queue_name, test_key, json_test_str,
+                        'Python3' in self.NAME)
         sender.daemon = True
         return sender
 
     def create_receiver(self, broker_addr, queue_name, test_key, json_test_str):
         """Create a new receiver instance"""
-        receiver = Receiver(self.receive_params, broker_addr, queue_name, test_key, json_test_str)
+        receiver = Receiver(self.receive_params, broker_addr, queue_name, test_key, json_test_str,
+                            'Python3' in self.NAME)
         receiver.daemon = True
         return receiver
 

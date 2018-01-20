@@ -35,6 +35,7 @@ from proton.handlers import MessagingHandler
 from proton.reactor import Container
 from qpid_interop_test.jms_types import QPID_JMS_TYPE_ANNOTATION_NAME
 from qpid_interop_test.interop_test_errors import InteropTestError
+import _compat
 
 
 class JmsHdrsPropsTestReceiver(MessagingHandler):
@@ -79,11 +80,14 @@ class JmsHdrsPropsTestReceiver(MessagingHandler):
 
     def on_message(self, event):
         """Event callback when a message is received by the client"""
-        if event.message.id and event.message.id < self.received:
+        if event.message.id and isinstance(event.message.id, int) and event.message.id < self.received:
             return # ignore duplicate message
         if self.received < self.expected:
             if self.current_subtype is None:
-                self.current_subtype = self.subtype_itr.next()
+                if _compat.IS_PY3:
+                    self.current_subtype = next(self.subtype_itr)
+                else:
+                    self.current_subtype = self.subtype_itr.next()
                 self.current_subtype_msg_list = []
             self.current_subtype_msg_list.append(self._handle_message(event.message))
             self._process_jms_headers(event.message)
@@ -153,10 +157,13 @@ class JmsHdrsPropsTestReceiver(MessagingHandler):
         if self.current_subtype == 'byte':
             return hex(unpack('b', message.body)[0])
         if self.current_subtype == 'bytes':
-            return str(message.body)
+            return message.body.decode('utf-8')
         if self.current_subtype == 'char':
             if len(message.body) == 2: # format 'a' or '\xNN'
-                return str(message.body[1]) # strip leading '\x00' char
+                if _compat.IS_PY3:
+                    return chr(message.body[1]) # strip leading '\x00' char
+                else:
+                    return str(message.body[1]) # strip leading '\x00' char
             raise InteropTestError('Unexpected strring length for type char: %d' % len(message.body))
         if self.current_subtype == 'double':
             return '0x%016x' % unpack('!Q', message.body)[0]
@@ -194,7 +201,7 @@ class JmsHdrsPropsTestReceiver(MessagingHandler):
         if self.current_subtype == 'byte':
             return hex(value)
         if self.current_subtype == 'bytes':
-            return str(value)
+            return value.decode('utf-8')
         if self.current_subtype == 'char':
             return str(value)
         if self.current_subtype == 'double':
@@ -257,7 +264,7 @@ class JmsHdrsPropsTestReceiver(MessagingHandler):
         if self.current_subtype == 'byte':
             return hex(value)
         if self.current_subtype == 'bytes':
-            return str(value)
+            return value.decode('utf-8')
         if self.current_subtype == 'char':
             return str(value)
         if self.current_subtype == 'double':
@@ -293,7 +300,7 @@ class JmsHdrsPropsTestReceiver(MessagingHandler):
         correlation_id = message.correlation_id
         if correlation_id is not None:
             if 'JMS_CORRELATIONID_AS_BYTES' in self.flag_map and self.flag_map['JMS_CORRELATIONID_AS_BYTES']:
-                self.jms_header_map['JMS_CORRELATIONID_HEADER'] = {'bytes': correlation_id}
+                self.jms_header_map['JMS_CORRELATIONID_HEADER'] = {'bytes': correlation_id.decode('utf-8')}
             else:
                 self.jms_header_map['JMS_CORRELATIONID_HEADER'] = {'string': correlation_id}
 

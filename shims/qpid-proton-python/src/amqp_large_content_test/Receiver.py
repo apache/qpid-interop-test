@@ -87,8 +87,8 @@ class AmqpLargeContentTestReceiver(MessagingHandler):
     def get_str_message_size(message):
         """Find the size of a bytes, unicode or symbol message in MB"""
         if _compat.IS_PY3:
-            if isinstance(message, (bytes, string, symbol)):
-                return len(str(message)) / 1024 / 1024 # in MB
+            if isinstance(message, (bytes, str, symbol)):
+                return int(len(message) / 1024 / 1024) # in MB
         else:
             if isinstance(message, (bytes, unicode, symbol)):
                 return len(str(message)) / 1024 / 1024 # in MB
@@ -113,10 +113,10 @@ class AmqpLargeContentTestReceiver(MessagingHandler):
         (tot_size, num_elts) where tot_size = num_elts * elt_size. Note that key size is excluded from size.
         """
         if isinstance(message, dict):
-            keys = message.keys()
+            keys = list(message.keys())
             num_elts = len(keys)
             elt_size = len(message[keys[0]])
-            return (elt_size * num_elts / 1024 / 1024, num_elts)
+            return (int(elt_size * num_elts / 1024 / 1024), num_elts)
         return None
 
 # --- main ---

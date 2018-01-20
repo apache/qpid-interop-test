@@ -18,6 +18,8 @@
 
 export QPID_INTEROP_TEST_HOME=@CMAKE_SOURCE_DIR@
 export QIT_INSTALL_PREFIX=@CMAKE_INSTALL_PREFIX@
-export PYTHONPATH=@CMAKE_INSTALL_PREFIX@/lib64/proton/bindings/python:@CMAKE_INSTALL_PREFIX@/lib/@PYTHON_DIR_NAME@/site-packages:@CMAKE_INSTALL_PREFIX@/libexec/qpid_interop_test/shims/qpid-proton-python:$PYTHONPATH
+CURRENT_PYTHONPATH=$PYTHONPATH
+export PYTHONPATH=@CMAKE_INSTALL_PREFIX@/lib64/proton/bindings/python:@CMAKE_INSTALL_PREFIX@/lib/@PYTHON_DIR_NAME@/site-packages:@CMAKE_INSTALL_PREFIX@/libexec/qpid_interop_test/shims/qpid-proton-python:$CURRENT_PYTHONPATH
+export PYTHON3PATH=@CMAKE_INSTALL_PREFIX@/lib64/proton/bindings/python3:@CMAKE_INSTALL_PREFIX@/lib/@PYTHON_DIR_NAME@/site-packages:@CMAKE_INSTALL_PREFIX@/libexec/qpid_interop_test/shims/qpid-proton-python:$CURRENT_PYTHONPATH
 export LD_LIBRARY_PATH=@CMAKE_INSTALL_PREFIX@/lib64:$LD_LIBRARY_PATH
 export PATH=@CMAKE_INSTALL_PREFIX@/lib/@PYTHON_DIR_NAME@/site-packages/qpid_interop_test:$PATH

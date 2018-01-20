@@ -100,16 +100,16 @@ class AmqpTypesTestSender(MessagingHandler):
         if self.amqp_type == 'long':
             return Message(id=(self.sent+1), body=_compat._long(test_value, 16))
         if self.amqp_type == 'float':
-            return Message(id=(self.sent+1), body=float32(unpack('!f', test_value[2:].decode('hex'))[0]))
+            return Message(id=(self.sent+1), body=float32(unpack('!f', _compat._decode_hex(test_value[2:]))[0]))
         if self.amqp_type == 'double':
-            return Message(id=(self.sent+1), body=unpack('!d', test_value[2:].decode('hex'))[0])
+            return Message(id=(self.sent+1), body=unpack('!d', _compat._decode_hex(test_value[2:]))[0])
         if self.amqp_type == 'decimal32':
             return Message(id=(self.sent+1), body=decimal32(int(test_value[2:], 16)))
         if self.amqp_type == 'decimal64':
             l64 = _compat._long(test_value[2:], 16)
             return Message(id=(self.sent+1), body=decimal64(l64))
         if self.amqp_type == 'decimal128':
-            return Message(id=(self.sent+1), body=decimal128(test_value[2:].decode('hex')))
+            return Message(id=(self.sent+1), body=decimal128(_compat._decode_hex(test_value[2:])))
         if self.amqp_type == 'char':
             if len(test_value) == 1: # Format 'a'
                 return Message(id=(self.sent+1), body=char(test_value))
@@ -120,7 +120,7 @@ class AmqpTypesTestSender(MessagingHandler):
         if self.amqp_type == 'uuid':
             return Message(id=(self.sent+1), body=UUID(test_value))
         if self.amqp_type == 'binary':
-            return Message(id=(self.sent+1), body=bytes(test_value))
+            return Message(id=(self.sent+1), body=test_value.encode('utf-8'))
         if self.amqp_type == 'string':
             return Message(id=(self.sent+1), body=_compat._unicode(test_value))
         if self.amqp_type == 'symbol':

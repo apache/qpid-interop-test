@@ -165,10 +165,10 @@ class JmsHdrsPropsTestSender(MessagingHandler):
         elif test_value_type == 'byte':
             body_bytes = pack('b', int(test_value, 16))
         elif test_value_type == 'bytes':
-            body_bytes = str(test_value) # remove unicode
+            body_bytes = test_value.encode('utf-8')
         elif test_value_type == 'char':
             # JMS expects two-byte chars, ASCII chars can be prefixed with '\x00'
-            body_bytes = '\x00' + str(test_value) # remove unicode
+            body_bytes = b'\x00' + test_value.encode('utf-8')
         elif test_value_type == 'double' or test_value_type == 'float':
             body_bytes = test_value[2:].decode('hex')
         elif test_value_type == 'int':
@@ -199,7 +199,7 @@ class JmsHdrsPropsTestSender(MessagingHandler):
         elif test_value_type == 'byte':
             value = byte(int(test_value, 16))
         elif test_value_type == 'bytes':
-            value = str(test_value) # remove unicode
+            value = test_value.encode('utf-8')
         elif test_value_type == 'char':
             value = char(test_value)
         elif test_value_type == 'double':
@@ -256,7 +256,7 @@ class JmsHdrsPropsTestSender(MessagingHandler):
         elif test_value_type == 'byte':
             body_list = [byte(int(test_value, 16))]
         elif test_value_type == 'bytes':
-            body_list = [str(test_value)]
+            body_list = [test_value.encode('utf-8')]
         elif test_value_type == 'char':
             body_list = [char(test_value)]
         elif test_value_type == 'double':
@@ -292,9 +292,9 @@ class JmsHdrsPropsTestSender(MessagingHandler):
     def _get_jms_message_header_kwargs(self):
         hdr_kwargs = {}
         hdr_annotations = {}
-        for jms_header in self.test_headers_map.iterkeys():
+        for jms_header in list(self.test_headers_map.keys()):
             value_map = self.test_headers_map[jms_header]
-            value_type = value_map.keys()[0] # There is only ever one value in map
+            value_type = list(value_map.keys())[0] # There is only ever one value in map
             value = value_map[value_type]
             if jms_header == 'JMS_TYPE_HEADER':
                 if value_type == 'string':
@@ -307,7 +307,7 @@ class JmsHdrsPropsTestSender(MessagingHandler):
                 if value_type == 'string':
                     hdr_kwargs['correlation_id'] = value
                 elif value_type == 'bytes':
-                    hdr_kwargs['correlation_id'] = str(value)
+                    hdr_kwargs['correlation_id'] = value.encode('utf-8')
                 else:
                     raise InteropTestError('JmsSenderShim._get_jms_message_header_kwargs(): ' +
                                            'JMS_CORRELATIONID_HEADER requires value type "string" or "bytes", ' +
@@ -334,9 +334,9 @@ class JmsHdrsPropsTestSender(MessagingHandler):
 
     def _add_jms_message_properties(self, message):
         """Adds message properties to the supplied message from self.test_properties_map"""
-        for property_name in self.test_properties_map.iterkeys():
+        for property_name in list(self.test_properties_map.keys()):
             value_map = self.test_properties_map[property_name]
-            value_type = value_map.keys()[0] # There is only ever one value in map
+            value_type = list(value_map.keys())[0] # There is only ever one value in map
             value = value_map[value_type]
             if message.properties is None:
                 message.properties = {}
@@ -345,11 +345,11 @@ class JmsHdrsPropsTestSender(MessagingHandler):
             elif value_type == 'byte':
                 message.properties[property_name] = byte(int(value, 16))
             elif value_type == 'double':
-                message.properties[property_name] = unpack('!d', value[2:].decode('hex'))[0]
+                message.properties[property_name] = unpack('!d', _compat._decode_hex(value[2:]))[0]
             elif value_type == 'float':
-                message.properties[property_name] = float32(unpack('!f', value[2:].decode('hex'))[0])
+                message.properties[property_name] = float32(unpack('!f', _compat._decode_hex(value[2:]))[0])
             elif value_type == 'int':
-                message.properties[property_name] = int(value, 16)
+                message.properties[property_name] = int32(int(value, 16))
             elif value_type == 'long':
                 message.properties[property_name] = _compat._long(value, 16)
             elif value_type == 'short':
