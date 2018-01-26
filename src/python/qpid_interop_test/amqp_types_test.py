@@ -23,35 +23,25 @@ Module to test AMQP primitive types across different clients
 # under the License.
 #
 
-import argparse
 import sys
 import unittest
 
 from itertools import product
 from json import dumps
-from os import getenv, path
 from time import mktime, time
 from uuid import UUID, uuid4
 
-from proton import symbol
 import qpid_interop_test.broker_properties
+import qpid_interop_test.qit_common
 import qpid_interop_test.shims
-from qpid_interop_test.test_type_map import TestTypeMap
-
-# TODO: propose a sensible default when installation details are worked out
-QIT_INSTALL_PREFIX = getenv('QIT_INSTALL_PREFIX')
-if QIT_INSTALL_PREFIX is None:
-    print 'ERROR: Environment variable QIT_INSTALL_PREFIX is not set'
-    sys.exit(1)
-QIT_TEST_SHIM_HOME = path.join(QIT_INSTALL_PREFIX, 'libexec', 'qpid_interop_test', 'shims')
 
 
-class AmqpPrimitiveTypes(TestTypeMap):
+class AmqpPrimitiveTypes(qpid_interop_test.qit_common.QitTestTypeMap):
     """
     Class which contains all the described AMQP primitive types and the test values to be used in testing.
     """
 
-    TYPE_MAP = {
+    type_map = {
         'null': ['None'],
         'boolean': ['True',
                     'False'],
@@ -256,9 +246,9 @@ class AmqpPrimitiveTypes(TestTypeMap):
         #         ],
         }
 
-    # This section contains tests that should be skipped because of know issues that would cause the test to fail.
+    # This section contains tests that should be skipped because of known issues that would cause the test to fail.
     # As the issues are resolved, these should be removed.
-    BROKER_SKIP = {
+    broker_skip = {
         'decimal32': {'ActiveMQ': 'decimal32 and decimal64 sent byte reversed: PROTON-1160',
                       'qpid-cpp': 'decimal32 not supported on qpid-cpp broker: QPIDIT-5, QPID-6328',
                       'apache-activemq-artemis': 'decimal32 and decimal64 sent byte reversed: PROTON-1160',
@@ -276,67 +266,62 @@ class AmqpPrimitiveTypes(TestTypeMap):
         'double': {'apache-activemq-artemis': '-NaN is stripped of its sign: ENTMQ-1686',},
         }
 
-    CLIENT_SKIP = {
+    client_skip = {
         'decimal32': {'AmqpNetLite': 'Decimal types not supported: https://github.com/Azure/amqpnetlite/issues/223', },
         'decimal64': {'AmqpNetLite': 'Decimal types not supported: https://github.com/Azure/amqpnetlite/issues/223', },
         'decimal128': {'AmqpNetLite': 'Decimal types not supported: https://github.com/Azure/amqpnetlite/issues/223', },
     }
 
-    def __init__(self):
-        super(AmqpPrimitiveTypes, self).__init__()
-
-    def create_array(self, amqp_type, repeat):
+    def create_array(self, array_amqp_type, repeat):
         """
         Create a single test array for a given AMQP type from the test values for that type. It can be optionally
         repeated for greater number of elements.
         """
-        test_array = [amqp_type]
+        test_array = [array_amqp_type]
         for _ in range(repeat):
-            for val in self.TYPE_MAP[amqp_type]:
+            for val in self.type_map[array_amqp_type]:
                 test_array.append(val)
         return test_array
 
     def create_test_arrays(self):
         """ Method to synthesize the test arrays from the values used in the previous type tests """
         test_arrays = []
-        for amqp_type in self.TYPE_MAP['array']:
-            test_arrays.append(self.create_array(amqp_type, 1))
-        print test_arrays
+        for array_amqp_type in self.type_map['array']:
+            test_arrays.append(self.create_array(array_amqp_type, 1))
+        print(test_arrays)
         return test_arrays
 
-    def get_test_values(self, amqp_type):
-        """ Overload the parent method so that arrays can be synthesized rather than read directly """
-        if amqp_type == 'array':
+    def get_test_values(self, test_type):
+        """
+        Overload the parent method so that arrays can be synthesized rather than read directly.
+        The test_type parameter is the AMQP type in this case
+        """
+        if test_type == 'array':
             return self.create_test_arrays()
-        return super(AmqpPrimitiveTypes, self).get_test_values(amqp_type)
+        return super(AmqpPrimitiveTypes, self).get_test_values(test_type)
 
 
-class AmqpTypeTestCase(unittest.TestCase):
-    """
-    Abstract base class for AMQP Type test cases
-    """
+class AmqpTypeTestCase(qpid_interop_test.qit_common.QitTestCase):
+    """Abstract base class for AMQP Type test cases"""
 
     def run_test(self, sender_addr, receiver_addr, amqp_type, test_value_list, send_shim, receive_shim):
         """
         Run this test by invoking the shim send method to send the test values, followed by the shim receive method
         to receive the values. Finally, compare the sent values with the received values.
         """
-        if len(test_value_list) > 0:
+        if test_value_list: # len > 0
+            test_name = 'amqp_types_test.%s.%s.%s' % (amqp_type, send_shim.NAME, receive_shim.NAME)
             # TODO: When Artemis can support it (in the next release), revert the queue name back to 'qpid-interop...'
             # Currently, Artemis only supports auto-create queues for JMS, and the queue name must be prefixed by
             # 'jms.queue.'
-            #queue_name = 'qpid-interop.simple_type_tests.%s.%s.%s' % (amqp_type, send_shim.NAME, receive_shim.NAME)
-            queue_name = 'jms.queue.qpid-interop.amqp_types_test.%s.%s.%s' % \
-                         (amqp_type, send_shim.NAME, receive_shim.NAME)
+            queue_name = 'jms.queue.qpid-interop.%s' % test_name
 
             # Start the receive shim first (for queueless brokers/dispatch)
-            receiver = receive_shim.create_receiver(receiver_addr, queue_name, amqp_type,
-                                                    str(len(test_value_list)))
+            receiver = receive_shim.create_receiver(receiver_addr, queue_name, amqp_type, str(len(test_value_list)))
             receiver.start()
 
             # Start the send shim
-            sender = send_shim.create_sender(sender_addr, queue_name, amqp_type,
-                                             dumps(test_value_list))
+            sender = send_shim.create_sender(sender_addr, queue_name, amqp_type, dumps(test_value_list))
             sender.start()
 
             # Wait for both shims to finish
@@ -347,7 +332,7 @@ class AmqpTypeTestCase(unittest.TestCase):
             send_obj = sender.get_return_object()
             if send_obj is not None:
                 if isinstance(send_obj, str):
-                    if len(send_obj) > 0:
+                    if send_obj: # len > 0
                         self.fail('Send shim \'%s\':\n%s' % (send_shim.NAME, send_obj))
                 else:
                     self.fail('Sender error: %s' % str(send_obj))
@@ -367,177 +352,86 @@ class AmqpTypeTestCase(unittest.TestCase):
             else:
                 self.fail('Received non-tuple: %s' % str(receive_obj))
 
-def create_testcase_class(amqp_type, shim_product):
-    """
-    Class factory function which creates new subclasses to AmqpTypeTestCase.
-    """
 
-    def __repr__(self):
-        """Print the class name"""
-        return self.__class__.__name__
+class TestOptions(qpid_interop_test.qit_common.QitCommonTestOptions):
+    """Command-line arguments used to control the test"""
 
-    def add_test_method(cls, send_shim, receive_shim):
-        """Function which creates a new test method in class cls"""
-
-        @unittest.skipIf(TYPES.skip_test(amqp_type, BROKER),
-                         TYPES.skip_test_message(amqp_type, BROKER))
-        @unittest.skipIf(TYPES.skip_client_test(amqp_type, send_shim.NAME),
-                         TYPES.skip_client_test_message(amqp_type, send_shim.NAME, "SENDER"))
-        @unittest.skipIf(TYPES.skip_client_test(amqp_type, receive_shim.NAME),
-                         TYPES.skip_client_test_message(amqp_type, receive_shim.NAME, "RECEIVER"))
-        def inner_test_method(self):
-            self.run_test(self.sender_addr,
-                          self.receiver_addr,
-                          self.amqp_type,
-                          self.test_value_list,
-                          send_shim,
-                          receive_shim)
-
-        inner_test_method.__name__ = 'test_%s_%s->%s' % (amqp_type, send_shim.NAME, receive_shim.NAME)
-        setattr(cls, inner_test_method.__name__, inner_test_method)
-
-    class_name = amqp_type.title() + 'TestCase'
-    class_dict = {'__name__': class_name,
-                  '__repr__': __repr__,
-                  '__doc__': 'Test case for AMQP 1.0 simple type \'%s\'' % amqp_type,
-                  'amqp_type': amqp_type,
-                  'sender_addr': ARGS.sender,
-                  'receiver_addr': ARGS.receiver,
-                  'test_value_list': TYPES.get_test_values(amqp_type)}
-    new_class = type(class_name, (AmqpTypeTestCase,), class_dict)
-    for send_shim, receive_shim in shim_product:
-        add_test_method(new_class, send_shim, receive_shim)
-    return new_class
-
-
-class TestOptions(object):
-    """
-    Class controlling command-line arguments used to control the test.
-    """
-    def __init__(self, shim_map):
-        parser = argparse.ArgumentParser(description='Qpid-interop AMQP client interoparability test suite '
-                                         'for AMQP simple types')
-        parser.add_argument('--sender', action='store', default='localhost:5672', metavar='IP-ADDR:PORT',
-                            help='Node to which test suite will send messages.')
-        parser.add_argument('--receiver', action='store', default='localhost:5672', metavar='IP-ADDR:PORT',
-                            help='Node from which test suite will receive messages.')
-        parser.add_argument('--no-skip', action='store_true',
-                            help='Do not skip tests that are excluded by default for reasons of a known bug')
-        parser.add_argument('--broker-type', action='store', metavar='BROKER_NAME',
-                            help='Disable test of broker type (using connection properties) by specifying the broker' +
-                            ' name, or "None".')
-        type_group = parser.add_mutually_exclusive_group()
+    def __init__(self, shim_map, default_xunit_dir=qpid_interop_test.qit_common.DEFUALT_XUNIT_LOG_DIR):
+        super(TestOptions, self).__init__('Qpid-interop AMQP client interoparability test suite for AMQP simple types',
+                                          shim_map, default_xunit_dir)
+        type_group = self._parser.add_mutually_exclusive_group()
         type_group.add_argument('--include-type', action='append', metavar='AMQP-TYPE',
                                 help='Name of AMQP type to include. Supported types:\n%s' %
-                                sorted(AmqpPrimitiveTypes.TYPE_MAP.keys()))
+                                sorted(AmqpPrimitiveTypes.type_map.keys()))
         type_group.add_argument('--exclude-type', action='append', metavar='AMQP-TYPE',
                                 help='Name of AMQP type to exclude. Supported types: see "include-type" above')
-        shim_group = parser.add_mutually_exclusive_group()
-        shim_group.add_argument('--include-shim', action='append', metavar='SHIM-NAME',
-                                help='Name of shim to include. Supported shims:\n%s' % sorted(shim_map.keys()))
-        shim_group.add_argument('--exclude-shim', action='append', metavar='SHIM-NAME',
-                            help='Name of shim to exclude. Supported shims: see "include-shim" above')
-        self.args = parser.parse_args()
+
+
+class AmqpTypesTest(qpid_interop_test.qit_common.QitTest):
+    """Top-level test for AMQP types"""
+
+    TEST_NAME = 'amqp_types_test'
+
+    def __init__(self):
+        super(AmqpTypesTest, self).__init__(TestOptions, AmqpPrimitiveTypes)
+
+    def _generate_tests(self):
+        """Generate tests dynamically"""
+        self.test_suite = unittest.TestSuite()
+        # Create test classes dynamically
+        for amqp_type in sorted(self.types.get_type_list()):
+            if self.args.exclude_type is None or amqp_type not in self.args.exclude_type:
+                test_case_class = self.create_testcase_class(amqp_type, product(self.shim_map.values(), repeat=2))
+                self.test_suite.addTest(unittest.makeSuite(test_case_class))
+
+    def create_testcase_class(self, amqp_type, shim_product):
+        """
+        Class factory function which creates new subclasses to AmqpTypeTestCase.
+        """
+
+        def __repr__(self):
+            """Print the class name"""
+            return self.__class__.__name__
+
+        def add_test_method(cls, send_shim, receive_shim):
+            """Function which creates a new test method in class cls"""
+
+            @unittest.skipIf(self.types.skip_test(amqp_type, self.broker),
+                             self.types.skip_test_message(amqp_type, self.broker))
+            @unittest.skipIf(self.types.skip_client_test(amqp_type, send_shim.NAME),
+                             self.types.skip_client_test_message(amqp_type, send_shim.NAME, 'SENDER'))
+            @unittest.skipIf(self.types.skip_client_test(amqp_type, receive_shim.NAME),
+                             self.types.skip_client_test_message(amqp_type, receive_shim.NAME, 'RECEIVER'))
+            def inner_test_method(self):
+                self.run_test(self.sender_addr,
+                              self.receiver_addr,
+                              self.amqp_type,
+                              self.test_value_list,
+                              send_shim,
+                              receive_shim)
+
+            inner_test_method.__name__ = 'test_%s_%s->%s' % (amqp_type, send_shim.NAME, receive_shim.NAME)
+            setattr(cls, inner_test_method.__name__, inner_test_method)
+
+        class_name = amqp_type.title() + 'TestCase'
+        class_dict = {'__name__': class_name,
+                      '__repr__': __repr__,
+                      '__doc__': 'Test case for AMQP 1.0 simple type \'%s\'' % amqp_type,
+                      'amqp_type': amqp_type,
+                      'sender_addr': self.args.sender,
+                      'receiver_addr': self.args.receiver,
+                      'test_value_list': self.types.get_test_values(amqp_type)}
+        new_class = type(class_name, (AmqpTypeTestCase,), class_dict)
+        for send_shim, receive_shim in shim_product:
+            add_test_method(new_class, send_shim, receive_shim)
+        return new_class
 
 
 #--- Main program start ---
 
 if __name__ == '__main__':
-
-    # SHIM_MAP contains an instance of each client language shim that is to be tested as a part of this test. For
-    # every shim in this list, a test is dynamically constructed which tests it against itself as well as every
-    # other shim in the list.
-    #
-    # As new shims are added, add them into this map to have them included in the test cases.
-    PROTON_CPP_RECEIVER_SHIM = path.join(QIT_TEST_SHIM_HOME, 'qpid-proton-cpp', 'amqp_types_test', 'Receiver')
-    PROTON_CPP_SENDER_SHIM = path.join(QIT_TEST_SHIM_HOME, 'qpid-proton-cpp', 'amqp_types_test', 'Sender')
-    PROTON_PYTHON_RECEIVER_SHIM = path.join(QIT_TEST_SHIM_HOME, 'qpid-proton-python', 'amqp_types_test', 'Receiver.py')
-    PROTON_PYTHON_SENDER_SHIM = path.join(QIT_TEST_SHIM_HOME, 'qpid-proton-python', 'amqp_types_test', 'Sender.py')
-    PROTON_RHEAJS_RECEIVER_SHIM = path.join(QIT_TEST_SHIM_HOME, 'rhea-js', 'amqp_types_test', 'Receiver.js')
-    PROTON_RHEAJS_SENDER_SHIM = path.join(QIT_TEST_SHIM_HOME, 'rhea-js', 'amqp_types_test', 'Sender.js')
-    AMQPNETLITE_RECEIVER_SHIM = path.join(QIT_TEST_SHIM_HOME, 'amqpnetlite', 'amqp_types_test', 'Receiver.exe')
-    AMQPNETLITE_SENDER_SHIM = path.join(QIT_TEST_SHIM_HOME, 'amqpnetlite', 'amqp_types_test', 'Sender.exe')
-    
-    SHIM_MAP = {qpid_interop_test.shims.ProtonCppShim.NAME: \
-                    qpid_interop_test.shims.ProtonCppShim(PROTON_CPP_SENDER_SHIM, PROTON_CPP_RECEIVER_SHIM),
-                qpid_interop_test.shims.ProtonPython2Shim.NAME: \
-                    qpid_interop_test.shims.ProtonPython2Shim(PROTON_PYTHON_SENDER_SHIM, PROTON_PYTHON_RECEIVER_SHIM),
-                qpid_interop_test.shims.ProtonPython3Shim.NAME: \
-                    qpid_interop_test.shims.ProtonPython3Shim(PROTON_PYTHON_SENDER_SHIM, PROTON_PYTHON_RECEIVER_SHIM),
-               }
-    # Add shims that need detection during installation only if the necessary bits are present
-    # Rhea Javascript client
-    if path.isfile(PROTON_RHEAJS_RECEIVER_SHIM) and path.isfile(PROTON_RHEAJS_SENDER_SHIM):
-        SHIM_MAP[qpid_interop_test.shims.RheaJsShim.NAME] = \
-            qpid_interop_test.shims.RheaJsShim(PROTON_RHEAJS_SENDER_SHIM, PROTON_RHEAJS_RECEIVER_SHIM)
-    else:
-        print 'WARNING: Rhea Javascript shims not installed'
-    # AMQP DotNetLite client
-    if path.isfile(AMQPNETLITE_RECEIVER_SHIM) and path.isfile(AMQPNETLITE_SENDER_SHIM):
-        SHIM_MAP[qpid_interop_test.shims.AmqpNetLiteShim.NAME] = \
-            qpid_interop_test.shims.AmqpNetLiteShim(AMQPNETLITE_SENDER_SHIM, AMQPNETLITE_RECEIVER_SHIM)
-    else:
-        print 'WARNING: AMQP DotNetLite shims not installed'
-
-    ARGS = TestOptions(SHIM_MAP).args
-    #print 'ARGS:', ARGS # debug
-
-    # Add shims included from the command-line
-    if ARGS.include_shim is not None:
-        new_shim_map = {}
-        for shim in ARGS.include_shim:
-            try:
-                new_shim_map[shim] = SHIM_MAP[shim]
-            except KeyError:
-                print 'No such shim: "%s". Use --help for valid shims' % shim
-                sys.exit(1) # Errors or failures present
-        SHIM_MAP = new_shim_map
-    # Remove shims excluded from the command-line
-    elif ARGS.exclude_shim is not None:
-        for shim in ARGS.exclude_shim:
-            try:
-                SHIM_MAP.pop(shim)
-            except KeyError:
-                print 'No such shim: "%s". Use --help for valid shims' % shim
-                sys.exit(1) # Errors or failures present
-
-    # Connect to broker to find broker type, or use --broker-type param if present
-    if ARGS.broker_type is not None:
-        if ARGS.broker_type == 'None':
-            BROKER = None
-        else:
-            BROKER = ARGS.broker_type
-    else:
-        CONNECTION_PROPS = qpid_interop_test.broker_properties.get_broker_properties(ARGS.sender)
-        if CONNECTION_PROPS is None:
-            print 'WARNING: Unable to get connection properties - unknown broker'
-            BROKER = 'unknown'
-        else:
-            BROKER = CONNECTION_PROPS[symbol(u'product')] if symbol(u'product') in CONNECTION_PROPS \
-                     else '<product not found>'
-            BROKER_VERSION = CONNECTION_PROPS[symbol(u'version')] if symbol(u'version') in CONNECTION_PROPS \
-                             else '<version not found>'
-            BROKER_PLATFORM = CONNECTION_PROPS[symbol(u'platform')] if symbol(u'platform') in CONNECTION_PROPS \
-                              else '<platform not found>'
-            print 'Test Broker: %s v.%s on %s' % (BROKER, BROKER_VERSION, BROKER_PLATFORM)
-            print
-            sys.stdout.flush()
-            if ARGS.no_skip:
-                BROKER = None # Will cause all tests to run
-
-    TYPES = AmqpPrimitiveTypes().get_types(ARGS)
-
-    # TEST_SUITE is the final suite of tests that will be run and which contains all the dynamically created
-    # type classes, each of which contains a test for the combinations of client shims
-    TEST_SUITE = unittest.TestSuite()
-
-    # Create test classes dynamically
-    for at in sorted(TYPES.get_type_list()):
-        if ARGS.exclude_type is None or at not in ARGS.exclude_type:
-            test_case_class = create_testcase_class(at, product(SHIM_MAP.values(), repeat=2))
-            TEST_SUITE.addTest(unittest.makeSuite(test_case_class))
-
-    # Finally, run all the dynamically created tests
-    RES = unittest.TextTestRunner(verbosity=2).run(TEST_SUITE)
-    if not RES.wasSuccessful():
+    AMQP_TYPES_TEST = AmqpTypesTest()
+    AMQP_TYPES_TEST.run_test()
+    AMQP_TYPES_TEST.write_logs()
+    if not AMQP_TYPES_TEST.get_result():
         sys.exit(1) # Errors or failures present

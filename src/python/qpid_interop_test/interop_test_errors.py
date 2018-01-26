@@ -25,5 +25,4 @@ class InteropTestError(Exception):
     """
     Generic simple error class for use in interop tests
     """
-    def __init__(self, error_message):
-        super(InteropTestError, self).__init__(error_message)
+    pass

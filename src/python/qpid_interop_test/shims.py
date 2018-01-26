@@ -53,27 +53,30 @@ class ShimWorkerThread(Thread):
         self.join(timeout)
         self.kill()
 
-    def kill(self, num_attempts=2, wait_time=2):
+    def kill(self):
+        """
+        First try terminating, then killing this thread
+        """
         if self.is_alive():
             if self.proc is not None:
                 if self._terminate_pg_loop():
                     if self._kill_pg_loop():
-                        print '\n  ERROR: Thread %s (pid=%d) alive after kill' % (self.name, self.proc.pid)
+                        print('\n  ERROR: Thread %s (pid=%d) alive after kill' % (self.name, self.proc.pid))
                     else:
-                        print 'Killed'
+                        print('Killed')
                         stdout.flush()
                 else:
-                    print 'Terminated'
+                    print('Terminated')
                     stdout.flush()
             else:
-                print 'ERROR: shims.join_or_kill(): Process joined and is alive, yet proc is None.'
+                print('ERROR: shims.join_or_kill(): Process joined and is alive, yet proc is None.')
 
     def _terminate_pg_loop(self, num_attempts=2, wait_time=2):
         cnt = 0
         while cnt < num_attempts and self.is_alive():
             cnt += 1
-            print '\n  Thread %s (pid=%d) alive after timeout, terminating (try #%d)...' % (self.name, self.proc.pid,
-                                                                                            cnt),
+            print('\n  Thread %s (pid=%d) alive after timeout, terminating (try #%d)...' % (self.name, self.proc.pid,
+                                                                                            cnt),)
             stdout.flush()
             killpg(getpgid(self.proc.pid), SIGTERM)
             sleep(wait_time)
@@ -83,8 +86,8 @@ class ShimWorkerThread(Thread):
         cnt = 0
         while cnt < num_attempts and self.is_alive():
             cnt += 1
-            print '\n  Thread %s (pid=%d) alive after terminate, killing (try #%d)...' % (self.name, self.proc.pid,
-                                                                                          cnt),
+            print('\n  Thread %s (pid=%d) alive after terminate, killing (try #%d)...' % (self.name, self.proc.pid,
+                                                                                          cnt),)
             stdout.flush()
             killpg(getpgid(self.proc.pid), SIGKILL)
             sleep(wait_time)
@@ -96,21 +99,22 @@ class Sender(ShimWorkerThread):
     def __init__(self, use_shell_flag, send_shim_args, broker_addr, queue_name, test_key, json_test_str, python3_flag):
         super(Sender, self).__init__('sender_thread_%s' % queue_name)
         if send_shim_args is None:
-            print 'ERROR: Sender: send_shim_args == None'
+            print('ERROR: Sender: send_shim_args == None')
         self.use_shell_flag = use_shell_flag
         self.arg_list.extend(send_shim_args)
         self.arg_list.extend([broker_addr, queue_name, test_key, json_test_str])
         self.env = deepcopy(environ)
         if python3_flag:
-            self.env['PYTHONPATH']=self.env['PYTHON3PATH']
+            self.env['PYTHONPATH'] = self.env['PYTHON3PATH']
 
     def run(self):
         """Thread starts here"""
         try:
             #print str('\n>>SNDR>>' + str(self.arg_list)) # DEBUG - useful to see command-line sent to shim
-            self.proc = Popen(self.arg_list, stdout=PIPE, stderr=PIPE, shell=self.use_shell_flag, preexec_fn=setsid, env=self.env)
+            self.proc = Popen(self.arg_list, stdout=PIPE, stderr=PIPE, shell=self.use_shell_flag, preexec_fn=setsid,
+                              env=self.env)
             (stdoutdata, stderrdata) = self.proc.communicate()
-            if len(stderrdata) > 0:
+            if stderrdata: # length > 0
                 #print '<<SNDR ERROR<<', stderrdata # DEBUG - useful to see shim's failure message
                 self.return_obj = (stdoutdata, stderrdata)
             else:
@@ -124,7 +128,7 @@ class Sender(ShimWorkerThread):
                 else: # Make a single line of all the bits and return that
                     self.return_obj = stdoutdata
         except OSError as exc:
-            self.return_obj = str(exc) + ': shim=' + self.arg_list[0] 
+            self.return_obj = str(exc) + ': shim=' + self.arg_list[0]
         except CalledProcessError as exc:
             self.return_obj = str(exc) + '\n\nOutput:\n' + exc.output
 
@@ -134,24 +138,24 @@ class Receiver(ShimWorkerThread):
     def __init__(self, receive_shim_args, broker_addr, queue_name, test_key, json_test_str, python3_flag):
         super(Receiver, self).__init__('receiver_thread_%s' % queue_name)
         if receive_shim_args is None:
-            print 'ERROR: Receiver: receive_shim_args == None'
+            print('ERROR: Receiver: receive_shim_args == None')
         self.arg_list.extend(receive_shim_args)
         self.arg_list.extend([broker_addr, queue_name, test_key, json_test_str])
         self.env = deepcopy(environ)
         if python3_flag:
-            self.env['PYTHONPATH']=self.env['PYTHON3PATH']
+            self.env['PYTHONPATH'] = self.env['PYTHON3PATH']
 
     def run(self):
         """Thread starts here"""
         try:
-            #print str('\n>>RCVR>>' + str(self.arg_list)) # DEBUG - useful to see command-line sent to shim
+            #print(str('\n>>RCVR>>' + str(self.arg_list))) # DEBUG - useful to see command-line sent to shim
             self.proc = Popen(self.arg_list, stdout=PIPE, stderr=PIPE, preexec_fn=setsid, env=self.env)
             (stdoutdata, stderrdata) = self.proc.communicate()
-            if len(stderrdata) > 0:
-                #print '<<RCVR ERROR<<', stderrdata # DEBUG - useful to see shim's failure message
+            if stderrdata: # length > 0
+                #print('<<RCVR ERROR<<', stderrdata) # DEBUG - useful to see shim's failure message
                 self.return_obj = (stdoutdata, stderrdata)
             else:
-                #print '<<RCVR<<', stdoutdata # DEBUG - useful to see text received from shim
+                #print('<<RCVR<<', stdoutdata) # DEBUG - useful to see text received from shim
                 str_tvl = stdoutdata.split('\n')[0:-1] # remove trailing \n
                 if len(str_tvl) == 2:
                     try:
@@ -167,7 +171,7 @@ class Receiver(ShimWorkerThread):
 
 class Shim(object):
     """Abstract shim class, parent of all shims."""
-    NAME = None
+    NAME = ''
     JMS_CLIENT = False # Enables certain JMS-specific message checks
     def __init__(self, sender_shim, receiver_shim):
         self.sender_shim = sender_shim
@@ -243,12 +247,12 @@ class QpidJmsShim(Shim):
 
     def get_java_class_path(self):
         """Method to construct and return the Java class path necessary to run the shim"""
-        return self.dependency_class_path;
+        return self.dependency_class_path
 
 class AmqpNetLiteShim(Shim):
     """Shim for AMQP.Net Lite client"""
     NAME = 'AmqpNetLite'
     def __init__(self, sender_shim, receiver_shim):
         super(AmqpNetLiteShim, self).__init__(sender_shim, receiver_shim)
-        self.send_params = ['mono' ,self.sender_shim]
+        self.send_params = ['mono', self.sender_shim]
         self.receive_params = ['mono', self.receiver_shim]

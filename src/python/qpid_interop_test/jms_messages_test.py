@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-Module to test JMS message types across different APIs
+Module to test JMS message types across different clients
 """
 
 #
@@ -23,35 +23,23 @@ Module to test JMS message types across different APIs
 # under the License.
 #
 
-import argparse
 import sys
 import unittest
 
 from itertools import product
 from json import dumps
-from os import getenv, path
 
-from proton import symbol
 import qpid_interop_test.broker_properties
+import qpid_interop_test.qit_common
 import qpid_interop_test.shims
-from qpid_interop_test.test_type_map import TestTypeMap
 
 
-# TODO: propose a sensible default when installation details are worked out
-QIT_INSTALL_PREFIX = getenv('QIT_INSTALL_PREFIX')
-if QIT_INSTALL_PREFIX is None:
-    print 'ERROR: Environment variable QIT_INSTALL_PREFIX is not set'
-    sys.exit(1)
-QIT_TEST_SHIM_HOME = path.join(QIT_INSTALL_PREFIX, 'libexec', 'qpid_interop_test', 'shims')
-QPID_JMS_SHIM_VER = '0.1.0'
-
-
-class JmsMessageTypes(TestTypeMap):
+class JmsMessageTypes(qpid_interop_test.qit_common.QitTestTypeMap):
     """
     Class which contains all the described JMS message types and the test values to be used in testing.
     """
 
-    COMMON_SUBMAP = {
+    common_submap = {
         'boolean': ['True',
                     'False'],
         'byte': ['-0x80',
@@ -115,7 +103,7 @@ class JmsMessageTypes(TestTypeMap):
                   ]
         }
 
-    TYPE_ADDITIONAL_SUBMAP = {
+    type_additional_submap = {
         'bytes': [b'',
                   b'12345',
                   b'Hello, world',
@@ -128,16 +116,16 @@ class JmsMessageTypes(TestTypeMap):
                  b'\x7f'],
         }
 
-    # The TYPE_SUBMAP defines test values for JMS message types that allow typed message content. Note that the
+    # The type_submap defines test values for JMS message types that allow typed message content. Note that the
     # types defined here are understood to be *Java* types and the stringified values are to be interpreted
     # as the appropriate Java type by the send shim.
-    TYPE_SUBMAP = TestTypeMap.merge_dicts(COMMON_SUBMAP, TYPE_ADDITIONAL_SUBMAP)
+    type_submap = qpid_interop_test.qit_common.QitTestTypeMap.merge_dicts(common_submap, type_additional_submap)
 
-    TYPE_MAP = {
+    type_map = {
         'JMS_MESSAGE_TYPE': {'none': [None]},
-        'JMS_BYTESMESSAGE_TYPE': TYPE_SUBMAP,
-        'JMS_MAPMESSAGE_TYPE': TYPE_SUBMAP,
-        'JMS_STREAMMESSAGE_TYPE': TYPE_SUBMAP,
+        'JMS_BYTESMESSAGE_TYPE': type_submap,
+        'JMS_MAPMESSAGE_TYPE': type_submap,
+        'JMS_STREAMMESSAGE_TYPE': type_submap,
         'JMS_TEXTMESSAGE_TYPE': {'text': ['',
                                           'Hello, world',
                                           '"Hello, world"',
@@ -194,13 +182,15 @@ class JmsMessageTypes(TestTypeMap):
         #    },
         }
 
-    BROKER_SKIP = {}
+    # This section contains tests that should be skipped because of known broker issues that would cause the
+    # test to fail. As the issues are resolved, these should be removed.
+    broker_skip = {}
+
+    client_skip = {}
 
 
-class JmsMessageTypeTestCase(unittest.TestCase):
-    """
-    Abstract base class for JMS message type test cases
-    """
+class JmsMessageTypeTestCase(qpid_interop_test.qit_common.QitTestCase):
+    """Abstract base class for JMS message type tests"""
 
     def run_test(self, sender_addr, receiver_addr, jms_message_type, test_values, send_shim, receive_shim):
         """
@@ -212,7 +202,7 @@ class JmsMessageTypeTestCase(unittest.TestCase):
 
         # First create a map containing the numbers of expected mesasges for each JMS message type
         num_test_values_map = {}
-        if len(test_values) > 0:
+        if test_values: # len > 0
             for index in test_values.keys():
                 num_test_values_map[index] = len(test_values[index])
         # Start the receiver shim
@@ -233,7 +223,7 @@ class JmsMessageTypeTestCase(unittest.TestCase):
         send_obj = sender.get_return_object()
         if send_obj is not None:
             if isinstance(send_obj, str):
-                if len(send_obj) > 0:
+                if send_obj: # len > 0
                     self.fail('Send shim \'%s\':\n%s' % (send_shim.NAME, send_obj))
             else:
                 self.fail('Send shim \'%s\':\n%s' % (send_shim.NAME, str(send_obj)))
@@ -258,174 +248,89 @@ class JmsMessageTypeTestCase(unittest.TestCase):
                 self.fail('Received non-tuple: %s' % str(receive_obj))
 
 
-def create_testcase_class(jms_message_type, shim_product):
-    """
-    Class factory function which creates new subclasses to JmsMessageTypeTestCase. Each call creates a single new
-    test case named and based on the parameters supplied to the method
-    """
+class TestOptions(qpid_interop_test.qit_common.QitCommonTestOptions):
+    """Command-line arguments used to control the test"""
 
-    def __repr__(self):
-        """Print the class name"""
-        return self.__class__.__name__
-
-    def add_test_method(cls, send_shim, receive_shim):
-        """Function which creates a new test method in class cls"""
-
-        @unittest.skipIf(TYPES.skip_test(jms_message_type, BROKER),
-                         TYPES.skip_test_message(jms_message_type, BROKER))
-        def inner_test_method(self):
-            self.run_test(self.sender_addr,
-                          self.receiver_addr,
-                          self.jms_message_type,
-                          self.test_values,
-                          send_shim,
-                          receive_shim)
-
-        inner_test_method.__name__ = 'test_%s_%s->%s' % (jms_message_type[4:-5], send_shim.NAME, receive_shim.NAME)
-        setattr(cls, inner_test_method.__name__, inner_test_method)
-
-    class_name = jms_message_type[4:-5].title() + 'TestCase'
-    class_dict = {'__name__': class_name,
-                  '__repr__': __repr__,
-                  '__doc__': 'Test case for JMS message type \'%s\'' % jms_message_type,
-                  'jms_message_type': jms_message_type,
-                  'sender_addr': ARGS.sender,
-                  'receiver_addr': ARGS.receiver,
-                  'test_values': TYPES.get_test_values(jms_message_type)} # tuple (tot_size, {...}
-    new_class = type(class_name, (JmsMessageTypeTestCase,), class_dict)
-    for send_shim, receive_shim in shim_product:
-        add_test_method(new_class, send_shim, receive_shim)
-
-    return new_class
-
-
-class TestOptions(object):
-    """
-    Class controlling command-line arguments used to control the test.
-    """
-    def __init__(self, shim_map):
-        parser = argparse.ArgumentParser(description='Qpid-interop AMQP client interoparability test suite '
-                                         'for JMS message types')
-        parser.add_argument('--sender', action='store', default='localhost:5672', metavar='IP-ADDR:PORT',
-                            help='Node to which test suite will send messages.')
-        parser.add_argument('--receiver', action='store', default='localhost:5672', metavar='IP-ADDR:PORT',
-                            help='Node from which test suite will receive messages.')
-        parser.add_argument('--no-skip', action='store_true',
-                            help='Do not skip tests that are excluded by default for reasons of a known bug')
-        parser.add_argument('--broker-type', action='store', metavar='BROKER_NAME',
-                            help='Disable test of broker type (using connection properties) by specifying the broker' +
-                            ' name, or "None".')
-        type_group = parser.add_mutually_exclusive_group()
+    def __init__(self, shim_map, default_xunit_dir=qpid_interop_test.qit_common.DEFUALT_XUNIT_LOG_DIR):
+        super(TestOptions, self).__init__('Qpid-interop AMQP client interoparability test suite '
+                                          'for JMS message types', shim_map, default_xunit_dir)
+        type_group = self._parser.add_mutually_exclusive_group()
         type_group.add_argument('--include-type', action='append', metavar='JMS_MESSAGE-TYPE',
                                 help='Name of JMS message type to include. Supported types:\n%s' %
-                                sorted(JmsMessageTypes.TYPE_MAP.keys()))
+                                sorted(JmsMessageTypes.type_map.keys()))
         type_group.add_argument('--exclude-type', action='append', metavar='JMS_MESSAGE-TYPE',
                                 help='Name of JMS message type to exclude. Supported types: see "include-type" above')
-        shim_group = parser.add_mutually_exclusive_group()
-        shim_group.add_argument('--include-shim', action='append', metavar='SHIM-NAME',
-                                help='Name of shim to include. Supported shims:\n%s' % sorted(shim_map.keys()))
-        shim_group.add_argument('--exclude-shim', action='append', metavar='SHIM-NAME',
-                            help='Name of shim to exclude. Supported shims: see "include-shim" above')
-        self.args = parser.parse_args()
+
+
+class JmsMessagesTest(qpid_interop_test.qit_common.QitJmsTest):
+    """Top-level test for JMS message types"""
+
+    TEST_NAME = 'jms_messages_test'
+
+    def __init__(self):
+        super(JmsMessagesTest, self).__init__(TestOptions, JmsMessageTypes)
+
+    def _generate_tests(self):
+        """Generate tests dynamically"""
+        self.test_suite = unittest.TestSuite()
+        # Create test classes dynamically
+        for jmt in sorted(self.types.get_type_list()):
+            if self.args.exclude_type is None or jmt not in self.args.exclude_type:
+                test_case_class = self.create_testcase_class(jmt, product(self.shim_map.values(), repeat=2))
+                self.test_suite.addTest(unittest.makeSuite(test_case_class))
+
+
+    def create_testcase_class(self, jms_message_type, shim_product):
+        """
+        Class factory function which creates new subclasses to JmsMessageTypeTestCase. Each call creates a single new
+        test case named and based on the parameters supplied to the method
+        """
+
+
+        def __repr__(self):
+            """Print the class name"""
+            return self.__class__.__name__
+
+        def add_test_method(cls, send_shim, receive_shim):
+            """Function which creates a new test method in class cls"""
+
+            @unittest.skipIf(self.types.skip_test(jms_message_type, self.broker),
+                             self.types.skip_test_message(jms_message_type, self.broker))
+            @unittest.skipIf(self.types.skip_client_test(jms_message_type, send_shim.NAME),
+                             self.types.skip_client_test_message(jms_message_type, send_shim.NAME, 'SENDER'))
+            @unittest.skipIf(self.types.skip_client_test(jms_message_type, receive_shim.NAME),
+                             self.types.skip_client_test_message(jms_message_type, receive_shim.NAME, 'RECEIVER'))
+            def inner_test_method(self):
+                self.run_test(self.sender_addr,
+                              self.receiver_addr,
+                              self.jms_message_type,
+                              self.test_values,
+                              send_shim,
+                              receive_shim)
+
+            inner_test_method.__name__ = 'test_%s_%s->%s' % (jms_message_type[4:-5], send_shim.NAME, receive_shim.NAME)
+            setattr(cls, inner_test_method.__name__, inner_test_method)
+
+        class_name = jms_message_type[4:-5].title() + 'TestCase'
+        class_dict = {'__name__': class_name,
+                      '__repr__': __repr__,
+                      '__doc__': 'Test case for JMS message type \'%s\'' % jms_message_type,
+                      'jms_message_type': jms_message_type,
+                      'sender_addr': self.args.sender,
+                      'receiver_addr': self.args.receiver,
+                      'test_values': self.types.get_test_values(jms_message_type)} # tuple (tot_size, {...}
+        new_class = type(class_name, (JmsMessageTypeTestCase,), class_dict)
+        for send_shim, receive_shim in shim_product:
+            add_test_method(new_class, send_shim, receive_shim)
+
+        return new_class
 
 
 #--- Main program start ---
 
 if __name__ == '__main__':
-
-    PROTON_CPP_RECEIVER_SHIM = path.join(QIT_TEST_SHIM_HOME, 'qpid-proton-cpp', 'jms_messages_test', 'Receiver')
-    PROTON_CPP_SENDER_SHIM = path.join(QIT_TEST_SHIM_HOME, 'qpid-proton-cpp', 'jms_messages_test', 'Sender')
-    PROTON_PYTHON_RECEIVER_SHIM = path.join(QIT_TEST_SHIM_HOME, 'qpid-proton-python', 'jms_messages_test', 'Receiver.py')
-    PROTON_PYTHON_SENDER_SHIM = path.join(QIT_TEST_SHIM_HOME, 'qpid-proton-python', 'jms_messages_test', 'Sender.py')
-    QIT_JMS_CLASSPATH_FILE = path.join(QIT_TEST_SHIM_HOME, 'qpid-jms', 'cp.txt')
-    if path.isfile(QIT_JMS_CLASSPATH_FILE):
-      with open(QIT_JMS_CLASSPATH_FILE, 'r') as classpath_file:
-          QIT_JMS_CLASSPATH = classpath_file.read()
-    else:
-      QIT_JMS_CLASSPATH = path.join(QIT_TEST_SHIM_HOME, 'qpid-jms',
-                                    'qpid-interop-test-jms-shim-%s-jar-with-dependencies.jar' % QPID_JMS_SHIM_VER)
-    QPID_JMS_RECEIVER_SHIM = 'org.apache.qpid.interop_test.jms_messages_test.Receiver'
-    QPID_JMS_SENDER_SHIM = 'org.apache.qpid.interop_test.jms_messages_test.Sender'
-
-    # SHIM_MAP contains an instance of each client language shim that is to be tested as a part of this test. For
-    # every shim in this list, a test is dynamically constructed which tests it against itself as well as every
-    # other shim in the list.
-    #
-    # As new shims are added, add them into this map to have them included in the test cases.
-    SHIM_MAP = {qpid_interop_test.shims.ProtonCppShim.NAME: \
-                    qpid_interop_test.shims.ProtonCppShim(PROTON_CPP_SENDER_SHIM, PROTON_CPP_RECEIVER_SHIM),
-                qpid_interop_test.shims.ProtonPython2Shim.NAME: \
-                    qpid_interop_test.shims.ProtonPython2Shim(PROTON_PYTHON_SENDER_SHIM, PROTON_PYTHON_RECEIVER_SHIM),
-                qpid_interop_test.shims.ProtonPython3Shim.NAME: \
-                    qpid_interop_test.shims.ProtonPython3Shim(PROTON_PYTHON_SENDER_SHIM, PROTON_PYTHON_RECEIVER_SHIM),
-                qpid_interop_test.shims.QpidJmsShim.NAME: \
-                    qpid_interop_test.shims.QpidJmsShim(QIT_JMS_CLASSPATH, QPID_JMS_SENDER_SHIM, QPID_JMS_RECEIVER_SHIM),
-               }
-
-    ARGS = TestOptions(SHIM_MAP).args
-    #print 'ARGS:', ARGS # debug
-
-    # Add shims included from the command-line
-    if ARGS.include_shim is not None:
-        new_shim_map = {}
-        for shim in ARGS.include_shim:
-            try:
-                new_shim_map[shim] = SHIM_MAP[shim]
-            except KeyError:
-                print 'No such shim: "%s". Use --help for valid shims' % shim
-                sys.exit(1) # Errors or failures present
-        SHIM_MAP = new_shim_map
-    # Remove shims excluded from the command-line
-    elif ARGS.exclude_shim is not None:
-        for shim in ARGS.exclude_shim:
-            try:
-                SHIM_MAP.pop(shim)
-            except KeyError:
-                print 'No such shim: "%s". Use --help for valid shims' % shim
-                sys.exit(1) # Errors or failures present
-
-    # Connect to broker to find broker type, or use --broker-type param if present
-    if ARGS.broker_type is not None:
-        if ARGS.broker_type == 'None':
-            BROKER = None
-        else:
-            BROKER = ARGS.broker_type
-    else:
-        CONNECTION_PROPS = qpid_interop_test.broker_properties.get_broker_properties(ARGS.sender)
-        if CONNECTION_PROPS is None:
-            print 'WARNING: Unable to get connection properties - unknown broker'
-            BROKER = 'unknown'
-        else:
-            BROKER = CONNECTION_PROPS[symbol(u'product')] if symbol(u'product') in CONNECTION_PROPS \
-                     else '<product not found>'
-            BROKER_VERSION = CONNECTION_PROPS[symbol(u'version')] if symbol(u'version') in CONNECTION_PROPS \
-                             else '<version not found>'
-            BROKER_PLATFORM = CONNECTION_PROPS[symbol(u'platform')] if symbol(u'platform') in CONNECTION_PROPS \
-                              else '<platform not found>'
-            print 'Test Broker: %s v.%s on %s' % (BROKER, BROKER_VERSION, BROKER_PLATFORM)
-            print
-            sys.stdout.flush()
-            if ARGS.no_skip:
-                BROKER = None # Will cause all tests to run
-
-    TYPES = JmsMessageTypes().get_types(ARGS)
-
-    # TEST_CASE_CLASSES is a list that collects all the test classes that are constructed. One class is constructed
-    # per AMQP type used as the key in map JmsMessageTypes.TYPE_MAP.
-    TEST_CASE_CLASSES = []
-
-    # TEST_SUITE is the final suite of tests that will be run and which contains all the dynamically created
-    # type classes, each of which contains a test for the combinations of client shims
-    TEST_SUITE = unittest.TestSuite()
-
-    # Create test classes dynamically
-    for jmt in sorted(TYPES.get_type_list()):
-        if ARGS.exclude_type is None or jmt not in ARGS.exclude_type:
-            test_case_class = create_testcase_class(jmt, product(SHIM_MAP.values(), repeat=2))
-            TEST_CASE_CLASSES.append(test_case_class)
-            TEST_SUITE.addTest(unittest.makeSuite(test_case_class))
-
-    # Finally, run all the dynamically created tests
-    RES = unittest.TextTestRunner(verbosity=2).run(TEST_SUITE)
-    if not RES.wasSuccessful():
-        sys.exit(1)
+    JMS_MESSAGES_TEST = JmsMessagesTest()
+    JMS_MESSAGES_TEST.run_test()
+    JMS_MESSAGES_TEST.write_logs()
+    if not JMS_MESSAGES_TEST.get_result():
+        sys.exit(1) # Errors or failures present
