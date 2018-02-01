@@ -23,18 +23,18 @@ AMQP large content test sender shim for qpid-interop-test
 # under the License.
 #
 
-from json import loads
+import json
 import os.path
+import signal
 import sys
-from traceback import format_exc
+import traceback
 
-from proton import Message, symbol
-from proton.handlers import MessagingHandler
-from proton.reactor import Container
-
+import proton
+import proton.handlers
+import proton.reactor
 import _compat
 
-class AmqpLargeContentTestSender(MessagingHandler):
+class AmqpLargeContentTestSender(proton.handlers.MessagingHandler):
     """
     Sender shim for AMQP dtx test
     ...
@@ -48,6 +48,8 @@ class AmqpLargeContentTestSender(MessagingHandler):
         self.sent = 0
         self.confirmed = 0
         self.total = len(self.test_value_list)
+        signal.signal(signal.SIGINT, self.signal_handler)
+        signal.signal(signal.SIGTERM, self.signal_handler)
 
     def on_start(self, event):
         """Event callback for when the client starts"""
@@ -79,15 +81,15 @@ class AmqpLargeContentTestSender(MessagingHandler):
         AMQP value.
         """
         if self.amqp_type == 'binary':
-            return Message(body=AmqpLargeContentTestSender.create_test_string(tot_size_bytes).encode('utf-8'))
+            return proton.Message(body=AmqpLargeContentTestSender.create_test_string(tot_size_bytes).encode('utf-8'))
         if self.amqp_type == 'string':
-            return Message(body=_compat._unicode(AmqpLargeContentTestSender.create_test_string(tot_size_bytes)))
+            return proton.Message(body=_compat.unicode(AmqpLargeContentTestSender.create_test_string(tot_size_bytes)))
         if self.amqp_type == 'symbol':
-            return Message(body=symbol(AmqpLargeContentTestSender.create_test_string(tot_size_bytes)))
+            return proton.Message(body=proton.symbol(AmqpLargeContentTestSender.create_test_string(tot_size_bytes)))
         if self.amqp_type == 'list':
-            return Message(body=AmqpLargeContentTestSender.create_test_list(tot_size_bytes, num_elts))
+            return proton.Message(body=AmqpLargeContentTestSender.create_test_list(tot_size_bytes, num_elts))
         if self.amqp_type == 'map':
-            return Message(body=AmqpLargeContentTestSender.create_test_map(tot_size_bytes, num_elts))
+            return proton.Message(body=AmqpLargeContentTestSender.create_test_map(tot_size_bytes, num_elts))
         return None
 
     @staticmethod
@@ -104,7 +106,7 @@ class AmqpLargeContentTestSender(MessagingHandler):
         size_per_elt_bytes = int(tot_size_bytes / num_elts)
         test_list = []
         for _ in range(num_elts):
-            test_list.append(_compat._unicode(AmqpLargeContentTestSender.create_test_string(size_per_elt_bytes)))
+            test_list.append(_compat.unicode(AmqpLargeContentTestSender.create_test_string(size_per_elt_bytes)))
         return test_list
 
     @staticmethod
@@ -113,8 +115,8 @@ class AmqpLargeContentTestSender(MessagingHandler):
         size_per_elt_bytes = int(tot_size_bytes / num_elts)
         test_map = {}
         for elt_no in range(num_elts):
-            test_map[_compat._unicode('elt_%06d' % elt_no)] = \
-                _compat._unicode(AmqpLargeContentTestSender.create_test_string(size_per_elt_bytes))
+            test_map[_compat.unicode('elt_%06d' % elt_no)] = \
+                _compat.unicode(AmqpLargeContentTestSender.create_test_string(size_per_elt_bytes))
         return test_map
 
     def on_accepted(self, event):
@@ -127,6 +129,13 @@ class AmqpLargeContentTestSender(MessagingHandler):
         """Event callback for when the broker disconnects with the client"""
         self.sent = self.confirmed
 
+    @staticmethod
+    def signal_handler(signal_number, _):
+        """Signal handler"""
+        if signal_number in [signal.SIGTERM, signal.SIGINT]:
+            print('Sender: received signal %d, terminating' % signal_number)
+            sys.exit(1)
+
 
 # --- main ---
 # Args: 1: Broker address (ip-addr:port)
@@ -134,11 +143,11 @@ class AmqpLargeContentTestSender(MessagingHandler):
 #       3: AMQP type
 #       4: Test value(s) as JSON string
 try:
-    SENDER = AmqpLargeContentTestSender(sys.argv[1], sys.argv[2], sys.argv[3], loads(sys.argv[4]))
-    Container(SENDER).run()
+    SENDER = AmqpLargeContentTestSender(sys.argv[1], sys.argv[2], sys.argv[3], json.loads(sys.argv[4]))
+    proton.reactor.Container(SENDER).run()
 except KeyboardInterrupt:
     pass
 except Exception as exc:
     print(os.path.basename(sys.argv[0]), 'EXCEPTION:', exc)
-    print(format_exc())
-        
+    print(traceback.format_exc())
+    sys.exit(1)

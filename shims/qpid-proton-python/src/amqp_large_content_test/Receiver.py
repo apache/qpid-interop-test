@@ -23,18 +23,18 @@ AMQP large content test receiver shim for qpid-interop-test
 # under the License.
 #
 
-from json import dumps
+import json
 import os.path
+import signal
 import sys
-from traceback import format_exc
+import traceback
 
-from proton import symbol
-from proton.handlers import MessagingHandler
-from proton.reactor import Container
-
+import proton
+import proton.handlers
+import proton.reactor
 import _compat
 
-class AmqpLargeContentTestReceiver(MessagingHandler):
+class AmqpLargeContentTestReceiver(proton.handlers.MessagingHandler):
     """
     Reciver shim for AMQP dtx test
     ...
@@ -47,6 +47,8 @@ class AmqpLargeContentTestReceiver(MessagingHandler):
         self.received_value_list = []
         self.expected = int(num_expected_messages_str)
         self.received = 0
+        signal.signal(signal.SIGINT, self.signal_handler)
+        signal.signal(signal.SIGTERM, self.signal_handler)
 
     def get_received_value_list(self):
         """Return the received list of AMQP values"""
@@ -87,10 +89,10 @@ class AmqpLargeContentTestReceiver(MessagingHandler):
     def get_str_message_size(message):
         """Find the size of a bytes, unicode or symbol message in MB"""
         if _compat.IS_PY3:
-            if isinstance(message, (bytes, str, symbol)):
+            if isinstance(message, (bytes, str, proton.symbol)):
                 return int(len(message) / 1024 / 1024) # in MB
         else:
-            if isinstance(message, (bytes, unicode, symbol)):
+            if isinstance(message, (bytes, unicode, proton.symbol)):
                 return len(str(message)) / 1024 / 1024 # in MB
         return None
 
@@ -119,6 +121,14 @@ class AmqpLargeContentTestReceiver(MessagingHandler):
             return (int(elt_size * num_elts / 1024 / 1024), num_elts)
         return None
 
+    @staticmethod
+    def signal_handler(signal_number, _):
+        """Signal handler"""
+        if signal_number in [signal.SIGTERM, signal.SIGINT]:
+            print('Sender: received signal %d, terminating' % signal_number)
+            sys.exit(1)
+
+
 # --- main ---
 # Args: 1: Broker address (ip-addr:port)
 #       2: Queue name
@@ -126,11 +136,12 @@ class AmqpLargeContentTestReceiver(MessagingHandler):
 #       4: Expected number of test values to receive
 try:
     RECEIVER = AmqpLargeContentTestReceiver(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
-    Container(RECEIVER).run()
+    proton.reactor.Container(RECEIVER).run()
     print(sys.argv[3])
-    print(dumps(RECEIVER.get_received_value_list()))
+    print(json.dumps(RECEIVER.get_received_value_list()))
 except KeyboardInterrupt:
     pass
 except Exception as exc:
     print(os.path.basename(sys.argv[0]), 'EXCEPTION', exc)
-    print(format_exc())
+    print(traceback.format_exc())
+    sys.exit(1)

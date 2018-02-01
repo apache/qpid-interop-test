@@ -23,6 +23,7 @@ Module to test JMS headers and properties on messages accross different clients
 # under the License.
 #
 
+import signal
 import sys
 import unittest
 
@@ -32,6 +33,7 @@ from json import dumps
 import qpid_interop_test.broker_properties
 import qpid_interop_test.qit_common
 import qpid_interop_test.shims
+from qpid_interop_test.interop_test_errors import InteropTestError
 
 
 class JmsHdrPropTypes(qpid_interop_test.qit_common.QitTestTypeMap):
@@ -296,57 +298,55 @@ class JmsMessageHdrsPropsTestCase(qpid_interop_test.qit_common.QitTestCase):
         # Start the receiver shim
         receiver = receive_shim.create_receiver(receiver_addr, queue_name, jms_message_type,
                                                 dumps([num_test_values_map, flags_map]))
-        receiver.start()
 
         # Start the send shim
         sender = send_shim.create_sender(sender_addr, queue_name, jms_message_type,
                                          dumps([test_values, msg_hdrs, msg_props]))
-        sender.start()
 
-        # Wait for both shims to finish
-        sender.join_or_kill(qpid_interop_test.shims.THREAD_TIMEOUT)
-        receiver.join_or_kill(qpid_interop_test.shims.THREAD_TIMEOUT)
-
-        # Process return string from sender
-        send_obj = sender.get_return_object()
+        # Wait for sender, process return string
+        try:
+            send_obj = sender.wait_for_completion()
+        except KeyboardInterrupt as err:
+            receiver.send_signal(signal.SIGINT)
+            raise err
         if send_obj is not None:
             if isinstance(send_obj, str):
                 if send_obj: # len > 0
-                    self.fail('Send shim \'%s\':\n%s' % (send_shim.NAME, send_obj))
+                    receiver.send_signal(signal.SIGINT)
+                    raise InteropTestError('Send shim \'%s\':\n%s' % (send_shim.NAME, send_obj))
             else:
-                self.fail('Send shim \'%s\':\n%s' % (send_shim.NAME, str(send_obj)))
+                receiver.send_signal(signal.SIGINT)
+                raise InteropTestError('Send shim \'%s\':\n%s' % (send_shim.NAME, send_obj))
 
-        # Process return string from receiver
-        receive_obj = receiver.get_return_object()
-        if receive_obj is None:
-            self.fail('JmsReceiver shim returned None')
-        else:
-            if isinstance(receive_obj, tuple):
-                if len(receive_obj) == 2:
-                    return_jms_message_type, return_list = receive_obj
-                    if len(return_list) == 3:
-                        return_test_values = return_list[0]
-                        return_msg_hdrs = return_list[1]
-                        return_msg_props = return_list[2]
-                        self.assertEqual(return_jms_message_type, jms_message_type,
-                                         msg='JMS message type error:\n\n    sent:%s\n\n    received:%s' % \
-                                         (jms_message_type, return_jms_message_type))
-                        self.assertEqual(return_test_values, test_values,
-                                         msg='JMS message body error:\n\n    sent:%s\n\n    received:%s' % \
-                                         (test_values, return_test_values))
-                        self.assertEqual(return_msg_hdrs, msg_hdrs,
-                                         msg='JMS message headers error:\n\n    sent:%s\n\n    received:%s' % \
-                                         (msg_hdrs, return_msg_hdrs))
-                        self.assertEqual(return_msg_props, msg_props,
-                                         msg='JMS message properties error:\n\n    sent:%s\n\n    received:%s' % \
-                                         (msg_props, return_msg_props))
-                    else:
-                        self.fail('Return value list needs 3 items, found %d items: %s' % (len(return_list),
-                                                                                           str(return_list)))
+        # Wait for receiver, process return string
+        receive_obj = receiver.wait_for_completion()
+        if isinstance(receive_obj, tuple):
+            if len(receive_obj) == 2:
+                return_jms_message_type, return_list = receive_obj
+                if len(return_list) == 3:
+                    return_test_values = return_list[0]
+                    return_msg_hdrs = return_list[1]
+                    return_msg_props = return_list[2]
+                    self.assertEqual(return_jms_message_type, jms_message_type,
+                                     msg='JMS message type error:\n\n    sent:%s\n\n    received:%s' % \
+                                     (jms_message_type, return_jms_message_type))
+                    self.assertEqual(return_test_values, test_values,
+                                     msg='JMS message body error:\n\n    sent:%s\n\n    received:%s' % \
+                                     (test_values, return_test_values))
+                    self.assertEqual(return_msg_hdrs, msg_hdrs,
+                                     msg='JMS message headers error:\n\n    sent:%s\n\n    received:%s' % \
+                                     (msg_hdrs, return_msg_hdrs))
+                    self.assertEqual(return_msg_props, msg_props,
+                                     msg='JMS message properties error:\n\n    sent:%s\n\n    received:%s' % \
+                                     (msg_props, return_msg_props))
                 else:
-                    self.fail('Return tuple needs 2 items, found %d items: %s' % (len(receive_obj), str(receive_obj)))
+                    raise InteropTestError('Receive shim \'%s\':\n' \
+                                           'Return value list needs 3 items, found %d items: %s' % \
+                                           (receive_shim.NAME, len(return_list), str(return_list)))
             else:
-                self.fail(str(receive_obj))
+                raise InteropTestError('Receive shim \'%s\':\n%s' % (receive_shim.NAME, receive_obj))
+        else:
+            raise InteropTestError('Receive shim \'%s\':\n%s' % (receive_shim.NAME, receive_obj))
 
 
 class TestOptions(qpid_interop_test.qit_common.QitCommonTestOptions):

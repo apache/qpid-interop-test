@@ -20,154 +20,52 @@ Module containing worker thread classes and shims
 # under the License.
 #
 
-from copy import deepcopy
-from json import loads
-from os import environ, getenv, getpgid, killpg, path, setsid
-from signal import SIGKILL, SIGTERM
-from subprocess import Popen, PIPE, CalledProcessError
-from sys import stdout
-from threading import Thread
-from time import sleep
+import copy
+import json
+import os
+import signal
+import subprocess
 
 
-THREAD_TIMEOUT = 800.0 # seconds to complete before join is forced
-
-
-class ShimWorkerThread(Thread):
-    """Parent class for shim worker threads and return a string once the thread has ended"""
-    def __init__(self, thread_name):
-        super(ShimWorkerThread, self).__init__(name=thread_name)
-        self.arg_list = []
-        self.return_obj = None
-        self.proc = None
-
-    def get_return_object(self):
-        """Get the return object from the completed thread"""
-        return self.return_obj
-
-    def join_or_kill(self, timeout):
-        """
-        Wait for thread to join after timeout (seconds). If still alive, it is then terminated, then if still alive,
-        killed
-        """
-        self.join(timeout)
-        self.kill()
-
-    def kill(self):
-        """
-        First try terminating, then killing this thread
-        """
-        if self.is_alive():
-            if self.proc is not None:
-                if self._terminate_pg_loop():
-                    if self._kill_pg_loop():
-                        print('\n  ERROR: Thread %s (pid=%d) alive after kill' % (self.name, self.proc.pid))
-                    else:
-                        print('Killed')
-                        stdout.flush()
-                else:
-                    print('Terminated')
-                    stdout.flush()
-            else:
-                print('ERROR: shims.join_or_kill(): Process joined and is alive, yet proc is None.')
-
-    def _terminate_pg_loop(self, num_attempts=2, wait_time=2):
-        cnt = 0
-        while cnt < num_attempts and self.is_alive():
-            cnt += 1
-            print('\n  Thread %s (pid=%d) alive after timeout, terminating (try #%d)...' % (self.name, self.proc.pid,
-                                                                                            cnt),)
-            stdout.flush()
-            killpg(getpgid(self.proc.pid), SIGTERM)
-            sleep(wait_time)
-        return self.is_alive()
-
-    def _kill_pg_loop(self, num_attempts=2, wait_time=5):
-        cnt = 0
-        while cnt < num_attempts and self.is_alive():
-            cnt += 1
-            print('\n  Thread %s (pid=%d) alive after terminate, killing (try #%d)...' % (self.name, self.proc.pid,
-                                                                                          cnt),)
-            stdout.flush()
-            killpg(getpgid(self.proc.pid), SIGKILL)
-            sleep(wait_time)
-        return self.is_alive()
-
-
-class Sender(ShimWorkerThread):
-    """Sender class for multi-threaded send"""
-    def __init__(self, use_shell_flag, send_shim_args, broker_addr, queue_name, test_key, json_test_str, python3_flag):
-        super(Sender, self).__init__('sender_thread_%s' % queue_name)
-        if send_shim_args is None:
-            print('ERROR: Sender: send_shim_args == None')
-        self.use_shell_flag = use_shell_flag
-        self.arg_list.extend(send_shim_args)
-        self.arg_list.extend([broker_addr, queue_name, test_key, json_test_str])
-        self.env = deepcopy(environ)
+class ShimProcess(subprocess.Popen):
+    """Abstract parent class for Sender and Receiver shim process"""
+    def __init__(self, args, python3_flag):
+        self.env = copy.deepcopy(os.environ)
         if python3_flag:
             self.env['PYTHONPATH'] = self.env['PYTHON3PATH']
+        super(ShimProcess, self).__init__(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, preexec_fn=os.setsid,
+                                          env=self.env)
 
-    def run(self):
-        """Thread starts here"""
+    def wait_for_completion(self):
+        """Wait for process to end and return tuple containing (stdout, stderr) from process"""
         try:
-            #print str('\n>>SNDR>>' + str(self.arg_list)) # DEBUG - useful to see command-line sent to shim
-            self.proc = Popen(self.arg_list, stdout=PIPE, stderr=PIPE, shell=self.use_shell_flag, preexec_fn=setsid,
-                              env=self.env)
-            (stdoutdata, stderrdata) = self.proc.communicate()
+            (stdoutdata, stderrdata) = self.communicate()
             if stderrdata: # length > 0
-                #print '<<SNDR ERROR<<', stderrdata # DEBUG - useful to see shim's failure message
-                self.return_obj = (stdoutdata, stderrdata)
-            else:
-                #print '<<SNDR<<', stdoutdata # DEBUG - useful to see text received from shim
-                str_tvl = stdoutdata.split('\n')[0:-1] # remove trailing \n
-                if len(str_tvl) == 2:
-                    try:
-                        self.return_obj = (str_tvl[0], loads(str_tvl[1]))
-                    except ValueError:
-                        self.return_obj = stdoutdata
-                else: # Make a single line of all the bits and return that
-                    self.return_obj = stdoutdata
-        except OSError as exc:
-            self.return_obj = str(exc) + ': shim=' + self.arg_list[0]
-        except CalledProcessError as exc:
-            self.return_obj = str(exc) + '\n\nOutput:\n' + exc.output
+                return stderrdata # ERROR: return single string
+            if not stdoutdata: # zero length
+                return None
+            type_value_list = stdoutdata.split('\n')[0:-1] # remove trailing '\n', split by only remaining '\n'
+            if len(type_value_list) == 2:
+                try:
+                    return (type_value_list[0], json.loads(type_value_list[1])) # Return tuple
+                except ValueError:
+                    return stdoutdata # ERROR: return single string
+            return stdoutdata # ERROR: return single string
+        except KeyboardInterrupt as err:
+            self.send_signal(signal.SIGINT)
+            raise err
 
+class Sender(ShimProcess):
+    """Sender shim process"""
+    def __init__(self, params, python3_flag):
+        #print('\n>>>SNDR>>> %s python3_flag=%s' % (params, python3_flag))
+        super(Sender, self).__init__(params, python3_flag)
 
-class Receiver(ShimWorkerThread):
-    """Receiver class for multi-threaded receive"""
-    def __init__(self, receive_shim_args, broker_addr, queue_name, test_key, json_test_str, python3_flag):
-        super(Receiver, self).__init__('receiver_thread_%s' % queue_name)
-        if receive_shim_args is None:
-            print('ERROR: Receiver: receive_shim_args == None')
-        self.arg_list.extend(receive_shim_args)
-        self.arg_list.extend([broker_addr, queue_name, test_key, json_test_str])
-        self.env = deepcopy(environ)
-        if python3_flag:
-            self.env['PYTHONPATH'] = self.env['PYTHON3PATH']
-
-    def run(self):
-        """Thread starts here"""
-        try:
-            #print(str('\n>>RCVR>>' + str(self.arg_list))) # DEBUG - useful to see command-line sent to shim
-            self.proc = Popen(self.arg_list, stdout=PIPE, stderr=PIPE, preexec_fn=setsid, env=self.env)
-            (stdoutdata, stderrdata) = self.proc.communicate()
-            if stderrdata: # length > 0
-                #print('<<RCVR ERROR<<', stderrdata) # DEBUG - useful to see shim's failure message
-                self.return_obj = (stdoutdata, stderrdata)
-            else:
-                #print('<<RCVR<<', stdoutdata) # DEBUG - useful to see text received from shim
-                str_tvl = stdoutdata.split('\n')[0:-1] # remove trailing \n
-                if len(str_tvl) == 2:
-                    try:
-                        self.return_obj = (str_tvl[0], loads(str_tvl[1]))
-                    except ValueError:
-                        self.return_obj = stdoutdata
-                else: # Make a single line of all the bits and return that
-                    self.return_obj = stdoutdata
-        except OSError as exc:
-            self.return_obj = str(exc) + ': shim=' + self.arg_list[0]
-        except CalledProcessError as exc:
-            self.return_obj = str(exc) + '\n\n' + exc.output
+class Receiver(ShimProcess):
+    """Receiver shim process"""
+    def __init__(self, params, python3_flag):
+        #print('\n>>>RCVR>>> %s python3_flag=%s' % (params, python3_flag))
+        super(Receiver, self).__init__(params, python3_flag)
 
 class Shim(object):
     """Abstract shim class, parent of all shims."""
@@ -182,17 +80,17 @@ class Shim(object):
 
     def create_sender(self, broker_addr, queue_name, test_key, json_test_str):
         """Create a new sender instance"""
-        sender = Sender(self.use_shell_flag, self.send_params, broker_addr, queue_name, test_key, json_test_str,
-                        'Python3' in self.NAME)
-        sender.daemon = True
-        return sender
+        args = []
+        args.extend(self.send_params)
+        args.extend([broker_addr, queue_name, test_key, json_test_str])
+        return Sender(args, 'Python3' in self.NAME)
 
     def create_receiver(self, broker_addr, queue_name, test_key, json_test_str):
         """Create a new receiver instance"""
-        receiver = Receiver(self.receive_params, broker_addr, queue_name, test_key, json_test_str,
-                            'Python3' in self.NAME)
-        receiver.daemon = True
-        return receiver
+        args = []
+        args.extend(self.receive_params)
+        args.extend([broker_addr, queue_name, test_key, json_test_str])
+        return Receiver(args, 'Python3' in self.NAME)
 
 
 class ProtonPython2Shim(Shim):
@@ -236,8 +134,8 @@ class QpidJmsShim(Shim):
     NAME = 'QpidJms'
     JMS_CLIENT = True
 
-    JAVA_HOME = getenv('JAVA_HOME', '/usr/bin') # Default only works in Linux
-    JAVA_EXEC = path.join(JAVA_HOME, 'java')
+    JAVA_HOME = os.getenv('JAVA_HOME', '/usr/bin') # Default only works in Linux
+    JAVA_EXEC = os.path.join(JAVA_HOME, 'java')
 
     def __init__(self, dependency_class_path, sender_shim, receiver_shim):
         super(QpidJmsShim, self).__init__(sender_shim, receiver_shim)

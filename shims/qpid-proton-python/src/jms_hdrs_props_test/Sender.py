@@ -24,23 +24,23 @@ JMS message headers and properties test sender shim for qpid-interop-test
 #
 
 import os.path
-from struct import pack, unpack
-from subprocess import check_output
+import signal
+import struct
+import subprocess
 import sys
-from traceback import format_exc
-from json import loads
+import traceback
+import json
 
-from proton import byte, char, float32, int32, Message, short, symbol
-from proton.handlers import MessagingHandler
-from proton.reactor import Container
+import proton
+import proton.handlers
+import proton.reactor
 from qpid_interop_test.interop_test_errors import InteropTestError
 from qpid_interop_test.jms_types import create_annotation
 from qpid_interop_test.test_type_map import TestTypeMap
-
 import _compat
 
 
-class JmsHdrsPropsTestSender(MessagingHandler):
+class JmsHdrsPropsTestSender(proton.handlers.MessagingHandler):
     """
     This shim sends JMS messages of a particular JMS message type according to the test parameters list. This list
     contains three maps:
@@ -62,6 +62,8 @@ class JmsHdrsPropsTestSender(MessagingHandler):
         self.sent = 0
         self.confirmed = 0
         self.total = self._get_total_num_msgs()
+        signal.signal(signal.SIGINT, self.signal_handler)
+        signal.signal(signal.SIGTERM, self.signal_handler)
 
     def on_start(self, event):
         """Event callback for when the client starts"""
@@ -150,11 +152,11 @@ class JmsHdrsPropsTestSender(MessagingHandler):
         if test_value is not None:
             raise InteropTestError('JmsSenderShim._create_jms_message: Invalid value "%s" for subtype "%s"' %
                                    (test_value, test_value_type))
-        return Message(id=(self.sent+1),
-                       content_type='application/octet-stream',
-                       annotations=TestTypeMap.merge_dicts(create_annotation('JMS_MESSAGE_TYPE'),
-                                                           hdr_annotations),
-                       **hdr_kwargs)
+        return proton.Message(id=(self.sent+1),
+                              content_type='application/octet-stream',
+                              annotations=TestTypeMap.merge_dicts(create_annotation('JMS_MESSAGE_TYPE'),
+                                                                  hdr_annotations),
+                              **hdr_kwargs)
 
     def _create_jms_bytesmessage(self, test_value_type, test_value, hdr_kwargs, hdr_annotations):
         """Create a JMS bytes message"""
@@ -163,7 +165,7 @@ class JmsHdrsPropsTestSender(MessagingHandler):
         if test_value_type == 'boolean':
             body_bytes = b'\x01' if test_value == 'True' else b'\x00'
         elif test_value_type == 'byte':
-            body_bytes = pack('b', int(test_value, 16))
+            body_bytes = struct.pack('b', int(test_value, 16))
         elif test_value_type == 'bytes':
             body_bytes = test_value.encode('utf-8')
         elif test_value_type == 'char':
@@ -172,77 +174,77 @@ class JmsHdrsPropsTestSender(MessagingHandler):
         elif test_value_type == 'double' or test_value_type == 'float':
             body_bytes = test_value[2:].decode('hex')
         elif test_value_type == 'int':
-            body_bytes = pack('!i', int(test_value, 16))
+            body_bytes = struct.pack('!i', int(test_value, 16))
         elif test_value_type == 'long':
-            body_bytes = pack('!q', _compat._long(test_value, 16))
+            body_bytes = struct.pack('!q', _compat.long(test_value, 16))
         elif test_value_type == 'short':
-            body_bytes = pack('!h', short(test_value, 16))
+            body_bytes = struct.pack('!h', proton.short(test_value, 16))
         elif test_value_type == 'string':
             # NOTE: First two bytes must be string length
             test_value_str = str(test_value) # remove unicode
-            body_bytes = pack('!H', len(test_value_str)) + test_value_str
+            body_bytes = struct.pack('!H', len(test_value_str)) + test_value_str
         else:
             raise InteropTestError('JmsSenderShim._create_jms_bytesmessage: Unknown or unsupported subtype "%s"' %
                                    test_value_type)
-        return Message(id=(self.sent+1),
-                       body=body_bytes,
-                       inferred=True,
-                       content_type='application/octet-stream',
-                       annotations=TestTypeMap.merge_dicts(create_annotation('JMS_BYTESMESSAGE_TYPE'),
-                                                           hdr_annotations),
-                       **hdr_kwargs)
+        return proton.Message(id=(self.sent+1),
+                              body=body_bytes,
+                              inferred=True,
+                              content_type='application/octet-stream',
+                              annotations=TestTypeMap.merge_dicts(create_annotation('JMS_BYTESMESSAGE_TYPE'),
+                                                                  hdr_annotations),
+                              **hdr_kwargs)
 
     def _create_jms_mapmessage(self, test_value_type, test_value, name, hdr_kwargs, hdr_annotations):
         """Create a JMS map message"""
         if test_value_type == 'boolean':
             value = test_value == 'True'
         elif test_value_type == 'byte':
-            value = byte(int(test_value, 16))
+            value = proton.byte(int(test_value, 16))
         elif test_value_type == 'bytes':
             value = test_value.encode('utf-8')
         elif test_value_type == 'char':
-            value = char(test_value)
+            value = proton.char(test_value)
         elif test_value_type == 'double':
-            value = unpack('!d', test_value[2:].decode('hex'))[0]
+            value = struct.unpack('!d', test_value[2:].decode('hex'))[0]
         elif test_value_type == 'float':
-            value = float32(unpack('!f', test_value[2:].decode('hex'))[0])
+            value = proton.float32(struct.unpack('!f', test_value[2:].decode('hex'))[0])
         elif test_value_type == 'int':
-            value = int32(int(test_value, 16))
+            value = proton.int32(int(test_value, 16))
         elif test_value_type == 'long':
-            value = _compat._long(test_value, 16)
+            value = _compat.long(test_value, 16)
         elif test_value_type == 'short':
-            value = short(int(test_value, 16))
+            value = proton.short(int(test_value, 16))
         elif test_value_type == 'string':
             value = test_value
         else:
             raise InteropTestError('JmsSenderShim._create_jms_mapmessage: Unknown or unsupported subtype "%s"' %
                                    test_value_type)
-        return Message(id=(self.sent+1),
-                       body={name: value},
-                       inferred=False,
-                       annotations=TestTypeMap.merge_dicts(create_annotation('JMS_MAPMESSAGE_TYPE'),
-                                                           hdr_annotations),
-                       **hdr_kwargs)
+        return proton.Message(id=(self.sent+1),
+                              body={name: value},
+                              inferred=False,
+                              annotations=TestTypeMap.merge_dicts(create_annotation('JMS_MAPMESSAGE_TYPE'),
+                                                                  hdr_annotations),
+                              **hdr_kwargs)
 
     def _create_jms_objectmessage(self, test_value, hdr_kwargs, hdr_annotations):
         """Create a JMS object message"""
         java_binary = self._s_get_java_obj_binary(test_value)
-        return Message(id=(self.sent+1),
-                       body=java_binary,
-                       inferred=True,
-                       content_type='application/x-java-serialized-object',
-                       annotations=TestTypeMap.merge_dicts(create_annotation('JMS_MAPMESSAGE_TYPE'),
-                                                           hdr_annotations),
-                       **hdr_kwargs)
+        return proton.Message(id=(self.sent+1),
+                              body=java_binary,
+                              inferred=True,
+                              content_type='application/x-java-serialized-object',
+                              annotations=TestTypeMap.merge_dicts(create_annotation('JMS_MAPMESSAGE_TYPE'),
+                                                                  hdr_annotations),
+                              **hdr_kwargs)
 
     @staticmethod
     def _s_get_java_obj_binary(java_class_str):
         """Call external utility to create Java object and stringify it, returning the string representation"""
-        out_str = check_output(['java',
-                                '-cp',
-                                'target/JavaObjUtils.jar',
-                                'org.apache.qpid.interop_test.obj_util.JavaObjToBytes',
-                                java_class_str])
+        out_str = subprocess.check_output(['java',
+                                           '-cp',
+                                           'target/JavaObjUtils.jar',
+                                           'org.apache.qpid.interop_test.obj_util.JavaObjToBytes',
+                                           java_class_str])
         out_str_list = out_str.split('\n')[:-1] # remove trailing \n
         if out_str_list[0] != java_class_str:
             raise InteropTestError('JmsSenderShim._s_get_java_obj_binary(): Call to JavaObjToBytes failed\n%s' %
@@ -254,40 +256,40 @@ class JmsHdrsPropsTestSender(MessagingHandler):
         if test_value_type == 'boolean':
             body_list = [test_value == 'True']
         elif test_value_type == 'byte':
-            body_list = [byte(int(test_value, 16))]
+            body_list = [proton.byte(int(test_value, 16))]
         elif test_value_type == 'bytes':
             body_list = [test_value.encode('utf-8')]
         elif test_value_type == 'char':
-            body_list = [char(test_value)]
+            body_list = [proton.char(test_value)]
         elif test_value_type == 'double':
-            body_list = [unpack('!d', test_value[2:].decode('hex'))[0]]
+            body_list = [struct.unpack('!d', test_value[2:].decode('hex'))[0]]
         elif test_value_type == 'float':
-            body_list = [float32(unpack('!f', test_value[2:].decode('hex'))[0])]
+            body_list = [proton.float32(struct.unpack('!f', test_value[2:].decode('hex'))[0])]
         elif test_value_type == 'int':
-            body_list = [int32(int(test_value, 16))]
+            body_list = [proton.int32(int(test_value, 16))]
         elif test_value_type == 'long':
-            body_list = [_compat._long(test_value, 16)]
+            body_list = [_compat.long(test_value, 16)]
         elif test_value_type == 'short':
-            body_list = [short(int(test_value, 16))]
+            body_list = [proton.short(int(test_value, 16))]
         elif test_value_type == 'string':
             body_list = [test_value]
         else:
             raise InteropTestError('JmsSenderShim._create_jms_streammessage: Unknown or unsupported subtype "%s"' %
                                    test_value_type)
-        return Message(id=(self.sent+1),
-                       body=body_list,
-                       inferred=True,
-                       annotations=TestTypeMap.merge_dicts(create_annotation('JMS_STREAMMESSAGE_TYPE'),
-                                                           hdr_annotations),
-                       **hdr_kwargs)
+        return proton.Message(id=(self.sent+1),
+                              body=body_list,
+                              inferred=True,
+                              annotations=TestTypeMap.merge_dicts(create_annotation('JMS_STREAMMESSAGE_TYPE'),
+                                                                  hdr_annotations),
+                              **hdr_kwargs)
 
     def _create_jms_textmessage(self, test_value_text, hdr_kwargs, hdr_annotations):
         """Create a JMS text message"""
-        return Message(id=(self.sent+1),
-                       body=_compat._unicode(test_value_text),
-                       annotations=TestTypeMap.merge_dicts(create_annotation('JMS_TEXTMESSAGE_TYPE'),
-                                                           hdr_annotations),
-                       **hdr_kwargs)
+        return proton.Message(id=(self.sent+1),
+                              body=_compat.unicode(test_value_text),
+                              annotations=TestTypeMap.merge_dicts(create_annotation('JMS_TEXTMESSAGE_TYPE'),
+                                                                  hdr_annotations),
+                              **hdr_kwargs)
 
     def _get_jms_message_header_kwargs(self):
         hdr_kwargs = {}
@@ -312,14 +314,14 @@ class JmsHdrsPropsTestSender(MessagingHandler):
                     raise InteropTestError('JmsSenderShim._get_jms_message_header_kwargs(): ' +
                                            'JMS_CORRELATIONID_HEADER requires value type "string" or "bytes", ' +
                                            'type "%s" found' % value_type)
-                hdr_annotations[symbol(u'x-opt-app-correlation-id')] = True
+                hdr_annotations[proton.symbol(u'x-opt-app-correlation-id')] = True
             elif jms_header == 'JMS_REPLYTO_HEADER':
                 if value_type == 'queue':
                     hdr_kwargs['reply_to'] = value
-                    hdr_annotations[symbol(u'x-opt-jms-reply-to')] = byte(0)
+                    hdr_annotations[proton.symbol(u'x-opt-jms-reply-to')] = proton.byte(0)
                 elif value_type == 'topic':
                     hdr_kwargs['reply_to'] = value
-                    hdr_annotations[symbol(u'x-opt-jms-reply-to')] = byte(1)
+                    hdr_annotations[proton.symbol(u'x-opt-jms-reply-to')] = proton.byte(1)
                 elif value_type == 'temp_queue' or value_type == 'temp_topic':
                     raise InteropTestError('JmsSenderShim._get_jms_message_header_kwargs(): ' +
                                            'JMS_REPLYTO_HEADER type "temp_queue" or "temp_topic" not handled')
@@ -343,22 +345,30 @@ class JmsHdrsPropsTestSender(MessagingHandler):
             if value_type == 'boolean':
                 message.properties[property_name] = value == 'True'
             elif value_type == 'byte':
-                message.properties[property_name] = byte(int(value, 16))
+                message.properties[property_name] = proton.byte(int(value, 16))
             elif value_type == 'double':
-                message.properties[property_name] = unpack('!d', _compat._decode_hex(value[2:]))[0]
+                message.properties[property_name] = struct.unpack('!d', _compat.decode_hex(value[2:]))[0]
             elif value_type == 'float':
-                message.properties[property_name] = float32(unpack('!f', _compat._decode_hex(value[2:]))[0])
+                message.properties[property_name] = proton.float32(struct.unpack('!f',
+                                                                                 _compat.decode_hex(value[2:]))[0])
             elif value_type == 'int':
-                message.properties[property_name] = int32(int(value, 16))
+                message.properties[property_name] = proton.int32(int(value, 16))
             elif value_type == 'long':
-                message.properties[property_name] = _compat._long(value, 16)
+                message.properties[property_name] = _compat.long(value, 16)
             elif value_type == 'short':
-                message.properties[property_name] = short(int(value, 16))
+                message.properties[property_name] = proton.short(int(value, 16))
             elif value_type == 'string':
                 message.properties[property_name] = value
             else:
                 raise InteropTestError('JmsSenderShim._add_jms_message_properties: ' +
                                        'Unknown or unhandled message property type ?%s"' % value_type)
+
+    @staticmethod
+    def signal_handler(signal_number, _):
+        """Signal handler"""
+        if signal_number in [signal.SIGTERM, signal.SIGINT]:
+            print('Sender: received signal %d, terminating' % signal_number)
+            sys.exit(1)
 
 
 
@@ -370,10 +380,11 @@ class JmsHdrsPropsTestSender(MessagingHandler):
 #print('#### sys.argv=%s' % sys.argv)
 #print('>>> test_values=%s' % loads(sys.argv[4]))
 try:
-    SENDER = JmsHdrsPropsTestSender(sys.argv[1], sys.argv[2], sys.argv[3], loads(sys.argv[4]))
-    Container(SENDER).run()
+    SENDER = JmsHdrsPropsTestSender(sys.argv[1], sys.argv[2], sys.argv[3], json.loads(sys.argv[4]))
+    proton.reactor.Container(SENDER).run()
 except KeyboardInterrupt:
     pass
 except Exception as exc:
     print(os.path.basename(sys.argv[0]), 'EXCEPTION:', exc)
-    print(format_exc())
+    print(traceback.format_exc())
+    sys.exit(1)

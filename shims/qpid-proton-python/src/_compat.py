@@ -29,26 +29,27 @@ import types
 IS_PY3 = sys.version_info[0] == 3
 
 if IS_PY3:
-    def _decode_hex(s):
+    def decode_hex(s):
         return bytes.fromhex(s)
-    def _letters():
+    def letters():
         return string.ascii_letters
-    def _long(i, r):
+    def long(i, r):
         return int(i, r)
-    def _unichr(i):
-        return chr(i)       
-    def _unicode(i):
+    def unichr(i):
+        return chr(i)
+    def unicode(i):
         return str(i)
 
 else:
-    def _decode_hex(s):
-        return s.decode('hex')
-    def _letters():
-        return string.letters
-    def _long(i, r):
-        return long(i, r)
-    def _unichr(i):
-        return unichr(i)       
-    def _unicode(i):
-        return unicode(i)
+    import __builtin__
 
+    def decode_hex(s):
+        return s.decode('hex')
+    def letters():
+        return string.letters
+    def long(i, r):
+        return __builtin__.long(i, r)
+    def unichr(i):
+        return __builtin__.unichr(i)
+    def unicode(i):
+        return __builtin__.unicode(i)

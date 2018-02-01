@@ -23,23 +23,20 @@ AMQP type test receiver shim for qpid-interop-test
 # under the License.
 #
 
-# Issues:
-# * Capturing errors from client or broker
-
-from json import dumps
+import json
 import os.path
-#from string import digits, letters, punctuation
+import signal
 import string
-from struct import pack, unpack
+import struct
 import sys
-from traceback import format_exc
+import traceback
 
-from proton.handlers import MessagingHandler
-from proton.reactor import Container
-
+import proton
+import proton.handlers
+import proton.reactor
 import _compat
 
-class AmqpTypesTestReceiver(MessagingHandler):
+class AmqpTypesTestReceiver(proton.handlers.MessagingHandler):
     """
     Reciver shim for AMQP types test
     This shim receives the number of messages supplied on the command-line and checks that they contain message
@@ -53,6 +50,8 @@ class AmqpTypesTestReceiver(MessagingHandler):
         self.amqp_type = amqp_type
         self.expected = int(num_expected_messages_str)
         self.received = 0
+        signal.signal(signal.SIGINT, self.signal_handler)
+        signal.signal(signal.SIGTERM, self.signal_handler)
 
     def get_received_value_list(self):
         """Return the received list of AMQP values"""
@@ -88,9 +87,11 @@ class AmqpTypesTestReceiver(MessagingHandler):
                 else:
                     self.received_value_list.append(hex_str)
             elif self.amqp_type == 'float':
-                self.received_value_list.append('0x%08x' % unpack('!L', pack('!f', event.message.body))[0])
+                self.received_value_list.append('0x%08x' % struct.unpack('!L',
+                                                                         struct.pack('!f', event.message.body))[0])
             elif self.amqp_type == 'double':
-                self.received_value_list.append('0x%016x' % unpack('!Q', pack('!d', event.message.body))[0])
+                self.received_value_list.append('0x%016x' % struct.unpack('!Q',
+                                                                          struct.pack('!d', event.message.body))[0])
             elif self.amqp_type == 'decimal32':
                 self.received_value_list.append('0x%08x' % event.message.body)
             elif self.amqp_type == 'decimal64':
@@ -99,7 +100,7 @@ class AmqpTypesTestReceiver(MessagingHandler):
                 self.received_value_list.append('0x' + ''.join(['%02x' % ord(c) for c in event.message.body]).strip())
             elif self.amqp_type == 'char':
                 if ord(event.message.body) < 0x80 and event.message.body in \
-                   string.digits + _compat._letters + string.punctuation + " ":
+                   string.digits + _compat.letters + string.punctuation + " ":
                     self.received_value_list.append(event.message.body)
                 else:
                     self.received_value_list.append(hex(ord(event.message.body)))
@@ -119,6 +120,15 @@ class AmqpTypesTestReceiver(MessagingHandler):
             event.receiver.close()
             event.connection.close()
 
+    @staticmethod
+    def signal_handler(signal_number, _):
+        """Signal handler"""
+        if signal_number in [signal.SIGTERM, signal.SIGINT]:
+            print('Receiver: received signal %d, terminating' % signal_number)
+            sys.exit(1)
+
+
+
 # --- main ---
 # Args: 1: Broker address (ip-addr:port)
 #       2: Queue name
@@ -126,11 +136,12 @@ class AmqpTypesTestReceiver(MessagingHandler):
 #       4: Expected number of test values to receive
 try:
     RECEIVER = AmqpTypesTestReceiver(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
-    Container(RECEIVER).run()
+    proton.reactor.Container(RECEIVER).run()
     print(sys.argv[3])
-    print(dumps(RECEIVER.get_received_value_list()))
+    print(json.dumps(RECEIVER.get_received_value_list()))
 except KeyboardInterrupt:
     pass
 except Exception as exc:
     print(os.path.basename(sys.argv[0]), 'EXCEPTION', exc)
-    print(format_exc())
+    print(traceback.format_exc())
+    sys.exit(1)

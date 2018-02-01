@@ -23,6 +23,7 @@ Module to test AMQP messages with large content (bodies and headers/properties) 
 # under the License.
 #
 
+import signal
 import sys
 import unittest
 
@@ -32,6 +33,7 @@ from json import dumps
 import qpid_interop_test.broker_properties
 import qpid_interop_test.qit_common
 import qpid_interop_test.shims
+from qpid_interop_test.interop_test_errors import InteropTestError
 
 
 class AmqpVariableSizeTypes(qpid_interop_test.qit_common.QitTestTypeMap):
@@ -88,28 +90,27 @@ class AmqpLargeContentTestCase(qpid_interop_test.qit_common.QitTestCase):
             # Start the receive shim first (for queueless brokers/dispatch)
             receiver = receive_shim.create_receiver(receiver_addr, queue_name, amqp_type,
                                                     str(self.get_num_messages(amqp_type, test_value_list)))
-            receiver.start()
 
             # Start the send shim
-            sender = send_shim.create_sender(sender_addr, queue_name, amqp_type,
-                                             dumps(test_value_list))
-            sender.start()
+            sender = send_shim.create_sender(sender_addr, queue_name, amqp_type, dumps(test_value_list))
 
-            # Wait for both shims to finish
-            sender.join_or_kill(qpid_interop_test.shims.THREAD_TIMEOUT)
-            receiver.join_or_kill(qpid_interop_test.shims.THREAD_TIMEOUT)
-
-            # Process return string from sender
-            send_obj = sender.get_return_object()
+            # Wait for sender, process return string
+            try:
+                send_obj = sender.wait_for_completion()
+            except KeyboardInterrupt as err:
+                receiver.send_signal(signal.SIGINT)
+                raise err
             if send_obj is not None:
                 if isinstance(send_obj, str):
                     if send_obj: # len > 0
-                        self.fail('Send shim \'%s\':\n%s' % (send_shim.NAME, send_obj))
+                        receiver.send_signal(signal.SIGINT)
+                        raise InteropTestError('Send shim \'%s\':\n%s' % (send_shim.NAME, send_obj))
                 else:
-                    self.fail('Sender error: %s' % str(send_obj))
+                    receiver.send_signal(signal.SIGINT)
+                    raise InteropTestError('Send shim \'%s\':\n%s' % (send_shim.NAME, send_obj))
 
-            # Process return string from receiver
-            receive_obj = receiver.get_return_object()
+            # Wait for receiver, process return string
+            receive_obj = receiver.wait_for_completion()
             if isinstance(receive_obj, tuple):
                 if len(receive_obj) == 2:
                     return_amqp_type, return_test_value_list = receive_obj
@@ -119,9 +120,10 @@ class AmqpLargeContentTestCase(qpid_interop_test.qit_common.QitTestCase):
                     self.assertEqual(return_test_value_list, test_value_list, msg='\n    sent:%s\nreceived:%s' % \
                                      (test_value_list, return_test_value_list))
                 else:
-                    self.fail('Received incorrect tuple format: %s' % str(receive_obj))
+                    raise InteropTestError('Receive shim \'%s\':\n%s' % (receive_shim.NAME, receive_obj))
             else:
-                self.fail('Received non-tuple: %s' % str(receive_obj))
+                raise InteropTestError('Receive shim \'%s\':\n%s' % (receive_shim.NAME, receive_obj))
+
 
     @staticmethod
     def get_num_messages(amqp_type, test_value_list):

@@ -207,6 +207,10 @@ class QitTestCase(unittest.TestCase):
         super(QitTestCase, self).__init__(methodName)
         self.duration = 0
 
+    def name(self):
+        """Return test name"""
+        return self._testMethodName
+
     def setUp(self):
         """Called when test starts"""
         self.start_time = time()
@@ -215,9 +219,13 @@ class QitTestCase(unittest.TestCase):
         """Called when test finishes"""
         self.duration = time() - self.start_time
 
-    def name(self):
-        """Return test name"""
-        return self._testMethodName
+
+#class QitTestRunner(unittest.TextTestRunner):
+#    """..."""
+#    def run(self, test):
+#        result = self._makeResult()
+#        unittest.registerResult(result)
+#        test(result)
 
 
 class QitTest(object):
@@ -236,6 +244,7 @@ class QitTest(object):
         self._generate_tests()
         self.test_result = None
         self.duration = 0
+#        unittest.installHandler()
 
     def get_result(self):
         """Get success of test run, True = success, False = failure/error"""
@@ -246,6 +255,7 @@ class QitTest(object):
     def run_test(self):
         """Run the test"""
         start_time = time()
+#        self.test_result = QitTestRunner(verbosity=2).run(self.test_suite)
         self.test_result = unittest.TextTestRunner(verbosity=2).run(self.test_suite)
         self.duration = time() - start_time
 

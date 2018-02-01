@@ -23,20 +23,21 @@ JMS receiver shim for qpid-interop-test
 # under the License.
 #
 
-from json import dumps, loads
-from struct import pack, unpack
-from subprocess import check_output
+import json
+import signal
+import struct
+import subprocess
 import sys
-from traceback import format_exc
+import traceback
 
-from proton import byte
-from proton.handlers import MessagingHandler
-from proton.reactor import Container
+import proton
+import proton.handlers
+import proton.reactor
 from qpid_interop_test.interop_test_errors import InteropTestError
 from qpid_interop_test.jms_types import QPID_JMS_TYPE_ANNOTATION_NAME
 import _compat
 
-class JmsMessagesTestReceiver(MessagingHandler):
+class JmsMessagesTestReceiver(proton.handlers.MessagingHandler):
     """
     Receiver shim: This shim receives JMS messages sent by the Sender shim and prints the contents of the received
     messages onto the terminal in JSON format for retrieval by the test harness. The JMS messages type and, where
@@ -55,6 +56,8 @@ class JmsMessagesTestReceiver(MessagingHandler):
         self.received_value_map = {}
         self.current_subtype = None
         self.current_subtype_msg_list = None
+        signal.signal(signal.SIGINT, self.signal_handler)
+        signal.signal(signal.SIGTERM, self.signal_handler)
 
     def get_received_value_map(self):
         """Return the collected message values received"""
@@ -122,7 +125,7 @@ class JmsMessagesTestReceiver(MessagingHandler):
     def _receive_jms_message(self, message):
         """Receives a JMS message (without a body)"""
         assert self.jms_msg_type == 'JMS_MESSAGE_TYPE'
-        assert message.annotations[QPID_JMS_TYPE_ANNOTATION_NAME] == byte(0)
+        assert message.annotations[QPID_JMS_TYPE_ANNOTATION_NAME] == proton.byte(0)
         if message.body is not None:
             raise InteropTestError('_receive_jms_message: Invalid body for type JMS_MESSAGE_TYPE: %s' %
                                    str(message.body))
@@ -131,7 +134,7 @@ class JmsMessagesTestReceiver(MessagingHandler):
     def _receive_jms_bytesmessage(self, message):
         """Receives a JMS bytes message"""
         assert self.jms_msg_type == 'JMS_BYTESMESSAGE_TYPE'
-        assert message.annotations[QPID_JMS_TYPE_ANNOTATION_NAME] == byte(3)
+        assert message.annotations[QPID_JMS_TYPE_ANNOTATION_NAME] == proton.byte(3)
         if self.current_subtype == 'boolean':
             if message.body == b'\x00':
                 return 'False'
@@ -140,30 +143,29 @@ class JmsMessagesTestReceiver(MessagingHandler):
             raise InteropTestError('_receive_jms_bytesmessage: Invalid encoding for subtype boolean: %s' %
                                    str(message.body))
         if self.current_subtype == 'byte':
-            return hex(unpack('b', message.body)[0])
+            return hex(struct.unpack('b', message.body)[0])
         if self.current_subtype == 'bytes':
             return message.body.decode('utf-8')
         if self.current_subtype == 'char':
             if len(message.body) == 2: # format 'a' or '\xNN'
                 if _compat.IS_PY3:
                     return chr(message.body[1]) # strip leading '\x00' char
-                else:
-                    return str(message.body[1]) # strip leading '\x00' char
+                return str(message.body[1]) # strip leading '\x00' char
             raise InteropTestError('Unexpected string length for type char: %d' % len(message.body))
         if self.current_subtype == 'double':
-            return '0x%016x' % unpack('!Q', message.body)[0]
+            return '0x%016x' % struct.unpack('!Q', message.body)[0]
         if self.current_subtype == 'float':
-            return '0x%08x' % unpack('!L', message.body)[0]
+            return '0x%08x' % struct.unpack('!L', message.body)[0]
         if self.current_subtype == 'int':
-            return hex(unpack('!i', message.body)[0])
+            return hex(struct.unpack('!i', message.body)[0])
         if self.current_subtype == 'long':
-            return hex(unpack('!q', message.body)[0])
+            return hex(struct.unpack('!q', message.body)[0])
         if self.current_subtype == 'short':
-            return hex(unpack('!h', message.body)[0])
+            return hex(struct.unpack('!h', message.body)[0])
         if self.current_subtype == 'string':
             # NOTE: first 2 bytes are string length, must be present
             if len(message.body) >= 2:
-                str_len = unpack('!H', message.body[:2])[0]
+                str_len = struct.unpack('!H', message.body[:2])[0]
                 str_body = message.body[2:].decode('utf-8')
                 if len(str_body) != str_len:
                     raise InteropTestError('String length mismatch: size=%d, but len(\'%s\')=%d' %
@@ -178,7 +180,7 @@ class JmsMessagesTestReceiver(MessagingHandler):
     def _recieve_jms_mapmessage(self, message):
         """Receives a JMS map message"""
         assert self.jms_msg_type == 'JMS_MAPMESSAGE_TYPE'
-        assert message.annotations[QPID_JMS_TYPE_ANNOTATION_NAME] == byte(2)
+        assert message.annotations[QPID_JMS_TYPE_ANNOTATION_NAME] == proton.byte(2)
         key, value = list(message.body.items())[0]
         assert key[:-3] == self.current_subtype
         if self.current_subtype == 'boolean':
@@ -190,9 +192,9 @@ class JmsMessagesTestReceiver(MessagingHandler):
         if self.current_subtype == 'char':
             return str(value)
         if self.current_subtype == 'double':
-            return '0x%016x' % unpack('!Q', pack('!d', value))[0]
+            return '0x%016x' % struct.unpack('!Q', struct.pack('!d', value))[0]
         if self.current_subtype == 'float':
-            return '0x%08x' % unpack('!L', pack('!f', value))[0]
+            return '0x%08x' % struct.unpack('!L', struct.pack('!f', value))[0]
         if self.current_subtype == 'int':
             return hex(value)
         if self.current_subtype == 'long':
@@ -207,7 +209,7 @@ class JmsMessagesTestReceiver(MessagingHandler):
     def _recieve_jms_objectmessage(self, message):
         """Receives a JMS Object message"""
         assert self.jms_msg_type == 'JMS_OBJECTMESSAGE_TYPE'
-        assert message.annotations[QPID_JMS_TYPE_ANNOTATION_NAME] == byte(1)
+        assert message.annotations[QPID_JMS_TYPE_ANNOTATION_NAME] == proton.byte(1)
         return self._get_java_obj(message.body)
 
     def _get_java_obj(self, java_obj_bytes):
@@ -219,11 +221,11 @@ class JmsMessagesTestReceiver(MessagingHandler):
         returns: string containing Java class value as returned by the toString() method
         """
         java_obj_bytes_str = ''.join(["%02x" % ord(x) for x in java_obj_bytes]).strip()
-        out_str = check_output(['java',
-                                '-cp',
-                                'target/JavaObjUtils.jar',
-                                'org.apache.qpid.interop_test.obj_util.BytesToJavaObj',
-                                java_obj_bytes_str])
+        out_str = subprocess.check_output(['java',
+                                           '-cp',
+                                           'target/JavaObjUtils.jar',
+                                           'org.apache.qpid.interop_test.obj_util.BytesToJavaObj',
+                                           java_obj_bytes_str])
         out_str_list = out_str.split('\n')[:-1] # remove trailing \n
         if len(out_str_list) > 1:
             raise InteropTestError('Unexpected return from JavaObjUtils: %s' % out_str)
@@ -240,7 +242,7 @@ class JmsMessagesTestReceiver(MessagingHandler):
     def _receive_jms_streammessage(self, message):
         """Receives a JMS stream message"""
         assert self.jms_msg_type == 'JMS_STREAMMESSAGE_TYPE'
-        assert message.annotations[QPID_JMS_TYPE_ANNOTATION_NAME] == byte(4)
+        assert message.annotations[QPID_JMS_TYPE_ANNOTATION_NAME] == proton.byte(4)
         # Every message is a list with one item [value]
         assert len(message.body) == 1
         value = message.body[0]
@@ -253,9 +255,9 @@ class JmsMessagesTestReceiver(MessagingHandler):
         if self.current_subtype == 'char':
             return str(value)
         if self.current_subtype == 'double':
-            return '0x%016x' % unpack('!Q', pack('!d', value))[0]
+            return '0x%016x' % struct.unpack('!Q', struct.pack('!d', value))[0]
         if self.current_subtype == 'float':
-            return '0x%08x' % unpack('!L', pack('!f', value))[0]
+            return '0x%08x' % struct.unpack('!L', struct.pack('!f', value))[0]
         if self.current_subtype == 'int':
             return hex(value)
         if self.current_subtype == 'long':
@@ -271,8 +273,15 @@ class JmsMessagesTestReceiver(MessagingHandler):
     def _receive_jms_textmessage(self, message):
         """Receives a JMS text message"""
         assert self.jms_msg_type == 'JMS_TEXTMESSAGE_TYPE'
-        assert message.annotations[QPID_JMS_TYPE_ANNOTATION_NAME] == byte(5)
+        assert message.annotations[QPID_JMS_TYPE_ANNOTATION_NAME] == proton.byte(5)
         return message.body
+
+    @staticmethod
+    def signal_handler(signal_number, _):
+        """Signal handler"""
+        if signal_number in [signal.SIGTERM, signal.SIGINT]:
+            print('Receiver: received signal %d, terminating' % signal_number)
+            sys.exit(1)
 
 
 
@@ -283,12 +292,13 @@ class JmsMessagesTestReceiver(MessagingHandler):
 #       4: JSON Test parameters containing 2 maps: [testValuesMap, flagMap]
 #print('#### sys.argv=%s' % sys.argv)
 try:
-    RECEIVER = JmsMessagesTestReceiver(sys.argv[1], sys.argv[2], sys.argv[3], loads(sys.argv[4]))
-    Container(RECEIVER).run()
+    RECEIVER = JmsMessagesTestReceiver(sys.argv[1], sys.argv[2], sys.argv[3], json.loads(sys.argv[4]))
+    proton.reactor.Container(RECEIVER).run()
     print(sys.argv[3])
-    print(dumps(RECEIVER.get_received_value_map()))
+    print(json.dumps(RECEIVER.get_received_value_map()))
 except KeyboardInterrupt:
     pass
 except Exception as exc:
     print('jms-receiver-shim EXCEPTION:', exc)
-    print(format_exc())
+    print(traceback.format_exc())
+    sys.exit(1)
