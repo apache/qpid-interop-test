@@ -316,7 +316,7 @@ class AmqpTypeTestCase(qpid_interop_test.qit_common.QitTestCase):
             # TODO: When Artemis can support it (in the next release), revert the queue name back to 'qpid-interop...'
             # Currently, Artemis only supports auto-create queues for JMS, and the queue name must be prefixed by
             # 'jms.queue.'
-            queue_name = 'jms.queue.qpid-interop.%s' % test_name
+            queue_name = 'qit.%s' % test_name
 
             # Start the receive shim first (for queueless brokers/dispatch)
             receiver = receive_shim.create_receiver(receiver_addr, queue_name, amqp_type, str(len(test_value_list)))

@@ -84,7 +84,7 @@ class AmqpLargeContentTestCase(qpid_interop_test.qit_common.QitTestCase):
             # Currently, Artemis only supports auto-create queues for JMS, and the queue name must be prefixed by
             # 'jms.queue.'
             #queue_name = 'qpid-interop.simple_type_tests.%s.%s.%s' % (amqp_type, send_shim.NAME, receive_shim.NAME)
-            queue_name = 'jms.queue.qpid-interop.amqp_large_content_test.%s.%s.%s' % \
+            queue_name = 'qit.amqp_large_content_test.%s.%s.%s' % \
                          (amqp_type, send_shim.NAME, receive_shim.NAME)
 
             # Start the receive shim first (for queueless brokers/dispatch)

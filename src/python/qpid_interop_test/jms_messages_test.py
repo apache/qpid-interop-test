@@ -199,7 +199,7 @@ class JmsMessageTypeTestCase(qpid_interop_test.qit_common.QitTestCase):
         Run this test by invoking the shim send method to send the test values, followed by the shim receive method
         to receive the values. Finally, compare the sent values with the received values.
         """
-        queue_name = 'jms.queue.qpid-interop.jms_message_type_tests.%s.%s.%s' % (jms_message_type, send_shim.NAME,
+        queue_name = 'qit.jms_messages_test.%s.%s.%s' % (jms_message_type, send_shim.NAME,
                                                                                  receive_shim.NAME)
 
         # First create a map containing the numbers of expected mesasges for each JMS message type

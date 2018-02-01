@@ -35,6 +35,8 @@ if IS_PY3:
         return string.ascii_letters
     def long(i, r):
         return int(i, r)
+    def byte_char_ord(c):
+        return c
     def unichr(i):
         return chr(i)
     def unicode(i):
@@ -49,6 +51,8 @@ else:
         return string.letters
     def long(i, r):
         return __builtin__.long(i, r)
+    def byte_char_ord(c):
+        return __builtin__.ord(c)
     def unichr(i):
         return __builtin__.unichr(i)
     def unicode(i):

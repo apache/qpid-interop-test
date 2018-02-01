@@ -277,7 +277,7 @@ class JmsMessageHdrsPropsTestCase(qpid_interop_test.qit_common.QitTestCase):
         Run this test by invoking the shim send method to send the test values, followed by the shim receive method
         to receive the values. Finally, compare the sent values with the received values.
         """
-        queue_name = 'jms.queue.qpid-interop.jms_message_hdrs_props_tests.%s' % queue_name_fragment
+        queue_name = 'qit.jms_hdrs_props_test.%s' % queue_name_fragment
 
         # First create a map containing the numbers of expected mesasges for each JMS message type
         num_test_values_map = {}

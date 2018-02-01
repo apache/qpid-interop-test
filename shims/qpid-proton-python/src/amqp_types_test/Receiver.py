@@ -97,10 +97,11 @@ class AmqpTypesTestReceiver(proton.handlers.MessagingHandler):
             elif self.amqp_type == 'decimal64':
                 self.received_value_list.append('0x%016x' % event.message.body)
             elif self.amqp_type == 'decimal128':
-                self.received_value_list.append('0x' + ''.join(['%02x' % ord(c) for c in event.message.body]).strip())
+                self.received_value_list.append('0x' + ''.join(['%02x' % _compat.byte_char_ord(c) \
+                                                                for c in event.message.body]).strip())
             elif self.amqp_type == 'char':
                 if ord(event.message.body) < 0x80 and event.message.body in \
-                   string.digits + _compat.letters + string.punctuation + " ":
+                   string.digits + _compat.letters() + string.punctuation + ' ':
                     self.received_value_list.append(event.message.body)
                 else:
                     self.received_value_list.append(hex(ord(event.message.body)))
