@@ -56,7 +56,7 @@ class AmqpTypesTestSender(proton.handlers.MessagingHandler):
 
     def on_start(self, event):
         """Event callback for when the client starts"""
-        connection = event.container.connect(url=self.broker_url, sasl_enabled=False)
+        connection = event.container.connect(url=self.broker_url, sasl_enabled=False, reconnect=False)
         event.container.create_sender(connection, target=self.queue_name)
 
     def on_sendable(self, event):
@@ -140,6 +140,9 @@ class AmqpTypesTestSender(proton.handlers.MessagingHandler):
     def on_disconnected(self, event):
         """Event callback for when the broker disconnects with the client"""
         self.sent = self.confirmed
+
+    def on_transport_error(self, event):
+        print('Sender: Broker not found at %s' % self.broker_url)
 
     @staticmethod
     def signal_handler(signal_number, _):

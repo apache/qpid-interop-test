@@ -46,7 +46,7 @@ function Receiver(brokerAddr, brokerPort, queueName, amqpType, numTestValues) {
     this.receivedValueList = [];
     this.container = require('rhea');
 
-    this.container.connect({'host':brokerAddr, 'port':brokerPort}).open_receiver(queueName);
+    this.container.connect({'host':brokerAddr, 'port':brokerPort, 'reconnect':false}).open_receiver(queueName);
 
     this.processMessage = function(msgBody) {
 //        console.log("processMessage: amqpType=" + this.amqpType + "; msgBody=" + msgBody);
@@ -185,6 +185,10 @@ function Receiver(brokerAddr, brokerPort, queueName, amqpType, numTestValues) {
                 receiver.printResult();
             }
         }
+    });
+    
+    this.container.on('disconnected', function(context){
+    	console.error('Unable to connet to broker')
     });
 }
 

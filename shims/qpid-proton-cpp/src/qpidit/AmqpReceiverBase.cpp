@@ -22,8 +22,10 @@
 #include "qpidit/AmqpReceiverBase.hpp"
 
 #include <sstream>
+#include <proton/connection_options.hpp>
 #include <proton/container.hpp>
 #include <proton/receiver.hpp>
+#include <proton/reconnect_options.hpp>
 #include <proton/thread_safe.hpp> // for proton::returned<>
 
 namespace qpidit
@@ -40,7 +42,11 @@ namespace qpidit
     void AmqpReceiverBase::on_container_start(proton::container &c) {
         std::ostringstream oss;
         oss << _brokerAddr << "/" << _queueName;
-        c.open_receiver(oss.str());
+        proton::reconnect_options ro;
+        ro.max_attempts(2);
+        proton::connection_options co;
+        co.reconnect(ro);
+        c.open_receiver(oss.str(), co);
     }
 
 } // namespace qpidit

@@ -78,7 +78,7 @@ class JmsHdrsPropsTestReceiver(proton.handlers.MessagingHandler):
 
     def on_start(self, event):
         """Event callback for when the client starts"""
-        connection = event.container.connect(url=self.broker_url, sasl_enabled=False)
+        connection = event.container.connect(url=self.broker_url, sasl_enabled=False, reconnect=False)
         event.container.create_receiver(connection, source=self.queue_name)
 
     def on_message(self, event):
@@ -385,6 +385,9 @@ class JmsHdrsPropsTestReceiver(proton.handlers.MessagingHandler):
                         self.jms_property_map[jms_property_name] = {'string': str(value)}
                     else:
                         pass # Ignore any other properties, brokers can add them and we don't know what they may be
+
+    def on_transport_error(self, event):
+        print('Receiver: Broker not found at %s' % self.broker_url)
 
     @staticmethod
     def signal_handler(signal_number, _):

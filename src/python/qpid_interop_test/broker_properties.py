@@ -22,10 +22,11 @@ gets the broker connection properties so as to identify the broker.
 # under the License.
 #
 
-from proton.handlers import MessagingHandler
-from proton.reactor import Container
+import proton.handlers
+import proton.reactor
+from qpid_interop_test.interop_test_errors import InteropTestError
 
-class Client(MessagingHandler):
+class Client(proton.handlers.MessagingHandler):
     """
     Client to connect to broker and collect connection properties, used to identify the test broker
     """
@@ -36,7 +37,7 @@ class Client(MessagingHandler):
 
     def on_start(self, event):
         """Event loop start"""
-        event.container.connect(url=self.url, sasl_enabled=False)
+        event.container.connect(url=self.url, sasl_enabled=False, reconnect=False)
 
     def on_connection_remote_open(self, event):
         """Callback for remote connection open"""
@@ -47,9 +48,11 @@ class Client(MessagingHandler):
         """Return the connection properties"""
         return self.remote_properties
 
+    def on_transport_error(self, event):
+        raise InteropTestError('ERROR: broker not found at %s' % self.url)
 
 def get_broker_properties(broker_url):
     """Start client, then return its connection properties"""
     msg_handler = Client(broker_url)
-    Container(msg_handler).run()
+    proton.reactor.Container(msg_handler).run()
     return msg_handler.get_connection_properties()

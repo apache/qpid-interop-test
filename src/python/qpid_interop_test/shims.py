@@ -75,13 +75,13 @@ class ShimProcess(subprocess.Popen):
 class Sender(ShimProcess):
     """Sender shim process"""
     def __init__(self, params, python3_flag, proc_name='Sender'):
-        #print('\n>>>SNDR>>> %s python3_flag=%s' % (params, python3_flag))
+        print('\n>>>SNDR>>> %s python3_flag=%s' % (params, python3_flag))
         super(Sender, self).__init__(params, python3_flag, proc_name)
 
 class Receiver(ShimProcess):
     """Receiver shim process"""
     def __init__(self, params, python3_flag, proc_name='Receiver'):
-        #print('\n>>>RCVR>>> %s python3_flag=%s' % (params, python3_flag))
+        print('\n>>>RCVR>>> %s python3_flag=%s' % (params, python3_flag))
         super(Receiver, self).__init__(params, python3_flag, proc_name)
 
 class Shim(object):

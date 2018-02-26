@@ -71,7 +71,7 @@ function Sender(brokerAddr, brokerPort, queueName, amqpType, testValues) {
     this.total = testValues.length;
     this.container = require('rhea');
 
-    this.connection = this.container.connect({'host':brokerAddr, 'port':brokerPort}); //.open_sender(queueName);
+    this.connection = this.container.connect({'host':brokerAddr, 'port':brokerPort, 'reconnect':false}); //.open_sender(queueName);
     this.connection.open_sender(queueName);
 
     this.createMessage = function(testValue) {
@@ -331,6 +331,7 @@ function Sender(brokerAddr, brokerPort, queueName, amqpType, testValues) {
 
     this.container.on('disconnected', function (context) {
         sender.sent = sender.confirmed;
+        console.error('Unable to connet to broker')
     });
 }
 

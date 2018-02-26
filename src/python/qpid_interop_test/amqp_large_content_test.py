@@ -217,8 +217,12 @@ class AmqpLargeContentTest(qpid_interop_test.qit_common.QitTest):
 #--- Main program start ---
 
 if __name__ == '__main__':
-    AMQP_LARGE_CONTENT_TEST = AmqpLargeContentTest()
-    AMQP_LARGE_CONTENT_TEST.run_test()
-    AMQP_LARGE_CONTENT_TEST.write_logs()
-    if not AMQP_LARGE_CONTENT_TEST.get_result():
-        sys.exit(1) # Errors or failures present
+    try:
+        AMQP_LARGE_CONTENT_TEST = AmqpLargeContentTest()
+        AMQP_LARGE_CONTENT_TEST.run_test()
+        AMQP_LARGE_CONTENT_TEST.write_logs()
+        if not AMQP_LARGE_CONTENT_TEST.get_result():
+            sys.exit(1) # Errors or failures present
+    except InteropTestError as err:
+        print(err)
+        sys.exit(1)

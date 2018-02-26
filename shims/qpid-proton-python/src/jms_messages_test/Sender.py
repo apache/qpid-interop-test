@@ -62,7 +62,7 @@ class JmsMessagesTestSender(proton.handlers.MessagingHandler):
 
     def on_start(self, event):
         """Event callback for when the client starts"""
-        connection = event.container.connect(url=self.broker_url, sasl_enabled=False)
+        connection = event.container.connect(url=self.broker_url, sasl_enabled=False, reconnect=False)
         event.container.create_sender(connection, target=self.queue_name)
 
     def on_sendable(self, event):
@@ -271,6 +271,9 @@ class JmsMessagesTestSender(proton.handlers.MessagingHandler):
         return proton.Message(id=(self.sent+1),
                               body=_compat.unicode(test_value_text),
                               annotations=create_annotation('JMS_TEXTMESSAGE_TYPE'))
+
+    def on_transport_error(self, event):
+        print('Sender: Broker not found at %s' % self.broker_url)
 
     @staticmethod
     def signal_handler(signal_number, _):

@@ -433,8 +433,12 @@ class AmqpTypesTest(qpid_interop_test.qit_common.QitTest):
 #--- Main program start ---
 
 if __name__ == '__main__':
-    AMQP_TYPES_TEST = AmqpTypesTest()
-    AMQP_TYPES_TEST.run_test()
-    AMQP_TYPES_TEST.write_logs()
-    if not AMQP_TYPES_TEST.get_result():
-        sys.exit(1) # Errors or failures present
+    try:
+        AMQP_TYPES_TEST = AmqpTypesTest()
+        AMQP_TYPES_TEST.run_test()
+        AMQP_TYPES_TEST.write_logs()
+        if not AMQP_TYPES_TEST.get_result():
+            sys.exit(1) # Errors or failures present
+    except InteropTestError as err:
+        print(err)
+        sys.exit(1)

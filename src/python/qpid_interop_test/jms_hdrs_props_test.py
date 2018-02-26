@@ -658,8 +658,12 @@ class JmsHdrsPropsTest(qpid_interop_test.qit_common.QitJmsTest):
 #--- Main program start ---
 
 if __name__ == '__main__':
-    JMS_MESSAGES_TEST = JmsHdrsPropsTest()
-    JMS_MESSAGES_TEST.run_test()
-    JMS_MESSAGES_TEST.write_logs()
-    if not JMS_MESSAGES_TEST.get_result():
-        sys.exit(1) # Errors or failures present
+    try:
+        JMS_MESSAGES_TEST = JmsHdrsPropsTest()
+        JMS_MESSAGES_TEST.run_test()
+        JMS_MESSAGES_TEST.write_logs()
+        if not JMS_MESSAGES_TEST.get_result():
+            sys.exit(1) # Errors or failures present
+    except InteropTestError as err:
+        print(err)
+        exit(1)

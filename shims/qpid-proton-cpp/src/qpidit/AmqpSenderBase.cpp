@@ -22,7 +22,9 @@
 #include "qpidit/AmqpSenderBase.hpp"
 
 #include <sstream>
+#include <proton/connection_options.hpp>
 #include <proton/container.hpp>
+#include <proton/reconnect_options.hpp>
 #include <proton/thread_safe.hpp>
 #include <proton/tracker.hpp>
 
@@ -44,7 +46,11 @@ namespace qpidit
     void AmqpSenderBase::on_container_start(proton::container &c) {
         std::ostringstream oss;
         oss << _brokerAddr << "/" << _queueName;
-        c.open_sender(oss.str());
+        proton::reconnect_options ro;
+        ro.max_attempts(2);
+        proton::connection_options co;
+        co.reconnect(ro);
+        c.open_sender(oss.str(), co);
     }
 
     void AmqpSenderBase::on_tracker_accept(proton::tracker &t) {

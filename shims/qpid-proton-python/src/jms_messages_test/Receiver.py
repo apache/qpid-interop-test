@@ -65,7 +65,7 @@ class JmsMessagesTestReceiver(proton.handlers.MessagingHandler):
 
     def on_start(self, event):
         """Event callback for when the client starts"""
-        connection = event.container.connect(url=self.broker_url, sasl_enabled=False)
+        connection = event.container.connect(url=self.broker_url, sasl_enabled=False, reconnect=False)
         event.container.create_receiver(connection, source=self.queue_name)
 
     def on_message(self, event):
@@ -275,6 +275,9 @@ class JmsMessagesTestReceiver(proton.handlers.MessagingHandler):
         assert self.jms_msg_type == 'JMS_TEXTMESSAGE_TYPE'
         assert message.annotations[QPID_JMS_TYPE_ANNOTATION_NAME] == proton.byte(5)
         return message.body
+
+    def on_transport_error(self, event):
+        print('Receiver: Broker not found at %s' % self.broker_url)
 
     @staticmethod
     def signal_handler(signal_number, _):
