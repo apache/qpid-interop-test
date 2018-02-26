@@ -26,3 +26,9 @@ class InteropTestError(Exception):
     Generic simple error class for use in interop tests
     """
     pass
+
+class InteropTestTimeout(InteropTestError):
+    """
+    Test timeout error
+    """
+    pass

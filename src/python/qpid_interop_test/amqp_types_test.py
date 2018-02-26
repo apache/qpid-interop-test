@@ -35,8 +35,9 @@ from uuid import UUID, uuid4
 import qpid_interop_test.broker_properties
 import qpid_interop_test.qit_common
 import qpid_interop_test.shims
-from qpid_interop_test.interop_test_errors import InteropTestError
+from qpid_interop_test.interop_test_errors import InteropTestError, InteropTestTimeout
 
+DEFAULT_TEST_TIMEOUT = 10 # seconds
 
 class AmqpPrimitiveTypes(qpid_interop_test.qit_common.QitTestTypeMap):
     """
@@ -306,16 +307,13 @@ class AmqpPrimitiveTypes(qpid_interop_test.qit_common.QitTestTypeMap):
 class AmqpTypeTestCase(qpid_interop_test.qit_common.QitTestCase):
     """Abstract base class for AMQP Type test cases"""
 
-    def run_test(self, sender_addr, receiver_addr, amqp_type, test_value_list, send_shim, receive_shim):
+    def run_test(self, sender_addr, receiver_addr, amqp_type, test_value_list, send_shim, receive_shim, timeout):
         """
         Run this test by invoking the shim send method to send the test values, followed by the shim receive method
         to receive the values. Finally, compare the sent values with the received values.
         """
         if test_value_list: # len > 0
             test_name = 'amqp_types_test.%s.%s.%s' % (amqp_type, send_shim.NAME, receive_shim.NAME)
-            # TODO: When Artemis can support it (in the next release), revert the queue name back to 'qpid-interop...'
-            # Currently, Artemis only supports auto-create queues for JMS, and the queue name must be prefixed by
-            # 'jms.queue.'
             queue_name = 'qit.%s' % test_name
 
             # Start the receive shim first (for queueless brokers/dispatch)
@@ -326,10 +324,10 @@ class AmqpTypeTestCase(qpid_interop_test.qit_common.QitTestCase):
 
             # Wait for sender, process return string
             try:
-                send_obj = sender.wait_for_completion()
-            except KeyboardInterrupt as err:
+                send_obj = sender.wait_for_completion(timeout)
+            except (KeyboardInterrupt, InteropTestTimeout):
                 receiver.send_signal(signal.SIGINT)
-                raise err
+                raise
             if send_obj is not None:
                 if isinstance(send_obj, str):
                     if send_obj: # len > 0
@@ -340,7 +338,7 @@ class AmqpTypeTestCase(qpid_interop_test.qit_common.QitTestCase):
                     raise InteropTestError('Send shim \'%s\':\n%s' % (send_shim.NAME, send_obj))
 
             # Wait for receiver, process return string
-            receive_obj = receiver.wait_for_completion()
+            receive_obj = receiver.wait_for_completion(timeout)
             if isinstance(receive_obj, tuple):
                 if len(receive_obj) == 2:
                     return_amqp_type, return_test_value_list = receive_obj
@@ -358,9 +356,10 @@ class AmqpTypeTestCase(qpid_interop_test.qit_common.QitTestCase):
 class TestOptions(qpid_interop_test.qit_common.QitCommonTestOptions):
     """Command-line arguments used to control the test"""
 
-    def __init__(self, shim_map, default_xunit_dir=qpid_interop_test.qit_common.DEFUALT_XUNIT_LOG_DIR):
+    def __init__(self, shim_map, default_timeout=DEFAULT_TEST_TIMEOUT,
+                 default_xunit_dir=qpid_interop_test.qit_common.DEFUALT_XUNIT_LOG_DIR):
         super(TestOptions, self).__init__('Qpid-interop AMQP client interoparability test suite for AMQP simple types',
-                                          shim_map, default_xunit_dir)
+                                          shim_map, default_timeout, default_xunit_dir)
         type_group = self._parser.add_mutually_exclusive_group()
         type_group.add_argument('--include-type', action='append', metavar='AMQP-TYPE',
                                 help='Name of AMQP type to include. Supported types:\n%s' %
@@ -383,10 +382,11 @@ class AmqpTypesTest(qpid_interop_test.qit_common.QitTest):
         # Create test classes dynamically
         for amqp_type in sorted(self.types.get_type_list()):
             if self.args.exclude_type is None or amqp_type not in self.args.exclude_type:
-                test_case_class = self.create_testcase_class(amqp_type, product(self.shim_map.values(), repeat=2))
+                test_case_class = self.create_testcase_class(amqp_type, product(self.shim_map.values(), repeat=2),
+                                                             int(self.args.timeout))
                 self.test_suite.addTest(unittest.makeSuite(test_case_class))
 
-    def create_testcase_class(self, amqp_type, shim_product):
+    def create_testcase_class(self, amqp_type, shim_product, timeout):
         """
         Class factory function which creates new subclasses to AmqpTypeTestCase.
         """
@@ -395,7 +395,7 @@ class AmqpTypesTest(qpid_interop_test.qit_common.QitTest):
             """Print the class name"""
             return self.__class__.__name__
 
-        def add_test_method(cls, send_shim, receive_shim):
+        def add_test_method(cls, send_shim, receive_shim, timeout):
             """Function which creates a new test method in class cls"""
 
             @unittest.skipIf(self.types.skip_test(amqp_type, self.broker),
@@ -410,7 +410,8 @@ class AmqpTypesTest(qpid_interop_test.qit_common.QitTest):
                               self.amqp_type,
                               self.test_value_list,
                               send_shim,
-                              receive_shim)
+                              receive_shim,
+                              timeout)
 
             inner_test_method.__name__ = 'test_%s_%s->%s' % (amqp_type, send_shim.NAME, receive_shim.NAME)
             setattr(cls, inner_test_method.__name__, inner_test_method)
@@ -425,7 +426,7 @@ class AmqpTypesTest(qpid_interop_test.qit_common.QitTest):
                       'test_value_list': self.types.get_test_values(amqp_type)}
         new_class = type(class_name, (AmqpTypeTestCase,), class_dict)
         for send_shim, receive_shim in shim_product:
-            add_test_method(new_class, send_shim, receive_shim)
+            add_test_method(new_class, send_shim, receive_shim, timeout)
         return new_class
 
 

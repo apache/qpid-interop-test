@@ -33,7 +33,9 @@ from json import dumps
 import qpid_interop_test.broker_properties
 import qpid_interop_test.qit_common
 import qpid_interop_test.shims
-from qpid_interop_test.interop_test_errors import InteropTestError
+from qpid_interop_test.interop_test_errors import InteropTestError, InteropTestTimeout
+
+DEFAULT_TEST_TIMEOUT = 10 # seconds
 
 
 class JmsMessageTypes(qpid_interop_test.qit_common.QitTestTypeMap):
@@ -194,13 +196,12 @@ class JmsMessageTypes(qpid_interop_test.qit_common.QitTestTypeMap):
 class JmsMessageTypeTestCase(qpid_interop_test.qit_common.QitTestCase):
     """Abstract base class for JMS message type tests"""
 
-    def run_test(self, sender_addr, receiver_addr, jms_message_type, test_values, send_shim, receive_shim):
+    def run_test(self, sender_addr, receiver_addr, jms_message_type, test_values, send_shim, receive_shim, timeout):
         """
         Run this test by invoking the shim send method to send the test values, followed by the shim receive method
         to receive the values. Finally, compare the sent values with the received values.
         """
-        queue_name = 'qit.jms_messages_test.%s.%s.%s' % (jms_message_type, send_shim.NAME,
-                                                                                 receive_shim.NAME)
+        queue_name = 'qit.jms_messages_test.%s.%s.%s' % (jms_message_type, send_shim.NAME, receive_shim.NAME)
 
         # First create a map containing the numbers of expected mesasges for each JMS message type
         num_test_values_map = {}
@@ -216,10 +217,10 @@ class JmsMessageTypeTestCase(qpid_interop_test.qit_common.QitTestCase):
 
         # Wait for sender, process return string
         try:
-            send_obj = sender.wait_for_completion()
-        except KeyboardInterrupt as err:
+            send_obj = sender.wait_for_completion(timeout)
+        except (KeyboardInterrupt, InteropTestTimeout):
             receiver.send_signal(signal.SIGINT)
-            raise err
+            raise
         if send_obj is not None:
             if isinstance(send_obj, str):
                 if send_obj: # len > 0
@@ -230,7 +231,7 @@ class JmsMessageTypeTestCase(qpid_interop_test.qit_common.QitTestCase):
                 raise InteropTestError('Send shim \'%s\':\n%s' % (send_shim.NAME, send_obj))
 
         # Wait for receiver, process return string
-        receive_obj = receiver.wait_for_completion()
+        receive_obj = receiver.wait_for_completion(timeout)
         if isinstance(receive_obj, tuple):
             if len(receive_obj) == 2:
                 return_amqp_type, return_test_value_list = receive_obj
@@ -249,9 +250,10 @@ class JmsMessageTypeTestCase(qpid_interop_test.qit_common.QitTestCase):
 class TestOptions(qpid_interop_test.qit_common.QitCommonTestOptions):
     """Command-line arguments used to control the test"""
 
-    def __init__(self, shim_map, default_xunit_dir=qpid_interop_test.qit_common.DEFUALT_XUNIT_LOG_DIR):
+    def __init__(self, shim_map, default_timeout=DEFAULT_TEST_TIMEOUT,
+                 default_xunit_dir=qpid_interop_test.qit_common.DEFUALT_XUNIT_LOG_DIR):
         super(TestOptions, self).__init__('Qpid-interop AMQP client interoparability test suite '
-                                          'for JMS message types', shim_map, default_xunit_dir)
+                                          'for JMS message types', shim_map, default_timeout, default_xunit_dir)
         type_group = self._parser.add_mutually_exclusive_group()
         type_group.add_argument('--include-type', action='append', metavar='JMS_MESSAGE-TYPE',
                                 help='Name of JMS message type to include. Supported types:\n%s' %
@@ -274,11 +276,12 @@ class JmsMessagesTest(qpid_interop_test.qit_common.QitJmsTest):
         # Create test classes dynamically
         for jmt in sorted(self.types.get_type_list()):
             if self.args.exclude_type is None or jmt not in self.args.exclude_type:
-                test_case_class = self.create_testcase_class(jmt, product(self.shim_map.values(), repeat=2))
+                test_case_class = self.create_testcase_class(jmt, product(self.shim_map.values(), repeat=2),
+                                                             int(self.args.timeout))
                 self.test_suite.addTest(unittest.makeSuite(test_case_class))
 
 
-    def create_testcase_class(self, jms_message_type, shim_product):
+    def create_testcase_class(self, jms_message_type, shim_product, timeout):
         """
         Class factory function which creates new subclasses to JmsMessageTypeTestCase. Each call creates a single new
         test case named and based on the parameters supplied to the method
@@ -289,7 +292,7 @@ class JmsMessagesTest(qpid_interop_test.qit_common.QitJmsTest):
             """Print the class name"""
             return self.__class__.__name__
 
-        def add_test_method(cls, send_shim, receive_shim):
+        def add_test_method(cls, send_shim, receive_shim, timeout):
             """Function which creates a new test method in class cls"""
 
             @unittest.skipIf(self.types.skip_test(jms_message_type, self.broker),
@@ -304,7 +307,8 @@ class JmsMessagesTest(qpid_interop_test.qit_common.QitJmsTest):
                               self.jms_message_type,
                               self.test_values,
                               send_shim,
-                              receive_shim)
+                              receive_shim,
+                              timeout)
 
             inner_test_method.__name__ = 'test_%s_%s->%s' % (jms_message_type[4:-5], send_shim.NAME, receive_shim.NAME)
             setattr(cls, inner_test_method.__name__, inner_test_method)
@@ -319,7 +323,7 @@ class JmsMessagesTest(qpid_interop_test.qit_common.QitJmsTest):
                       'test_values': self.types.get_test_values(jms_message_type)} # tuple (tot_size, {...}
         new_class = type(class_name, (JmsMessageTypeTestCase,), class_dict)
         for send_shim, receive_shim in shim_product:
-            add_test_method(new_class, send_shim, receive_shim)
+            add_test_method(new_class, send_shim, receive_shim, timeout)
 
         return new_class
 

@@ -161,7 +161,7 @@ class QitCommonTestOptions(object):
     """
     Class controlling common command-line arguments used to control tests.
     """
-    def __init__(self, test_description, shim_map, default_xunit_dir=DEFUALT_XUNIT_LOG_DIR):
+    def __init__(self, test_description, shim_map, default_timeout, default_xunit_dir=DEFUALT_XUNIT_LOG_DIR):
         self._parser = argparse.ArgumentParser(description=test_description)
         self._parser.add_argument('--sender', action='store', default='localhost:5672', metavar='IP-ADDR:PORT',
                                   help='Node to which test suite will send messages.')
@@ -178,6 +178,9 @@ class QitCommonTestOptions(object):
                                   metavar='LOG-DIR-PATH',
                                   help='Default xUnit log directory where xUnit logs are written [xunit_logs dir' +
                                   ' in current directory (%s)]' % default_xunit_dir)
+        self._parser.add_argument('--timeout', action='store', default=default_timeout, metavar='SEC',
+                                  help='Timeout for test in seconds (%d sec). If test is not ' % default_timeout +
+                                  'complete in this time, it will be terminated')
 
         shim_group = self._parser.add_mutually_exclusive_group()
         shim_group.add_argument('--include-shim', action='append', metavar='SHIM-NAME',

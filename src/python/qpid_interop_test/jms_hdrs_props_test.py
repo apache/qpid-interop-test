@@ -33,7 +33,9 @@ from json import dumps
 import qpid_interop_test.broker_properties
 import qpid_interop_test.qit_common
 import qpid_interop_test.shims
-from qpid_interop_test.interop_test_errors import InteropTestError
+from qpid_interop_test.interop_test_errors import InteropTestError, InteropTestTimeout
+
+DEFAULT_TEST_TIMEOUT = 10 # seconds
 
 
 class JmsHdrPropTypes(qpid_interop_test.qit_common.QitTestTypeMap):
@@ -272,7 +274,7 @@ class JmsMessageHdrsPropsTestCase(qpid_interop_test.qit_common.QitTestCase):
     """Abstract base class for JMS message headers and properties tests"""
 
     def run_test(self, sender_addr, receiver_addr, queue_name_fragment, jms_message_type, test_values, msg_hdrs,
-                 msg_props, send_shim, receive_shim):
+                 msg_props, send_shim, receive_shim, timeout):
         """
         Run this test by invoking the shim send method to send the test values, followed by the shim receive method
         to receive the values. Finally, compare the sent values with the received values.
@@ -305,10 +307,10 @@ class JmsMessageHdrsPropsTestCase(qpid_interop_test.qit_common.QitTestCase):
 
         # Wait for sender, process return string
         try:
-            send_obj = sender.wait_for_completion()
-        except KeyboardInterrupt as err:
+            send_obj = sender.wait_for_completion(timeout)
+        except (KeyboardInterrupt, InteropTestTimeout):
             receiver.send_signal(signal.SIGINT)
-            raise err
+            raise
         if send_obj is not None:
             if isinstance(send_obj, str):
                 if send_obj: # len > 0
@@ -319,7 +321,7 @@ class JmsMessageHdrsPropsTestCase(qpid_interop_test.qit_common.QitTestCase):
                 raise InteropTestError('Send shim \'%s\':\n%s' % (send_shim.NAME, send_obj))
 
         # Wait for receiver, process return string
-        receive_obj = receiver.wait_for_completion()
+        receive_obj = receiver.wait_for_completion(timeout)
         if isinstance(receive_obj, tuple):
             if len(receive_obj) == 2:
                 return_jms_message_type, return_list = receive_obj
@@ -352,9 +354,10 @@ class JmsMessageHdrsPropsTestCase(qpid_interop_test.qit_common.QitTestCase):
 class TestOptions(qpid_interop_test.qit_common.QitCommonTestOptions):
     """Command-line arguments used to control the test"""
 
-    def __init__(self, shim_map, default_xunit_dir=qpid_interop_test.qit_common.DEFUALT_XUNIT_LOG_DIR):
+    def __init__(self, shim_map, default_timeout=DEFAULT_TEST_TIMEOUT,
+                 default_xunit_dir=qpid_interop_test.qit_common.DEFUALT_XUNIT_LOG_DIR):
         super(TestOptions, self).__init__('Qpid-interop AMQP client interoparability test suite for JMS headers '
-                                          'and properties', shim_map, default_xunit_dir)
+                                          'and properties', shim_map, default_timeout, default_xunit_dir)
 
         # Control over JMS message headers
         hdrs_group = self._parser.add_mutually_exclusive_group()
@@ -386,20 +389,21 @@ class JmsHdrsPropsTest(qpid_interop_test.qit_common.QitJmsTest):
     def _generate_tests(self):
         """Generate tests dynamically"""
         self.test_suite = unittest.TestSuite()
+        timeout = int(self.args.timeout)
         # Part A: Single message header on each message
-        test_case_class_a = self._generate_part_a()
+        test_case_class_a = self._generate_part_a(timeout)
         self.test_suite.addTest(unittest.makeSuite(test_case_class_a))
         # Part B: Combination of message headers, using first value in each value list
-        test_case_class_b = self._generate_part_b()
+        test_case_class_b = self._generate_part_b(timeout)
         self.test_suite.addTest(unittest.makeSuite(test_case_class_b))
         # Part C: Single message property on each message
-        test_case_class_c = self._generate_part_c()
+        test_case_class_c = self._generate_part_c(timeout)
         self.test_suite.addTest(unittest.makeSuite(test_case_class_c))
         # Part D: All headers and all properties on one of each type of JMS message
-        test_case_class_d = self._generate_part_d()
+        test_case_class_d = self._generate_part_d(timeout)
         self.test_suite.addTest(unittest.makeSuite(test_case_class_d))
 
-    def _generate_part_a(self):
+    def _generate_part_a(self, timeout):
         """
         Class factory function which creates new subclasses to JmsMessageTypeTestCase. Creates a test case class for
         a single JMS message type containing a single JMS header, one for each possible header
@@ -409,7 +413,7 @@ class JmsHdrsPropsTest(qpid_interop_test.qit_common.QitJmsTest):
             """Print the class name"""
             return self.__class__.__name__
 
-        def add_test_method(cls, queue_name_fragment, hdrs, props, send_shim, receive_shim):
+        def add_test_method(cls, queue_name_fragment, hdrs, props, send_shim, receive_shim, timeout):
             """Function which creates a new test method in class cls"""
 
             def inner_test_method(self):
@@ -421,7 +425,8 @@ class JmsHdrsPropsTest(qpid_interop_test.qit_common.QitJmsTest):
                               hdrs[1],
                               props[1],
                               send_shim,
-                              receive_shim)
+                              receive_shim,
+                              timeout)
 
             inner_test_method.__name__ = 'test.A.%s.%s%s.%s->%s' % (jms_message_type[4:-5], hdrs[0], props[0],
                                                                     send_shim.NAME, receive_shim.NAME)
@@ -451,11 +456,12 @@ class JmsHdrsPropsTest(qpid_interop_test.qit_common.QitJmsTest):
                                         (method_subname, {msg_header: {header_type: header_val}}),
                                         ('', {}),
                                         send_shim,
-                                        receive_shim)
+                                        receive_shim,
+                                        timeout)
         return new_class
 
 
-    def _generate_part_b(self):
+    def _generate_part_b(self, timeout):
         """
         Class factory function which creates new subclasses to JmsMessageTypeTestCase. Creates a test case class for
         a single JMS message type containing a combination of JMS headers
@@ -465,7 +471,7 @@ class JmsHdrsPropsTest(qpid_interop_test.qit_common.QitJmsTest):
             """Print the class name"""
             return self.__class__.__name__
 
-        def add_test_method(cls, queue_name_fragment, hdrs, props, send_shim, receive_shim):
+        def add_test_method(cls, queue_name_fragment, hdrs, props, send_shim, receive_shim, timeout):
             """Function which creates a new test method in class cls"""
 
             def inner_test_method(self):
@@ -477,7 +483,8 @@ class JmsHdrsPropsTest(qpid_interop_test.qit_common.QitJmsTest):
                               hdrs[1],
                               props[1],
                               send_shim,
-                              receive_shim)
+                              receive_shim,
+                              timeout)
 
             inner_test_method.__name__ = 'test.B.%s.%s%s.%s->%s' % (jms_message_type[4:-5], hdrs[0], props[0],
                                                                     send_shim.NAME, receive_shim.NAME)
@@ -520,11 +527,12 @@ class JmsHdrsPropsTest(qpid_interop_test.qit_common.QitJmsTest):
                                             (method_subname, header_map),
                                             ('', {}),
                                             send_shim,
-                                            receive_shim)
+                                            receive_shim,
+                                            timeout)
         return new_class
 
 
-    def _generate_part_c(self):
+    def _generate_part_c(self, timeout):
         """
         Class factory function which creates new subclasses to JmsMessageTypeTestCase. Creates a test case class for
         a single JMS message type containing a single JMS property
@@ -534,7 +542,7 @@ class JmsHdrsPropsTest(qpid_interop_test.qit_common.QitJmsTest):
             """Print the class name"""
             return self.__class__.__name__
 
-        def add_test_method(cls, queue_name_fragment, hdrs, props, send_shim, receive_shim):
+        def add_test_method(cls, queue_name_fragment, hdrs, props, send_shim, receive_shim, timeout):
             """Function which creates a new test method in class cls"""
 
             def inner_test_method(self):
@@ -546,7 +554,8 @@ class JmsHdrsPropsTest(qpid_interop_test.qit_common.QitJmsTest):
                               hdrs[1],
                               props[1],
                               send_shim,
-                              receive_shim)
+                              receive_shim,
+                              timeout)
 
             inner_test_method.__name__ = 'test.C.%s.%s%s.%s->%s' % (jms_message_type[4:-5], hdrs[0], props[0],
                                                                     send_shim.NAME, receive_shim.NAME)
@@ -575,11 +584,12 @@ class JmsHdrsPropsTest(qpid_interop_test.qit_common.QitJmsTest):
                                     ('', {}),
                                     (prop_name, {prop_name: {prop_type: prop_val}}),
                                     send_shim,
-                                    receive_shim)
+                                    receive_shim,
+                                    timeout)
         return new_class
 
 
-    def _generate_part_d(self):
+    def _generate_part_d(self, timeout):
         """
         Class factory function which creates new subclasses to JmsMessageTypeTestCase. Creates a test case class for
         all message headers and properties on each type of JMS message
@@ -589,7 +599,7 @@ class JmsHdrsPropsTest(qpid_interop_test.qit_common.QitJmsTest):
             """Print the class name"""
             return self.__class__.__name__
 
-        def add_test_method(cls, queue_name_fragment, hdrs, props, send_shim, receive_shim):
+        def add_test_method(cls, queue_name_fragment, hdrs, props, send_shim, receive_shim, timeout):
             """Function which creates a new test method in class cls"""
 
             def inner_test_method(self):
@@ -601,7 +611,8 @@ class JmsHdrsPropsTest(qpid_interop_test.qit_common.QitJmsTest):
                               hdrs[1],
                               props[1],
                               send_shim,
-                              receive_shim)
+                              receive_shim,
+                              timeout)
 
             inner_test_method.__name__ = 'test.D.%s.%s%s.%s->%s' % (jms_message_type[4:-5], hdrs[0], props[0],
                                                                     send_shim.NAME, receive_shim.NAME)
@@ -639,7 +650,8 @@ class JmsHdrsPropsTest(qpid_interop_test.qit_common.QitJmsTest):
                             ('hdrs', all_hdrs),
                             ('props', all_props),
                             send_shim,
-                            receive_shim)
+                            receive_shim,
+                            timeout)
         return new_class
 
 

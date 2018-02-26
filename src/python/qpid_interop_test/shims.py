@@ -25,21 +25,30 @@ import json
 import os
 import signal
 import subprocess
+import threading
+
+from qpid_interop_test.interop_test_errors import InteropTestTimeout
 
 
 class ShimProcess(subprocess.Popen):
     """Abstract parent class for Sender and Receiver shim process"""
-    def __init__(self, args, python3_flag):
+    def __init__(self, args, python3_flag, proc_name):
+        self.proc_name = proc_name
+        self.killed_flag = False
         self.env = copy.deepcopy(os.environ)
         if python3_flag:
             self.env['PYTHONPATH'] = self.env['PYTHON3PATH']
         super(ShimProcess, self).__init__(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, preexec_fn=os.setsid,
                                           env=self.env)
 
-    def wait_for_completion(self):
+    def wait_for_completion(self, timeout):
         """Wait for process to end and return tuple containing (stdout, stderr) from process"""
+        timer = threading.Timer(timeout, self._kill, [timeout])
         try:
+            timer.start()
             (stdoutdata, stderrdata) = self.communicate()
+            if self.killed_flag:
+                raise InteropTestTimeout('%s: Timeout after %d seconds' % (self.proc_name, timeout))
             if stderrdata: # length > 0
                 return stderrdata # ERROR: return single string
             if not stdoutdata: # zero length
@@ -51,21 +60,29 @@ class ShimProcess(subprocess.Popen):
                 except ValueError:
                     return stdoutdata # ERROR: return single string
             return stdoutdata # ERROR: return single string
-        except KeyboardInterrupt as err:
+        except (KeyboardInterrupt) as err:
             self.send_signal(signal.SIGINT)
             raise err
+        finally:
+            timer.cancel()
+
+    def _kill(self, timeout):
+        """Method called when timer expires"""
+        self.kill()
+        self.killed_flag = True
+
 
 class Sender(ShimProcess):
     """Sender shim process"""
-    def __init__(self, params, python3_flag):
+    def __init__(self, params, python3_flag, proc_name='Sender'):
         #print('\n>>>SNDR>>> %s python3_flag=%s' % (params, python3_flag))
-        super(Sender, self).__init__(params, python3_flag)
+        super(Sender, self).__init__(params, python3_flag, proc_name)
 
 class Receiver(ShimProcess):
     """Receiver shim process"""
-    def __init__(self, params, python3_flag):
+    def __init__(self, params, python3_flag, proc_name='Receiver'):
         #print('\n>>>RCVR>>> %s python3_flag=%s' % (params, python3_flag))
-        super(Receiver, self).__init__(params, python3_flag)
+        super(Receiver, self).__init__(params, python3_flag, proc_name)
 
 class Shim(object):
     """Abstract shim class, parent of all shims."""
