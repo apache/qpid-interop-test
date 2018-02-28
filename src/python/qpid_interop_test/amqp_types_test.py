@@ -270,6 +270,7 @@ class AmqpPrimitiveTypes(qpid_interop_test.qit_common.QitTestTypeMap):
         }
 
     client_skip = {
+        'char': {'AmqpNetLite': 'Char types not supported: https://github.com/Azure/amqpnetlite/issues/259', },
         'decimal32': {'AmqpNetLite': 'Decimal types not supported: https://github.com/Azure/amqpnetlite/issues/223', },
         'decimal64': {'AmqpNetLite': 'Decimal types not supported: https://github.com/Azure/amqpnetlite/issues/223', },
         'decimal128': {'AmqpNetLite': 'Decimal types not supported: https://github.com/Azure/amqpnetlite/issues/223', },
