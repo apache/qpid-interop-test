@@ -50,7 +50,10 @@ class ShimProcess(subprocess.Popen):
             if self.killed_flag:
                 raise InteropTestTimeout('%s: Timeout after %d seconds' % (self.proc_name, timeout))
             if stderrdata: # length > 0
-                return stderrdata # ERROR: return single string
+                # Workaround for Amqp.NetLite which on some OSs produces a spurious error message on stderr
+                # which should be ignored:
+                if not stderrdata.startswith('Got a bad hardware address length for an AF_PACKET'):
+                    return stderrdata # ERROR: return stderr string
             if not stdoutdata: # zero length
                 return None
             type_value_list = stdoutdata.split('\n')[0:-1] # remove trailing '\n', split by only remaining '\n'
