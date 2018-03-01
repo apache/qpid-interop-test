@@ -33,8 +33,8 @@ import traceback
 import proton
 import proton.handlers
 import proton.reactor
-from qpid_interop_test.interop_test_errors import InteropTestError
-from qpid_interop_test.jms_types import create_annotation
+from qpid_interop_test.qit_errors import InteropTestError
+from qpid_interop_test.qit_jms_types import create_annotation
 import _compat
 
 class JmsMessagesTestSender(proton.handlers.MessagingHandler):

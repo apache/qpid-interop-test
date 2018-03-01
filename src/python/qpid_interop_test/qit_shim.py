@@ -27,7 +27,7 @@ import signal
 import subprocess
 import threading
 
-from qpid_interop_test.interop_test_errors import InteropTestTimeout
+from qpid_interop_test.qit_errors import InteropTestTimeout
 
 
 class ShimProcess(subprocess.Popen):

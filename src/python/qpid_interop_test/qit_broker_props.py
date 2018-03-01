@@ -24,7 +24,7 @@ gets the broker connection properties so as to identify the broker.
 
 import proton.handlers
 import proton.reactor
-from qpid_interop_test.interop_test_errors import InteropTestError
+from qpid_interop_test.qit_errors import InteropTestError
 
 class Client(proton.handlers.MessagingHandler):
     """

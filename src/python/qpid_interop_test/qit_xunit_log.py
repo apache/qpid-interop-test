@@ -26,7 +26,7 @@ import os.path
 import xml.dom.minidom
 import xml.etree.cElementTree
 
-from qpid_interop_test.interop_test_errors import InteropTestError
+from qpid_interop_test.qit_errors import InteropTestError
 
 class Xunit(object):
     """Class that provides test reporting in xUnit format"""

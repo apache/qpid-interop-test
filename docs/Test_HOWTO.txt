@@ -49,24 +49,24 @@ src/python/qpid_interop_test directory. The test is named
 =================
 The following modules are available to Tests:
 
-2.1 broker_properties.py
-------------------------
+2.1 qit_broker_props.py
+-----------------------
   Opens a connection to a broker and reads the connection properties in
   order to return a string containing the broker name. This is useful
   if you need to know the broker name for any reason. One of the common
   uses of this is to conditionally skip certain tests which fail based
   on the broker against which they are running.
 
-2.2 interop_test_errors.py
---------------------------
+2.2 qit_errors.py
+-----------------
   Defines error classes for use with tests. Currently this only
   defines a single error class (InteropTestError) which accepts
   a text error message, but more complex error classes may
   be added if needed.
 
-2.3 jms_types.py
-----------------
-  Used by JMS tests, this module defines common QpidJMS values and
+2.3 qit_jms_types.py
+--------------------
+  Used by JMS tests, this module defines common QpidJms values and
   operations.
 
 2.4 shims.py
@@ -151,10 +151,10 @@ parameter name | action     | default        | metavar      | help
 
 Notes:
 [1] --no-skip: Only applies if you are using the broke name (through
-    broker_properties.py) to exclude some tests bassed on the broker
+    qit_broker_props.py) to exclude some tests bassed on the broker
     name.
 [2] --broker-type: Should skip checking for the broker name (through
-    broker_properties.py) and use the given name. "None" may have
+    qit_broker_props.py) and use the given name. "None" may have
     specific meaning to some tests for broker that don't return
     connection properties.
 [3] --include-shim, --exclude-shim: These are mutually exclusive.

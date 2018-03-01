@@ -28,9 +28,9 @@ from time import time
 import unittest
 
 from proton import symbol
-import qpid_interop_test.broker_properties
-import qpid_interop_test.shims
-import qpid_interop_test.xunit_log
+import qpid_interop_test.qit_broker_props
+import qpid_interop_test.qit_shim
+import qpid_interop_test.qit_xunit_log
 
 # TODO: propose a sensible default when installation details are worked out
 QIT_INSTALL_PREFIX = getenv('QIT_INSTALL_PREFIX')
@@ -268,8 +268,8 @@ class QitTest(object):
             xunit_log_dir = self.args.xunit_log_dir
         else:
             xunit_log_dir = DEFUALT_XUNIT_LOG_DIR
-        qpid_interop_test.xunit_log.Xunit(self.args.xunit_log, self.TEST_NAME, xunit_log_dir, self.test_suite,
-                                          self.test_result, self.duration)
+        qpid_interop_test.qit_xunit_log.Xunit(self.args.xunit_log, self.TEST_NAME, xunit_log_dir, self.test_suite,
+                                              self.test_result, self.duration)
 
     def _create_shim_map(self):
         """Create a shim map {'shim_name': <shim_instance>}"""
@@ -278,12 +278,12 @@ class QitTest(object):
         proton_python_rcv_shim = path.join(QIT_TEST_SHIM_HOME, 'qpid-proton-python', self.TEST_NAME, 'Receiver.py')
         proton_python_snd_shim = path.join(QIT_TEST_SHIM_HOME, 'qpid-proton-python', self.TEST_NAME, 'Sender.py')
 
-        self.shim_map = {qpid_interop_test.shims.ProtonCppShim.NAME: \
-                         qpid_interop_test.shims.ProtonCppShim(proton_cpp_snd_shim, proton_cpp_rcv_shim),
-                         qpid_interop_test.shims.ProtonPython2Shim.NAME: \
-                         qpid_interop_test.shims.ProtonPython2Shim(proton_python_snd_shim, proton_python_rcv_shim),
-                         qpid_interop_test.shims.ProtonPython3Shim.NAME: \
-                         qpid_interop_test.shims.ProtonPython3Shim(proton_python_snd_shim, proton_python_rcv_shim),
+        self.shim_map = {qpid_interop_test.qit_shim.ProtonCppShim.NAME: \
+                         qpid_interop_test.qit_shim.ProtonCppShim(proton_cpp_snd_shim, proton_cpp_rcv_shim),
+                         qpid_interop_test.qit_shim.ProtonPython2Shim.NAME: \
+                         qpid_interop_test.qit_shim.ProtonPython2Shim(proton_python_snd_shim, proton_python_rcv_shim),
+                         qpid_interop_test.qit_shim.ProtonPython3Shim.NAME: \
+                         qpid_interop_test.qit_shim.ProtonPython3Shim(proton_python_snd_shim, proton_python_rcv_shim),
                         }
 
         # Add shims that need detection during installation only if the necessary bits are present
@@ -291,8 +291,8 @@ class QitTest(object):
         rhea_rcv_shim = path.join(QIT_TEST_SHIM_HOME, 'rhea-js', self.TEST_NAME, 'Receiver.js')
         rhea_snd_shim = path.join(QIT_TEST_SHIM_HOME, 'rhea-js', self.TEST_NAME, 'Sender.js')
         if path.isfile(rhea_rcv_shim) and path.isfile(rhea_snd_shim):
-            self.shim_map[qpid_interop_test.shims.RheaJsShim.NAME] = \
-                qpid_interop_test.shims.RheaJsShim(rhea_snd_shim, rhea_rcv_shim)
+            self.shim_map[qpid_interop_test.qit_shim.RheaJsShim.NAME] = \
+                qpid_interop_test.qit_shim.RheaJsShim(rhea_snd_shim, rhea_rcv_shim)
         else:
             print('WARNING: Rhea Javascript shims not found')
 
@@ -300,8 +300,8 @@ class QitTest(object):
         amqpnetlite_rcv_shim = path.join(QIT_TEST_SHIM_HOME, 'amqpnetlite', self.TEST_NAME, 'Receiver.exe')
         amqpnetlite_snd_shim = path.join(QIT_TEST_SHIM_HOME, 'amqpnetlite', self.TEST_NAME, 'Sender.exe')
         if path.isfile(amqpnetlite_rcv_shim) and path.isfile(amqpnetlite_snd_shim):
-            self.shim_map[qpid_interop_test.shims.AmqpNetLiteShim.NAME] = \
-                qpid_interop_test.shims.AmqpNetLiteShim(amqpnetlite_snd_shim, amqpnetlite_rcv_shim)
+            self.shim_map[qpid_interop_test.qit_shim.AmqpNetLiteShim.NAME] = \
+                qpid_interop_test.qit_shim.AmqpNetLiteShim(amqpnetlite_snd_shim, amqpnetlite_rcv_shim)
         else:
             print('WARNING: AMQP DotNetLite shims not found')
 
@@ -334,7 +334,7 @@ class QitTest(object):
             else:
                 self.broker = self.broker.broker_type
         else:
-            connection_props = qpid_interop_test.broker_properties.get_broker_properties(self.args.sender)
+            connection_props = qpid_interop_test.qit_broker_props.get_broker_properties(self.args.sender)
             if connection_props is None:
                 print('WARNING: Unable to get connection properties - unknown broker')
                 self.broker = 'unknown'
@@ -372,5 +372,5 @@ class QitJmsTest(QitTest):
             classpath = path.join(QIT_TEST_SHIM_HOME, 'qpid-jms',
                                   'qpid-interop-test-jms-shim-%s-jar-with-dependencies.jar' % QPID_JMS_SHIM_VER)
 
-        self.shim_map[qpid_interop_test.shims.QpidJmsShim.NAME] = \
-            qpid_interop_test.shims.QpidJmsShim(classpath, qpid_jms_snd_shim, qpid_jms_rcv_shim)
+        self.shim_map[qpid_interop_test.qit_shim.QpidJmsShim.NAME] = \
+            qpid_interop_test.qit_shim.QpidJmsShim(classpath, qpid_jms_snd_shim, qpid_jms_rcv_shim)

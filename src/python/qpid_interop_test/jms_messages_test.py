@@ -30,10 +30,8 @@ import unittest
 from itertools import product
 from json import dumps
 
-import qpid_interop_test.broker_properties
 import qpid_interop_test.qit_common
-import qpid_interop_test.shims
-from qpid_interop_test.interop_test_errors import InteropTestError, InteropTestTimeout
+from qpid_interop_test.qit_errors import InteropTestError, InteropTestTimeout
 
 DEFAULT_TEST_TIMEOUT = 10 # seconds
 
