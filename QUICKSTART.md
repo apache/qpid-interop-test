@@ -78,7 +78,7 @@ To set up the EPEL repo in yum:
 
 ````
 wget https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
-rpm -ivh epel-release-latest-6.noarch.rpm
+yum install epel-release-latest-7.noarch.rpm
 ````
 
 then install the following packages:
@@ -87,13 +87,39 @@ then install the following packages:
 yum install jsoncpp-devel nodejs-rhea qpid-proton-cpp-devel python-qpid-proton
 ````
 
-### 1.3 Fedora 26
+### 1.3 Fedora 27
 
 All packages are available directly from the Fedora repositories:
 
 ````
 dnf install gcc-c++ cmake maven java-1.8.0-openjdk-devel perl-XML-XPath jsoncpp-devel nodejs-rhea qpid-proton-cpp-devel python-qpid-proton
 ````
+
+### 1.4 CentOS7 Docker image
+
+Docker images come with only the bare essentials, so there is more to install than a standard bare-metal install:
+
+````
+yum -y install vim unzip wget git gcc-c++ make cmake maven swig java-1.8.0-openjdk-devel perl-XML-XPath python-devel
+````
+
+Some packages will need to be downloaded from [EPEL](https://fedoraproject.org/wiki/EPEL).
+To set up the EPEL repo in yum:
+
+````
+wget https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+yum -y install epel-release-latest-7.noarch.rpm
+````
+
+then install the following packages:
+
+````
+yum -y install mono-devel python34-devel jsoncpp-devel nodejs-rhea qpid-proton-cpp-devel python-qpid-proton
+````
+
+### 1.5 Fedora 27 Docker image
+
+(TODO)
 
 ## 2. Obtaining a broker
 
@@ -125,7 +151,7 @@ and set the configuration file in /etc/qpid/qpidd.conf as follows:
 
 ````
 auth=no
-queue-patterns=jms.queue.qpid-interop
+queue-patterns=qit
 ````
 
 ### 2.4 Qpid Dispatch Router
@@ -142,6 +168,99 @@ listener {
     saslMechanisms: ANONYMOUS
 }
 
+````
+
+## 2. Build and install Qpid Proton
+
+Qpid Proton is available as a package. However, this can only contain either Python2
+_OR_ Python3 bindings.  Because QIT tests the Python2 and Python3 bindings against each
+other as separate clients, we need both clients at the same time. Currently, there is
+no "official" install method to do this.
+
+To work around this, QIT relies on the following installation locations for the Python
+client bindings:
+
+Python2:
+````
+${CMAKE_INSTALL_PREFIX}/lib64/proton/bindings/python
+````
+
+and Python3:
+````
+${CMAKE_INSTALL_PREFIX}/lib64/proton/bindings/python3
+````
+
+To build for both clients, the follow the following steps:
+
+### 2.1 Clone Qpid Proton git repo
+
+````
+git clone https://git-wip-us.apache.org/repos/asf/qpid-proton.git
+````
+
+### 2.2 Create a build script to automate the build
+
+Use the following script to build Qpid Proton into a local install directory:
+
+````
+#!/bin/bash
+
+PWD=`pwd`
+
+REDHAT_DIR=${HOME}
+BUILD_DIR=${REDHAT_DIR}/qpid-proton/build
+INSTALL_DIR=${REDHAT_DIR}/install
+
+PY2_INSTALL_DIR=${INSTALL_DIR}/lib64/proton/bindings/python
+CMAKE_PY2_EXECUTABLE=/usr/bin/python
+CMAKE_PY2_INCLUDE_DIR=/usr/include/python2.7
+CMAKE_PY2_LIBRARY=/usr/lib64/libpython2.7.so
+
+PY3_INSTALL_DIR=${INSTALL_DIR}/lib64/proton/bindings/python3
+CMAKE_PY3_EXECUTABLE=/usr/bin/python3.6m
+CMAKE_PY3_INCLUDE_DIR=/usr/include/python3.6m
+CMAKE_PY3_LIBRARY=/usr/lib64/libpython3.6m.so
+
+rm -rf ${PY2_INSTALL_DIR} ${PY3_INSTALL_DIR}
+mkdir -p ${BUILD_DIR}
+cd ${BUILD_DIR}
+
+# First build under Python 3
+cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR} -DBUILD_PYTHON="ON" -DPYTHON_EXECUTABLE=${CMAKE_PY3_EXECUTABLE} -DPYTHON_INCLUDE_DIR=${CMAKE_PY3_INCLUDE_DIR} -DPYTHON_LIBRARY=${CMAKE_PY3_LIBRARY} ..
+make install
+mv ${PY2_INSTALL_DIR} ${PY3_INSTALL_DIR}
+
+# Now build under Python 2
+cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR} -DBUILD_PYTHON="ON" -DPYTHON_EXECUTABLE=${CMAKE_PY2_EXECUTABLE} -DPYTHON_INCLUDE_DIR=${CMAKE_PY2_INCLUDE_DIR} -DPYTHON_LIBRARY=${CMAKE_PY2_LIBRARY} ..
+make install
+
+cd ${PWD}
+echo
+echo "Checking Python libs built:"
+ls -l --color=auto ${INSTALL_DIR}/lib64/proton/bindings/python*/_cproton.so
+echo "done"
+````
+
+NOTE:
+* Adjust REDHAT_DIR if you are not building in your home directory. This is the
+  location where Qpid Proton was cloned in the previous step. This script needs
+  to be located in ${REDHAT_DIR} directory.
+* Check the CMAKE_PY3_* details for your system. For example, on CentOS7, the
+  following changes need to be made:
+
+````
+CMAKE_PY3_EXECUTABLE=/usr/bin/python3.4m
+CMAKE_PY3_INCLUDE_DIR=/usr/include/python3.4m
+CMAKE_PY3_LIBRARY=/usr/lib64/libpython3.4m.so
+````
+
+If the script builds and installs successfully, you should see the following at the end:
+
+````
+Checking Python libs built:
+-rwxr-xr-x. 1 kvdr kvdr 1608536 Feb 27 21:00 /home/kvdr/RedHat/install/lib64/proton/bindings/python/_cproton.so
+-rwxr-xr-x. 1 kvdr kvdr 1609328 Feb 27 21:00 /home/kvdr/RedHat/install/lib64/proton/bindings/python3/_cproton.so
+done
 ````
 
 ## 3. Install qpid-interop-test
