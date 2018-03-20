@@ -55,10 +55,13 @@ namespace qpidit
             void on_transport_error(proton::transport &t);
             void on_error(const proton::error_condition &c);
         protected:
-            static void checkMessageType(const proton::message& msg, proton::type_id msgType);
+            //static void checkMessageType(const proton::message& msg, const proton::type_id amqpType);
+            static void checkMessageType(const proton::value& val, const proton::type_id amqpType);
+            static std::string getAmqpType(const proton::value& val);
             static Json::Value& getMap(Json::Value& jsonMap, const proton::value& val);
             static Json::Value& getSequence(Json::Value& jsonList, const proton::value& val);
-            static std::string stringToHexStr(const std::string& str);
+            static Json::Value getValue(const proton::value& val);
+            static Json::Value getValue(const std::string& amqpType, const proton::value& val);
 
             // Format signed numbers in negative hex format, ie -0xNNNN, positive numbers in 0xNNNN format
             template<typename T> static std::string toHexStr(T val, bool fillFlag = false) {

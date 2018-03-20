@@ -77,59 +77,121 @@ class AmqpTypesTestSender(proton.handlers.MessagingHandler):
         Creates a single message with the test value translated from its string representation to the appropriate
         AMQP value (set in self.amqp_type).
         """
-        if self.amqp_type == 'null':
-            return proton.Message(id=(self.sent+1), body=None)
-        if self.amqp_type == 'boolean':
-            return proton.Message(id=(self.sent+1), body=True if test_value == 'True' else False)
-        if self.amqp_type == 'ubyte':
-            return proton.Message(id=(self.sent+1), body=proton.ubyte(int(test_value, 16)))
-        if self.amqp_type == 'ushort':
-            return proton.Message(id=(self.sent+1), body=proton.ushort(int(test_value, 16)))
-        if self.amqp_type == 'uint':
-            return proton.Message(id=(self.sent+1), body=proton.uint(int(test_value, 16)))
-        if self.amqp_type == 'ulong':
-            return proton.Message(id=(self.sent+1), body=proton.ulong(int(test_value, 16)))
-        if self.amqp_type == 'byte':
-            return proton.Message(id=(self.sent+1), body=proton.byte(int(test_value, 16)))
-        if self.amqp_type == 'short':
-            return proton.Message(id=(self.sent+1), body=proton.short(int(test_value, 16)))
-        if self.amqp_type == 'int':
-            return proton.Message(id=(self.sent+1), body=proton.int32(int(test_value, 16)))
-        if self.amqp_type == 'long':
-            return proton.Message(id=(self.sent+1), body=_compat.long(test_value, 16))
-        if self.amqp_type == 'float':
-            return proton.Message(id=(self.sent+1),
-                                  body=proton.float32(struct.unpack('!f', _compat.decode_hex(test_value[2:]))[0]))
-        if self.amqp_type == 'double':
-            return proton.Message(id=(self.sent+1), body=struct.unpack('!d', _compat.decode_hex(test_value[2:]))[0])
-        if self.amqp_type == 'decimal32':
-            return proton.Message(id=(self.sent+1), body=proton.decimal32(int(test_value[2:], 16)))
-        if self.amqp_type == 'decimal64':
-            l64 = _compat.long(test_value[2:], 16)
-            return proton.Message(id=(self.sent+1), body=proton.decimal64(l64))
-        if self.amqp_type == 'decimal128':
-            return proton.Message(id=(self.sent+1), body=proton.decimal128(_compat.decode_hex(test_value[2:])))
-        if self.amqp_type == 'char':
+        return proton.Message(id=(self.sent+1), body=self.encode_amqp_type(self.amqp_type, test_value))
+
+    @staticmethod
+    def encode_amqp_type(amqp_type, test_value):
+        """Encode an AMQP type from a stringified test_value"""
+        if amqp_type == 'null':
+            return None
+        if amqp_type == 'boolean':
+            return True if test_value == 'True' else False
+        if amqp_type == 'ubyte':
+            return proton.ubyte(int(test_value, 16))
+        if amqp_type == 'ushort':
+            return proton.ushort(int(test_value, 16))
+        if amqp_type == 'uint':
+            return proton.uint(int(test_value, 16))
+        if amqp_type == 'ulong':
+            return proton.ulong(int(test_value, 16))
+        if amqp_type == 'byte':
+            return proton.byte(int(test_value, 16))
+        if amqp_type == 'short':
+            return proton.short(int(test_value, 16))
+        if amqp_type == 'int':
+            return proton.int32(int(test_value, 16))
+        if amqp_type == 'long':
+            return _compat.long(test_value, 16)
+        if amqp_type == 'float':
+            return proton.float32(struct.unpack('!f', _compat.decode_hex(test_value[2:]))[0])
+        if amqp_type == 'double':
+            return struct.unpack('!d', _compat.decode_hex(test_value[2:]))[0]
+        if amqp_type == 'decimal32':
+            return proton.decimal32(int(test_value[2:], 16))
+        if amqp_type == 'decimal64':
+            return proton.decimal64(_compat.long(test_value[2:], 16))
+        if amqp_type == 'decimal128':
+            return proton.decimal128(_compat.decode_hex(test_value[2:]))
+        if amqp_type == 'char':
             if len(test_value) == 1: # Format 'a'
-                return proton.Message(id=(self.sent+1), body=proton.char(test_value))
+                return proton.char(test_value)
             val = int(test_value, 16)
-            return proton.Message(id=(self.sent+1), body=proton.char(_compat.unichr(val)))
-        if self.amqp_type == 'timestamp':
-            return proton.Message(id=(self.sent+1), body=proton.timestamp(int(test_value, 16)))
-        if self.amqp_type == 'uuid':
-            return proton.Message(id=(self.sent+1), body=uuid.UUID(test_value))
-        if self.amqp_type == 'binary':
-            return proton.Message(id=(self.sent+1), body=test_value.encode('utf-8'))
-        if self.amqp_type == 'string':
-            return proton.Message(id=(self.sent+1), body=_compat.unicode(test_value))
-        if self.amqp_type == 'symbol':
-            return proton.Message(id=(self.sent+1), body=proton.symbol(test_value))
-        if self.amqp_type == 'list':
-            return proton.Message(id=(self.sent+1), body=test_value)
-        if self.amqp_type == 'map':
-            return proton.Message(id=(self.sent+1), body=test_value)
-        print('send: Unsupported AMQP type "%s"' % self.amqp_type)
+            return proton.char(_compat.unichr(val))
+        if amqp_type == 'timestamp':
+            return proton.timestamp(int(test_value, 16))
+        if amqp_type == 'uuid':
+            return uuid.UUID(test_value)
+        if amqp_type == 'binary':
+            return test_value.encode('utf-8')
+        if amqp_type == 'string':
+            return _compat.unicode(test_value)
+        if amqp_type == 'symbol':
+            return proton.symbol(test_value)
+        if amqp_type == 'list':
+            return AmqpTypesTestSender.encode_amqp_list(test_value)
+        if amqp_type == 'map':
+            return AmqpTypesTestSender.encode_amqp_map(test_value)
+        if amqp_type == 'array':
+            #return AmqpTypesTestSender.encode_amqp_array(test_value)
+            print('send: Unsupported AMQP type "%s"' % amqp_type)
+            return None
+        print('send: Unknown AMQP type "%s"' % amqp_type)
         return None
+
+    @staticmethod
+    def encode_complex_amqp_element(test_element, make_hashable=False):
+        """
+        Encode a single complex AMQP element (ie list or array member, map key or value)
+        A complex element may be one of:
+        str/unicode: 'amqp_type:amqp_value'
+        list: [...]
+        dict: {...}
+        """
+        if _compat.IS_PY3:
+            is_string = isinstance(test_element, str)
+        else:
+            is_string = isinstance(test_element, unicode)
+        if is_string:
+            split_list = test_element.split(':', 1)
+            return AmqpTypesTestSender.encode_amqp_type(split_list[0], split_list[1])
+        if isinstance(test_element, list):
+            enc_list = AmqpTypesTestSender.encode_amqp_list(test_element)
+            if make_hashable:
+                return tuple(enc_list) # Convert list to tuple
+            return enc_list
+        if isinstance(test_element, dict):
+            enc_dict = AmqpTypesTestSender.encode_amqp_map(test_element)
+            if make_hashable:
+                return tuple(enc_dict.items()) # Convert to tuple of k,v pairs
+            return enc_dict
+        else:
+            print('Unexpected complex amqp element type: %s, value=%s' % (type(test_element), str(test_element)))
+
+    @staticmethod
+    def encode_amqp_list(test_value):
+        """
+        Encode an AMQP list from the format [val1, val2, ...]
+        Each val is in the string format amqp_type:amqp_val_as_str
+        """
+        val_list = []
+        for val in test_value:
+            val_list.append(AmqpTypesTestSender.encode_complex_amqp_element(val))
+        return val_list
+
+    @staticmethod
+    def encode_amqp_map(test_value):
+        """Encode an AMQP map from the format {key1:val1, key2:val2, ...}"""
+        val_map = {}
+        for key, val in test_value.items():
+            encoded_key = AmqpTypesTestSender.encode_complex_amqp_element(key, True) # make keys hashable
+            encoded_val = AmqpTypesTestSender.encode_complex_amqp_element(val)
+            val_map[encoded_key] = encoded_val
+        return val_map
+
+    @staticmethod
+    def encode_amqp_array(test_value):
+        """Encode an AMQP array"""
+        return test_value
 
     def on_accepted(self, event):
         """Event callback for when a sent message is accepted by the broker"""

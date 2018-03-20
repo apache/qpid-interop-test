@@ -65,95 +65,7 @@ namespace qpidit
         void Receiver::on_message(proton::delivery &d, proton::message &m) {
             try {
                 if (_received < _expected) {
-                    if (_amqpType.compare("null") == 0) {
-                        checkMessageType(m, proton::NULL_TYPE);
-                        _receivedValueList.append("None");
-                    } else if (_amqpType.compare("boolean") == 0) {
-                        checkMessageType(m, proton::BOOLEAN);
-                        _receivedValueList.append(proton::get<bool>(m.body()) ? "True": "False");
-                    } else if (_amqpType.compare("ubyte") == 0) {
-                        checkMessageType(m, proton::UBYTE);
-                        _receivedValueList.append(toHexStr<uint8_t>(proton::get<uint8_t>(m.body())));
-                    } else if (_amqpType.compare("ushort") == 0) {
-                        checkMessageType(m, proton::USHORT);
-                        _receivedValueList.append(toHexStr<uint16_t>(proton::get<uint16_t>(m.body())));
-                    } else if (_amqpType.compare("uint") == 0) {
-                        checkMessageType(m, proton::UINT);
-                        _receivedValueList.append(toHexStr<uint32_t>(proton::get<uint32_t>(m.body())));
-                    } else if (_amqpType.compare("ulong") == 0) {
-                        checkMessageType(m, proton::ULONG);
-                        _receivedValueList.append(toHexStr<uint64_t>(proton::get<uint64_t>(m.body())));
-                    } else if (_amqpType.compare("byte") == 0) {
-                        checkMessageType(m, proton::BYTE);
-                        _receivedValueList.append(toHexStr<int8_t>(proton::get<int8_t>(m.body())));
-                    } else if (_amqpType.compare("short") == 0) {
-                        checkMessageType(m, proton::SHORT);
-                        _receivedValueList.append(toHexStr<int16_t>(proton::get<int16_t>(m.body())));
-                    } else if (_amqpType.compare("int") == 0) {
-                        checkMessageType(m, proton::INT);
-                        _receivedValueList.append(toHexStr<int32_t>(proton::get<int32_t>(m.body())));
-                    } else if (_amqpType.compare("long") == 0) {
-                        checkMessageType(m, proton::LONG);
-                        _receivedValueList.append(toHexStr<int64_t>(proton::get<int64_t>(m.body())));
-                    } else if (_amqpType.compare("float") == 0) {
-                        checkMessageType(m, proton::FLOAT);
-                        float f = proton::get<float>(m.body());
-                        _receivedValueList.append(toHexStr<uint32_t>(*((uint32_t*)&f), true));
-                    } else if (_amqpType.compare("double") == 0) {
-                        checkMessageType(m, proton::DOUBLE);
-                        double d = proton::get<double>(m.body());
-                        _receivedValueList.append(toHexStr<uint64_t>(*((uint64_t*)&d), true));
-                    } else if (_amqpType.compare("decimal32") == 0) {
-                        checkMessageType(m, proton::DECIMAL32);
-                        _receivedValueList.append(byteArrayToHexStr(proton::get<proton::decimal32>(m.body())));
-                    } else if (_amqpType.compare("decimal64") == 0) {
-                        checkMessageType(m, proton::DECIMAL64);
-                        _receivedValueList.append(byteArrayToHexStr(proton::get<proton::decimal64>(m.body())));
-                    } else if (_amqpType.compare("decimal128") == 0) {
-                        checkMessageType(m, proton::DECIMAL128);
-                        _receivedValueList.append(byteArrayToHexStr(proton::get<proton::decimal128>(m.body())));
-                    } else if (_amqpType.compare("char") == 0) {
-                        checkMessageType(m, proton::CHAR);
-                        wchar_t c = proton::get<wchar_t>(m.body());
-                        std::stringstream oss;
-                        if (c < 0x7f && std::iswprint(c)) {
-                            oss << (char)c;
-                        } else {
-                            oss << "0x" << std::hex << c;
-                        }
-                        _receivedValueList.append(oss.str());
-                    } else if (_amqpType.compare("timestamp") == 0) {
-                        checkMessageType(m, proton::TIMESTAMP);
-                        std::ostringstream oss;
-                        oss << "0x" << std::hex << proton::get<proton::timestamp>(m.body()).milliseconds();
-                        _receivedValueList.append(oss.str());
-                    } else if (_amqpType.compare("uuid") == 0) {
-                        checkMessageType(m, proton::UUID);
-                        std::ostringstream oss;
-                        oss << proton::get<proton::uuid>(m.body());
-                        _receivedValueList.append(oss.str());
-                    } else if (_amqpType.compare("binary") == 0) {
-                        checkMessageType(m, proton::BINARY);
-                        _receivedValueList.append(std::string(proton::get<proton::binary>(m.body())));
-                    } else if (_amqpType.compare("string") == 0) {
-                        checkMessageType(m, proton::STRING);
-                        _receivedValueList.append(proton::get<std::string>(m.body()));
-                    } else if (_amqpType.compare("symbol") == 0) {
-                        checkMessageType(m, proton::SYMBOL);
-                        _receivedValueList.append(proton::get<proton::symbol>(m.body()));
-                    } else if (_amqpType.compare("list") == 0) {
-                        checkMessageType(m, proton::LIST);
-                        Json::Value jsonList(Json::arrayValue);
-                        _receivedValueList.append(getSequence(jsonList, m.body()));
-                    } else if (_amqpType.compare("map") == 0) {
-                        checkMessageType(m, proton::MAP);
-                        Json::Value jsonMap(Json::objectValue);
-                        _receivedValueList.append(getMap(jsonMap, m.body()));
-                    } else if (_amqpType.compare("array") == 0) {
-                        throw qpidit::UnsupportedAmqpTypeError(_amqpType);
-                    } else {
-                        throw qpidit::UnknownAmqpTypeError(_amqpType);
-                    }
+                    _receivedValueList.append(getValue(_amqpType, m.body()));
                 }
                 _received++;
                 if (_received >= _expected) {
@@ -190,9 +102,40 @@ namespace qpidit
         // protected
 
         //static
-        void Receiver::checkMessageType(const proton::message& msg, proton::type_id amqpType) {
-            if (msg.body().type() != amqpType) {
-                throw qpidit::IncorrectMessageBodyTypeError(amqpType, msg.body().type());
+        void Receiver::checkMessageType(const proton::value& val, proton::type_id amqpType) {
+            if (val.type() != amqpType) {
+                throw qpidit::IncorrectMessageBodyTypeError(amqpType, val.type());
+            }
+        }
+
+        //static
+        std::string Receiver::getAmqpType(const proton::value& val) {
+            switch(val.type()) {
+            case proton::NULL_TYPE: return "null";
+            case proton::BOOLEAN: return "boolean";
+            case proton::UBYTE: return "ubyte";
+            case proton::USHORT: return "ushort";
+            case proton::UINT: return "uint";
+            case proton::ULONG: return "ulong";
+            case proton::BYTE: return "byte";
+            case proton::SHORT: return "short";
+            case proton::INT: return "int";
+            case proton::LONG: return "long";
+            case proton::FLOAT: return "float";
+            case proton::DOUBLE: return "double";
+            case proton::DECIMAL32: return "decimal32";
+            case proton::DECIMAL64: return "decimal64";
+            case proton::DECIMAL128: return "decimal128";
+            case proton::CHAR: return "char";
+            case proton::TIMESTAMP: return "timestamp";
+            case proton::UUID: return "uuid";
+            case proton::BINARY: return "binary";
+            case proton::STRING: return "string";
+            case proton::SYMBOL: return "symbol";
+            case proton::LIST: return "list";
+            case proton::MAP: return "map";
+            case proton::ARRAY: return "array";
+            //default: throw qpidit::UnknownAmqpTypeError(val);
             }
         }
 
@@ -201,27 +144,28 @@ namespace qpidit
             std::map<proton::value, proton::value> msgMap;
             proton::get(val, msgMap);
             for (std::map<proton::value, proton::value>::const_iterator i = msgMap.begin(); i != msgMap.end(); ++i) {
-                switch (i->second.type()) {
-                case proton::LIST:
-                {
-                    Json::Value jsonSubList(Json::arrayValue);
-                    jsonMap[proton::get<std::string>(i->first)] = getSequence(jsonSubList, i->second);
-                    break;
+
+                // Process key
+                Json::Value mapKey;
+                if (i->first.type() == proton::LIST || i->first.type() == proton::MAP || i->first.type() == proton::ARRAY) {
+                    mapKey = getValue(i->first);
+                } else {
+                    std::ostringstream oss;
+                    oss << getAmqpType(i->first) << ":" << getValue(i->first).asString();
+                    mapKey = oss.str();
                 }
-                case proton::MAP:
-                {
-                    Json::Value jsonSubMap(Json::objectValue);
-                    jsonMap[proton::get<std::string>(i->first)] = getMap(jsonSubMap, i->second);
-                    break;
+
+                // Process value
+                Json::Value mapValue;
+                if (i->second.type() == proton::LIST || i->second.type() == proton::MAP || i->second.type() == proton::ARRAY) {
+                    mapValue = getValue(i->second);
+                } else {
+                    std::ostringstream oss;
+                    oss << getAmqpType(i->second) << ":" << getValue(i->second).asString();
+                    mapValue = oss.str();
                 }
-                case proton::ARRAY:
-                    break;
-                case proton::STRING:
-                    jsonMap[proton::get<std::string>(i->first)] = Json::Value(proton::get<std::string>(i->second));
-                    break;
-                default:
-                    throw qpidit::IncorrectValueTypeError(i->second);
-                }
+
+                jsonMap[mapKey.asString()] = mapValue;
             }
             return jsonMap;
         }
@@ -231,39 +175,135 @@ namespace qpidit
             std::vector<proton::value> msgList;
             proton::get(val, msgList);
             for (std::vector<proton::value>::const_iterator i=msgList.begin(); i!=msgList.end(); ++i) {
-                switch ((*i).type()) {
-                case proton::LIST:
-                {
-                    Json::Value jsonSubList(Json::arrayValue);
-                    jsonList.append(getSequence(jsonSubList, *i));
-                    break;
-                }
-                case proton::MAP:
-                {
-                    Json::Value jsonSubMap(Json::objectValue);
-                    jsonList.append(getMap(jsonSubMap, *i));
-                    break;
-                }
-                case proton::ARRAY:
-                    break;
-                case proton::STRING:
-                    jsonList.append(Json::Value(proton::get<std::string>(*i)));
-                    break;
-                default:
-                    throw qpidit::IncorrectValueTypeError(*i);
+                if (i->type() == proton::LIST || i->type() == proton::MAP || i->type() == proton::ARRAY) {
+                    jsonList.append(getValue(*i));
+                } else {
+                    std::ostringstream oss;
+                    oss << getAmqpType(*i) << ":" << getValue(*i).asString();
+                    jsonList.append(oss.str());
                 }
             }
             return jsonList;
         }
 
         //static
-        std::string Receiver::stringToHexStr(const std::string& str) {
-            std::ostringstream oss;
-            oss << "0x" << std::hex;
-            for (std::string::const_iterator i=str.begin(); i!=str.end(); ++i) {
-                oss << std::setw(2) << std::setfill('0') << ((int)*i & 0xff);
+        Json::Value Receiver::getValue(const proton::value& val) {
+            return getValue(getAmqpType(val), val);
+        }
+
+        //static
+        Json::Value Receiver::getValue(const std::string& amqpType, const proton::value& val) {
+            if (amqpType.compare("null") == 0) {
+                checkMessageType(val, proton::NULL_TYPE);
+                return "None";
             }
-            return oss.str();
+            if (amqpType.compare("boolean") == 0) {
+                checkMessageType(val, proton::BOOLEAN);
+                return proton::get<bool>(val) ? "True" : "False";
+            }
+            if (amqpType.compare("ubyte") == 0) {
+                checkMessageType(val, proton::UBYTE);
+                return toHexStr<uint8_t>(proton::get<uint8_t>(val));
+            }
+            if (amqpType.compare("ushort") == 0) {
+                checkMessageType(val, proton::USHORT);
+                return toHexStr<uint16_t>(proton::get<uint16_t>(val));
+            }
+            if (amqpType.compare("uint") == 0) {
+                checkMessageType(val, proton::UINT);
+                return toHexStr<uint32_t>(proton::get<uint32_t>(val));
+            }
+            if (amqpType.compare("ulong") == 0) {
+                checkMessageType(val, proton::ULONG);
+                return toHexStr<uint64_t>(proton::get<uint64_t>(val));
+            }
+            if (amqpType.compare("byte") == 0) {
+                checkMessageType(val, proton::BYTE);
+                return toHexStr<int8_t>(proton::get<int8_t>(val));
+            }
+            if (amqpType.compare("short") == 0) {
+                checkMessageType(val, proton::SHORT);
+                return toHexStr<int16_t>(proton::get<int16_t>(val));
+            }
+            if (amqpType.compare("int") == 0) {
+                checkMessageType(val, proton::INT);
+                return toHexStr<int32_t>(proton::get<int32_t>(val));
+            }
+            if (amqpType.compare("long") == 0) {
+                checkMessageType(val, proton::LONG);
+                return toHexStr<int64_t>(proton::get<int64_t>(val));
+            }
+            if (amqpType.compare("float") == 0) {
+                checkMessageType(val, proton::FLOAT);
+                float f = proton::get<float>(val);
+                return toHexStr<uint32_t>(*((uint32_t*)&f), true);
+            }
+            if (amqpType.compare("double") == 0) {
+                checkMessageType(val, proton::DOUBLE);
+                double d = proton::get<double>(val);
+                return toHexStr<uint64_t>(*((uint64_t*)&d), true);
+            }
+            if (amqpType.compare("decimal32") == 0) {
+                checkMessageType(val, proton::DECIMAL32);
+                return byteArrayToHexStr(proton::get<proton::decimal32>(val));
+            }
+            if (amqpType.compare("decimal64") == 0) {
+                checkMessageType(val, proton::DECIMAL64);
+                return byteArrayToHexStr(proton::get<proton::decimal64>(val));
+            }
+            if (amqpType.compare("decimal128") == 0) {
+                checkMessageType(val, proton::DECIMAL128);
+                return byteArrayToHexStr(proton::get<proton::decimal128>(val));
+            }
+            if (amqpType.compare("char") == 0) {
+                checkMessageType(val, proton::CHAR);
+                wchar_t c = proton::get<wchar_t>(val);
+                std::stringstream oss;
+                if (c < 0x7f && std::iswprint(c)) {
+                    oss << (char)c;
+                } else {
+                    oss << "0x" << std::hex << c;
+                }
+                return oss.str();
+            }
+            if (amqpType.compare("timestamp") == 0) {
+                checkMessageType(val, proton::TIMESTAMP);
+                std::ostringstream oss;
+                oss << "0x" << std::hex << proton::get<proton::timestamp>(val).milliseconds();
+                return oss.str();
+            }
+            if (amqpType.compare("uuid") == 0) {
+                checkMessageType(val, proton::UUID);
+                std::ostringstream oss;
+                oss << proton::get<proton::uuid>(val);
+                return oss.str();
+            }
+            if (amqpType.compare("binary") == 0) {
+                checkMessageType(val, proton::BINARY);
+                return std::string(proton::get<proton::binary>(val));
+            }
+            if (amqpType.compare("string") == 0) {
+                checkMessageType(val, proton::STRING);
+                return proton::get<std::string>(val);
+            }
+            if (amqpType.compare("symbol") == 0) {
+                checkMessageType(val, proton::SYMBOL);
+                return proton::get<proton::symbol>(val);
+            }
+            if (amqpType.compare("list") == 0) {
+                checkMessageType(val, proton::LIST);
+                Json::Value jsonList(Json::arrayValue);
+                return getSequence(jsonList, val);
+            }
+            if (amqpType.compare("map") == 0) {
+                checkMessageType(val, proton::MAP);
+                Json::Value jsonMap(Json::objectValue);
+                return getMap(jsonMap, val);
+            }
+            if (amqpType.compare("array") == 0) {
+                throw qpidit::UnsupportedAmqpTypeError(amqpType);
+            }
+            throw qpidit::UnknownAmqpTypeError(amqpType);
         }
 
     } /* namespace amqp_types_test */

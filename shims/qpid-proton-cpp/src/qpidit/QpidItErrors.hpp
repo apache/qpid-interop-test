@@ -108,6 +108,7 @@ namespace qpidit
     class InvalidTestValueError: public std::runtime_error
     {
     public:
+        InvalidTestValueError(const std::string& valueStr);
         InvalidTestValueError(const std::string& type, const std::string& valueStr);
         virtual ~InvalidTestValueError() throw();
     };

@@ -30,6 +30,7 @@ import string
 import struct
 import sys
 import traceback
+import uuid
 
 import proton
 import proton.handlers
@@ -66,60 +67,177 @@ class AmqpTypesTestReceiver(proton.handlers.MessagingHandler):
         """Event callback when a message is received by the client"""
         if event.message.id and event.message.id < self.received:
             return # ignore duplicate message
-        if self.received < self.expected:
-            if self.amqp_type == 'null' or \
-               self.amqp_type == 'boolean' or \
-               self.amqp_type == 'uuid':
-                self.received_value_list.append(str(event.message.body))
-            elif self.amqp_type == 'ubyte' or \
-               self.amqp_type == 'ushort' or \
-               self.amqp_type == 'byte' or \
-               self.amqp_type == 'short' or \
-               self.amqp_type == 'int':
-                self.received_value_list.append(hex(event.message.body))
-            elif self.amqp_type == 'uint' or \
-               self.amqp_type == 'ulong' or \
-               self.amqp_type == 'long' or \
-               self.amqp_type == 'timestamp':
-                hex_str = hex(int(event.message.body))
-                if len(hex_str) == 19 and hex_str[-1] == 'L':
-                    self.received_value_list.append(hex_str[:-1]) # strip trailing 'L' if present on some ulongs
-                else:
-                    self.received_value_list.append(hex_str)
-            elif self.amqp_type == 'float':
-                self.received_value_list.append('0x%08x' % struct.unpack('!L',
-                                                                         struct.pack('!f', event.message.body))[0])
-            elif self.amqp_type == 'double':
-                self.received_value_list.append('0x%016x' % struct.unpack('!Q',
-                                                                          struct.pack('!d', event.message.body))[0])
-            elif self.amqp_type == 'decimal32':
-                self.received_value_list.append('0x%08x' % event.message.body)
-            elif self.amqp_type == 'decimal64':
-                self.received_value_list.append('0x%016x' % event.message.body)
-            elif self.amqp_type == 'decimal128':
-                self.received_value_list.append('0x' + ''.join(['%02x' % _compat.byte_char_ord(c) \
-                                                                for c in event.message.body]).strip())
-            elif self.amqp_type == 'char':
-                if ord(event.message.body) < 0x80 and event.message.body in \
-                   string.digits + _compat.letters() + string.punctuation + ' ':
-                    self.received_value_list.append(event.message.body)
-                else:
-                    self.received_value_list.append(hex(ord(event.message.body)))
-            elif self.amqp_type == 'binary':
-                self.received_value_list.append(event.message.body.decode('utf-8'))
-            elif self.amqp_type == 'string' or \
-                 self.amqp_type == 'symbol':
-                self.received_value_list.append(event.message.body)
-            elif self.amqp_type == 'list' or \
-                 self.amqp_type == 'map':
-                self.received_value_list.append(event.message.body)
-            else:
-                print('receive: Unsupported AMQP type "%s"' % self.amqp_type)
-                return
-            self.received += 1
+        test_value = AmqpTypesTestReceiver.decode_amqp_type(self.amqp_type, event.message.body)
+        if test_value is None:
+            return
+        self.received_value_list.append(test_value)
+        self.received += 1
         if self.received >= self.expected:
             event.receiver.close()
             event.connection.close()
+
+    @staticmethod
+    def longhex(amqp_value):
+        """Create a long hex string"""
+        hex_str = hex(int(amqp_value))
+        if len(hex_str) == 19 and hex_str[-1] == 'L':
+            return hex_str[:-1] # strip trailing 'L' if present on some ulongs
+        return hex_str
+
+    @staticmethod
+    def decode_amqp_type(amqp_type, amqp_value):
+        """Decode amqp type"""
+        if amqp_type == 'null':
+            return str(amqp_value)
+        if amqp_type == 'boolean':
+            return str(amqp_value)
+        if amqp_type == 'ubyte':
+            return hex(amqp_value)
+        if amqp_type == 'ushort':
+            return hex(amqp_value)
+        if amqp_type == 'uint':
+            return AmqpTypesTestReceiver.longhex(amqp_value)
+        if amqp_type == 'ulong':
+            return AmqpTypesTestReceiver.longhex(amqp_value)
+        if amqp_type == 'byte':
+            return hex(amqp_value)
+        if amqp_type == 'short':
+            return hex(amqp_value)
+        if amqp_type == 'int':
+            return hex(amqp_value)
+        if amqp_type == 'long':
+            return AmqpTypesTestReceiver.longhex(amqp_value)
+        if amqp_type == 'float':
+            return '0x%08x' % struct.unpack('!L', struct.pack('!f', amqp_value))[0]
+        if amqp_type == 'double':
+            return '0x%016x' % struct.unpack('!Q', struct.pack('!d', amqp_value))[0]
+        if amqp_type == 'decimal32':
+            return '0x%08x' % amqp_value
+        if amqp_type == 'decimal64':
+            return '0x%016x' % amqp_value
+        if amqp_type == 'decimal128':
+            return '0x' + ''.join(['%02x' % _compat.byte_char_ord(c) for c in amqp_value]).strip()
+        if amqp_type == 'char':
+            if ord(amqp_value) < 0x80 and amqp_value in string.digits + _compat.letters() + string.punctuation + ' ':
+                return amqp_value
+            return hex(ord(amqp_value))
+        if amqp_type == 'timestamp':
+            return AmqpTypesTestReceiver.longhex(amqp_value)
+        if amqp_type == 'uuid':
+            return str(amqp_value)
+        if amqp_type == 'binary':
+            return amqp_value.decode('utf-8')
+        if amqp_type == 'string':
+            return amqp_value
+        if amqp_type == 'symbol':
+            return amqp_value
+        if amqp_type == 'list':
+            return AmqpTypesTestReceiver.decode_amqp_list(amqp_value)
+        if amqp_type == 'map':
+            return AmqpTypesTestReceiver.decode_amqp_map(amqp_value)
+        if amqp_type == 'array':
+            #return AmqpTypesTestReceiver.decode_amqp_array(amqp_value)
+            print('receive: Unsupported AMQP type "%s"' % amqp_type)
+            return None
+        print('receive: Unknown AMQP type "%s"' % amqp_type)
+        return None
+
+    @staticmethod
+    def get_amqp_type(amqp_value):
+        """Get the AMQP type from the Python type"""
+        if amqp_value is None:
+            return "null"
+        if isinstance(amqp_value, bool):
+            return "boolean"
+        if isinstance(amqp_value, proton.ubyte):
+            return "ubyte"
+        if isinstance(amqp_value, proton.ushort):
+            return "ushort"
+        if isinstance(amqp_value, proton.uint):
+            return "uint"
+        if isinstance(amqp_value, proton.ulong):
+            return "ulong"
+        if isinstance(amqp_value, proton.byte):
+            return "byte"
+        if isinstance(amqp_value, proton.short):
+            return "short"
+        if isinstance(amqp_value, proton.int32):
+            return "int"
+        if isinstance(amqp_value, proton.float32):
+            return "float"
+        if isinstance(amqp_value, proton.decimal32):
+            return "decimal32"
+        if isinstance(amqp_value, proton.decimal64):
+            return "decimal64"
+        if isinstance(amqp_value, proton.decimal128):
+            return "decimal128"
+        if isinstance(amqp_value, proton.char):
+            return "char"
+        if isinstance(amqp_value, proton.timestamp):
+            return "timestamp"
+        if isinstance(amqp_value, uuid.UUID):
+            return "uuid"
+        if isinstance(amqp_value, proton.symbol):
+            return "symbol"
+        if isinstance(amqp_value, proton.Array):
+            return "array"
+        # Native types come last so that parent classes will not be found instead (issue using isinstance()
+        if _compat.IS_PY3:
+            if isinstance(amqp_value, int):
+                return "long"
+            if isinstance(amqp_value, bytes):
+                return "binary"
+            if isinstance(amqp_value, str):
+                return "string"
+        else:
+            import __builtin__
+            if isinstance(amqp_value, __builtin__.long):
+                return "long"
+            if isinstance(amqp_value, str):
+                return "binary"
+            if isinstance(amqp_value, unicode):
+                return "string"
+        if isinstance(amqp_value, float):
+            return "double"
+        if isinstance(amqp_value, list):
+            return "list"
+        if isinstance(amqp_value, dict):
+            return "map"
+
+        print('receive: Unmapped AMQP type: %s:%s' % (type(amqp_value), amqp_value))
+
+    @staticmethod
+    def decode_complex_amqp_element(amqp_value):
+        """Decode an element from a complex AMQP type from its Python value"""
+        amqp_type = AmqpTypesTestReceiver.get_amqp_type(amqp_value)
+        if amqp_type == "list":
+            return AmqpTypesTestReceiver.decode_amqp_list(amqp_value)
+        if amqp_type == "map":
+            return AmqpTypesTestReceiver.decode_amqp_map(amqp_value)
+        return "%s:%s" % (amqp_type, AmqpTypesTestReceiver.decode_amqp_type(amqp_type, amqp_value))
+
+    @staticmethod
+    def decode_amqp_list(amqp_value):
+        """Decode amqp list type"""
+#        print('LIST:%s' % amqp_value)
+        amqp_list = []
+        for list_item in amqp_value:
+            amqp_list.append(AmqpTypesTestReceiver.decode_complex_amqp_element(list_item))
+        return amqp_list
+
+    @staticmethod
+    def decode_amqp_map(amqp_value):
+        """Decode amqp map type"""
+        amqp_map = {}
+        for key, value in amqp_value.items():
+            amqp_map[AmqpTypesTestReceiver.decode_complex_amqp_element(key)] = \
+                    AmqpTypesTestReceiver.decode_complex_amqp_element(value)
+        return amqp_map
+
+    @staticmethod
+    def decode_amqp_array(amqp_value):
+        """Decode amqp array type"""
+        return amqp_value
 
     def on_transport_error(self, event):
         print('Receiver: Broker not found at %s' % self.broker_url)

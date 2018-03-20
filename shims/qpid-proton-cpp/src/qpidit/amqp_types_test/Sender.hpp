@@ -51,11 +51,12 @@ namespace qpidit
             static void revMemcpy(char* dest, const char* src, int n);
             static void uint64ToChar16(char* dest, uint64_t upper, uint64_t lower);
 
-            static proton::value extractProtonValue(const Json::Value& val);
+            static proton::value convertAmqpValue(const std::string& amqpType, const Json::Value& testValue);
             //static Json::Value::ValueType getArrayType(const Json::Value& val);
             static void processArray(std::vector<proton::value>& array, const Json::Value& testValues);
+            static proton::value processElement(const Json::Value& testValue);
             static void processList(std::vector<proton::value>& list, const Json::Value& testValues);
-            static void processMap(std::map<std::string, proton::value>& map, const Json::Value& testValues);
+            static void processMap(std::map<proton::value, proton::value>& map, const Json::Value& testValues);
 
             template<size_t N> static void hexStringToBytearray(proton::byte_array<N>& ba, const std::string s, size_t fromArrayIndex = 0, size_t arrayLen = N) {
                 for (size_t i=0; i<arrayLen; ++i) {
@@ -65,25 +66,19 @@ namespace qpidit
 
             // Set message body to floating type T through integral type U
             // Used to convert a hex string representation of a float or double to a float or double
-            template<typename T, typename U> void setFloatValue(proton::message& msg, const std::string& testValueStr) {
+            template<typename T, typename U> static proton::value floatValue(const std::string& amqpType, const std::string& testValueStr) {
                 try {
                     U ival(std::strtoul(testValueStr.data(), NULL, 16));
-                    msg.body(T(*reinterpret_cast<T*>(&ival)));
-                } catch (const std::exception& e) { throw qpidit::InvalidTestValueError(_amqpType, testValueStr); }
+                    return proton::value(T(*reinterpret_cast<T*>(&ival)));
+                } catch (const std::exception& e) { throw qpidit::InvalidTestValueError(amqpType, testValueStr); }
             }
 
-            template<typename T> void setIntegralValue(proton::message& msg, const std::string& testValueStr, bool unsignedVal) {
+            template<typename T> static proton::value integralValue(const std::string& amqpType, const std::string& testValueStr, bool unsignedVal) {
+                const int base = (testValueStr.find("0x") != std::string::npos) ? 16 : 10;
                 try {
-                    T val(unsignedVal ? std::strtoul(testValueStr.data(), NULL, 16) : std::strtol(testValueStr.data(), NULL, 16));
-                    msg.body(val);
-                } catch (const std::exception& e) { throw qpidit::InvalidTestValueError(_amqpType, testValueStr); }
-            }
-
-            template<typename T> void setStringValue(proton::message& msg, const std::string& testValueStr) {
-                try {
-                    T val(testValueStr);
-                    msg.body(val);
-                } catch (const std::exception& e) { throw qpidit::InvalidTestValueError(_amqpType, testValueStr); }
+                    T val(unsignedVal ? std::strtoul(testValueStr.data(), NULL, base) : std::strtol(testValueStr.data(), NULL, base));
+                    return val;
+                } catch (const std::exception& e) { throw qpidit::InvalidTestValueError(amqpType, testValueStr); }
             }
         };
 

@@ -133,6 +133,10 @@ namespace qpidit
 
     // --- InvalidTestValueError ---
 
+    InvalidTestValueError::InvalidTestValueError(const std::string& valueStr) :
+                    std::runtime_error(MSG("Invalid element test value: \"" << valueStr << "\" is not in format \"amqp-type:value-as_str\""))
+    {}
+
     InvalidTestValueError::InvalidTestValueError(const std::string& type, const std::string& valueStr) :
                     std::runtime_error(MSG("Invalid test value: \"" << valueStr << "\" is not valid for type " << type))
     {}
