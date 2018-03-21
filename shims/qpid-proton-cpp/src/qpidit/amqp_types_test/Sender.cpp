@@ -127,14 +127,14 @@ namespace qpidit
             if (amqpType.compare("float") == 0) {
                 const std::string testValueStr = testValue.asString();
                 if (testValueStr.find("0x") == std::string::npos) // regular decimal fraction
-                    return std::strtof(testValueStr.c_str(), nullptr);
+                    return std::strtof(testValueStr.c_str(), NULL);
                 // hex representation of float
                 return floatValue<float, uint32_t>(amqpType, testValue.asString());
             }
             if (amqpType.compare("double") == 0) {
                 const std::string testValueStr = testValue.asString();
                 if (testValueStr.find("0x") == std::string::npos) // regular decimal fraction
-                    return std::strtod(testValueStr.c_str(), nullptr);
+                    return std::strtod(testValueStr.c_str(), NULL);
                 // hex representation of float
                 return floatValue<double, uint64_t>(amqpType, testValue.asString());
             }
