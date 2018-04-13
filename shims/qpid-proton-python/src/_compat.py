@@ -29,11 +29,17 @@ import types
 IS_PY3 = sys.version_info[0] == 3
 
 if IS_PY3:
+    def bytes_type():
+        return bytes
     def decode_hex(s):
         return bytes.fromhex(s)
     def letters():
         return string.ascii_letters
-    def long(i, r):
+    def long(i):
+        return int(i)
+    def long_type():
+        return int
+    def str2long(i, r):
         return int(i, r)
     def byte_char_ord(c):
         return c
@@ -41,15 +47,23 @@ if IS_PY3:
         return chr(i)
     def unicode(i):
         return str(i)
+    def unicode_type():
+        return str
 
 else:
     import __builtin__
 
+    def bytes_type():
+        return str
     def decode_hex(s):
         return s.decode('hex')
     def letters():
         return string.letters
-    def long(i, r):
+    def long(i):
+        return __builtin__.long(i)
+    def long_type():
+        return __builtin__.long
+    def str2long(i, r):
         return __builtin__.long(i, r)
     def byte_char_ord(c):
         return __builtin__.ord(c)
@@ -57,3 +71,5 @@ else:
         return __builtin__.unichr(i)
     def unicode(i):
         return __builtin__.unicode(i)
+    def unicode_type():
+        return __builtin__.unicode

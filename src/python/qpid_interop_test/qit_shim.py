@@ -32,13 +32,13 @@ from qpid_interop_test.qit_errors import InteropTestTimeout
 
 class ShimProcess(subprocess.Popen):
     """Abstract parent class for Sender and Receiver shim process"""
-    def __init__(self, args, python3_flag, proc_name):
+    def __init__(self, params, python3_flag, proc_name):
         self.proc_name = proc_name
         self.killed_flag = False
         self.env = copy.deepcopy(os.environ)
         if python3_flag:
             self.env['PYTHONPATH'] = self.env['PYTHON3PATH']
-        super(ShimProcess, self).__init__(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, preexec_fn=os.setsid,
+        super(ShimProcess, self).__init__(params, stdout=subprocess.PIPE, stderr=subprocess.PIPE, preexec_fn=os.setsid,
                                           env=self.env)
 
     def wait_for_completion(self, timeout):
@@ -49,6 +49,8 @@ class ShimProcess(subprocess.Popen):
             (stdoutdata, stderrdata) = self.communicate()
             if self.killed_flag:
                 raise InteropTestTimeout('%s: Timeout after %d seconds' % (self.proc_name, timeout))
+            if self.returncode != 0:
+                return 'Return code %d\nstderr=%s\nstdout=%s' % (self.returncode, stderrdata, stdoutdata)
             if stderrdata: # length > 0
                 # Workaround for Amqp.NetLite which on some OSs produces a spurious error message on stderr
                 # which should be ignored:

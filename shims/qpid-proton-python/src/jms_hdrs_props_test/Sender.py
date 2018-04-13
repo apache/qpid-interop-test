@@ -176,7 +176,7 @@ class JmsHdrsPropsTestSender(proton.handlers.MessagingHandler):
         elif test_value_type == 'int':
             body_bytes = struct.pack('!i', int(test_value, 16))
         elif test_value_type == 'long':
-            body_bytes = struct.pack('!q', _compat.long(test_value, 16))
+            body_bytes = struct.pack('!q', _compat.str2long(test_value, 16))
         elif test_value_type == 'short':
             body_bytes = struct.pack('!h', proton.short(test_value, 16))
         elif test_value_type == 'string':
@@ -211,7 +211,7 @@ class JmsHdrsPropsTestSender(proton.handlers.MessagingHandler):
         elif test_value_type == 'int':
             value = proton.int32(int(test_value, 16))
         elif test_value_type == 'long':
-            value = _compat.long(test_value, 16)
+            value = _compat.str2long(test_value, 16)
         elif test_value_type == 'short':
             value = proton.short(int(test_value, 16))
         elif test_value_type == 'string':
@@ -268,7 +268,7 @@ class JmsHdrsPropsTestSender(proton.handlers.MessagingHandler):
         elif test_value_type == 'int':
             body_list = [proton.int32(int(test_value, 16))]
         elif test_value_type == 'long':
-            body_list = [_compat.long(test_value, 16)]
+            body_list = [_compat.str2long(test_value, 16)]
         elif test_value_type == 'short':
             body_list = [proton.short(int(test_value, 16))]
         elif test_value_type == 'string':
@@ -354,7 +354,7 @@ class JmsHdrsPropsTestSender(proton.handlers.MessagingHandler):
             elif value_type == 'int':
                 message.properties[property_name] = proton.int32(int(value, 16))
             elif value_type == 'long':
-                message.properties[property_name] = _compat.long(value, 16)
+                message.properties[property_name] = _compat.str2long(value, 16)
             elif value_type == 'short':
                 message.properties[property_name] = proton.short(int(value, 16))
             elif value_type == 'string':

@@ -101,7 +101,7 @@ class AmqpTypesTestSender(proton.handlers.MessagingHandler):
         if amqp_type == 'int':
             return proton.int32(int(test_value, 16))
         if amqp_type == 'long':
-            return _compat.long(test_value, 16)
+            return _compat.str2long(test_value, 16)
         if amqp_type == 'float':
             return proton.float32(struct.unpack('!f', _compat.decode_hex(test_value[2:]))[0])
         if amqp_type == 'double':
@@ -109,7 +109,7 @@ class AmqpTypesTestSender(proton.handlers.MessagingHandler):
         if amqp_type == 'decimal32':
             return proton.decimal32(int(test_value[2:], 16))
         if amqp_type == 'decimal64':
-            return proton.decimal64(_compat.long(test_value[2:], 16))
+            return proton.decimal64(_compat.str2long(test_value[2:], 16))
         if amqp_type == 'decimal128':
             return proton.decimal128(_compat.decode_hex(test_value[2:]))
         if amqp_type == 'char':

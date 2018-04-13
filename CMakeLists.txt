@@ -95,6 +95,16 @@ add_subdirectory(shims/amqpnetlite/src)
 add_subdirectory(shims/rhea-js)
 add_subdirectory(docs)
 
+# Generate data code files for amqp_complex_types_test
+install(CODE "execute_process(COMMAND python3 src/python/qpid_interop_test/amqp_complex_types_test_generator.py --gen cpp --src-dir src/python/qpid_interop_test --gen-dir shims/qpid-proton-cpp/src/qpidit/amqp_complex_types_test
+                              WORKING_DIRECTORY ../)")
+install(CODE "execute_process(COMMAND python3 src/python/qpid_interop_test/amqp_complex_types_test_generator.py --gen python --src-dir src/python/qpid_interop_test --gen-dir shims/qpid-proton-python/src/amqp_complex_types_test
+                              WORKING_DIRECTORY ../)")
+install(CODE "execute_process(COMMAND python3 src/python/qpid_interop_test/amqp_complex_types_test_generator.py --gen javascript --src-dir src/python/qpid_interop_test --gen-dir shims/rhea-js/amqp_complex_types_test
+                              WORKING_DIRECTORY ../)")
+install(CODE "execute_process(COMMAND python3 src/python/qpid_interop_test/amqp_complex_types_test_generator.py --gen dotnet --src-dir src/python/qpid_interop_test --gen-dir shims/amqpnetlite/src/amqp_complex_types_test
+                              WORKING_DIRECTORY ../)")
+
 # Install files using python setup.py
 install(CODE "MESSAGE(STATUS \"Python install dir: ${CMAKE_INSTALL_PREFIX}/lib/${PYTHON_DIR_NAME}/site-packages/qpid_interop_test/\")")
 install(CODE "execute_process(COMMAND python setup.py install --prefix ${CMAKE_INSTALL_PREFIX}
