@@ -75,7 +75,7 @@ class AmqpComplexTypesTestReceiver(amqp_complex_types_test.Common.AmqpComplexTyp
         if self.check_received_value_equal(event.message.body, test_value):
             self.result = '["pass"]'
         else:
-            self.result = '["FAIL:\nreceived: %s\nexpected: %s"]' % (event.message.body, test_value)
+            self.result = '["FAIL:\n  received: %s\n  expected: %s"]' % (event.message.body, test_value)
         self.received += 1
         if self.received >= self.expected:
             event.receiver.close()

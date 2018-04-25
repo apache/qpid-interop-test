@@ -54,6 +54,14 @@ namespace qpidit
 
     ErrnoError::~ErrnoError() throw() {}
 
+    // --- IncorrectAmqpTypeError ---
+
+    IncorrectAmqpTypeError::IncorrectAmqpTypeError(const proton::value& got, const proton::value& expected):
+                    std::runtime_error(MSG("Incorrect AMQP type: got \"" << got.type() << ", expected \"" << expected.type() << "\""))
+    {}
+
+    IncorrectAmqpTypeError::~IncorrectAmqpTypeError() throw() {}
+
     // --- IncorrectJmsMapKeyPrefixError ---
 
     IncorrectJmsMapKeyPrefixError::IncorrectJmsMapKeyPrefixError(const std::string& expected, const std::string& key) :
@@ -95,6 +103,15 @@ namespace qpidit
     {}
 
     IncorrectValueTypeError::~IncorrectValueTypeError() throw() {}
+
+
+    // --- InvalidAmqpSubtype ---
+
+    InvalidAmqpSubtype::InvalidAmqpSubtype(const std::string& amqpType, const std::string& amqpSubType) :
+                    std::runtime_error(MSG("AMQP subtype \"" << amqpSubType << "\" not valid for AMQP type \"" << amqpType << "\""))
+    {}
+
+    InvalidAmqpSubtype::~InvalidAmqpSubtype() throw() {}
 
 
     // --- InvalidJsonRootNodeError ---
@@ -227,6 +244,14 @@ namespace qpidit
     {}
 
     UnknownJmsPropertyTypeError::~UnknownJmsPropertyTypeError() throw() {}
+
+    // --- UnsupportedAmqpSubTypeError ---
+
+    UnsupportedAmqpSubTypeError::UnsupportedAmqpSubTypeError(const std::string& amqpSubType) :
+                    std::runtime_error(MSG("Unsupported AMQP subtype \"" << amqpSubType << "\""))
+    {}
+
+    UnsupportedAmqpSubTypeError::~UnsupportedAmqpSubTypeError() throw() {}
 
     // --- UnsupportedAmqpTypeError ---
 

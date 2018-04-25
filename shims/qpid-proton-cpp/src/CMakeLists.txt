@@ -24,6 +24,7 @@ cmake_minimum_required(VERSION 2.8.7 FATAL_ERROR)
 message("PROTON_INSTALL_DIR=${PROTON_INSTALL_DIR}")
 include_directories(${PROTON_INSTALL_DIR}/include)
 include_directories(/usr/include/jsoncpp)
+message("CMAKE_CURRENT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}")
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 link_directories(${PROTON_INSTALL_DIR}/lib64)
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
@@ -146,3 +147,52 @@ addAmqpTest(amqp_types_test)
 addAmqpTest(amqp_large_content_test)
 addJmsTest(jms_messages_test)
 addJmsTest(jms_hdrs_props_test)
+
+
+# --- AMQP Complex Types Test ---
+# This test has generated files and cannot use the functions above as is
+# TODO: Improve functions to accommodate this type of test
+
+# --- Common ---
+
+set(amqp_complex_types_test_Common_SOURCES
+    qpidit/amqp_complex_types_test/Common.hpp
+    qpidit/amqp_complex_types_test/Common.cpp
+    qpidit/amqp_complex_types_test/amqp_complex_types_test_data.cpp
+)
+
+add_library(amqp_complex_types_test_Common ${amqp_complex_types_test_Common_SOURCES})
+
+# --- Sender ---
+
+set(amqp_complex_types_test_Sender_SOURCES
+    qpidit/amqp_complex_types_test/Sender.hpp
+    qpidit/amqp_complex_types_test/Sender.cpp
+)
+
+add_executable(amqp_complex_types_test_Sender ${amqp_complex_types_test_Sender_SOURCES})
+target_link_libraries(amqp_complex_types_test_Sender amqp_complex_types_test_Common Common Common_Amqp ${Common_Link_LIBS})
+set_target_properties(amqp_complex_types_test_Sender PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/amqp_complex_types_test"
+    OUTPUT_NAME Sender
+)
+
+install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/amqp_complex_types_test/Sender"
+        DESTINATION "${CPP_SHIM_INSTALL_ROOT}/amqp_complex_types_test")
+
+# --- Receiver ---
+
+set(amqp_complex_types_test_Receiver_SOURCES
+    qpidit/amqp_complex_types_test/Receiver.hpp
+    qpidit/amqp_complex_types_test/Receiver.cpp
+)
+
+add_executable(amqp_complex_types_test_Receiver ${amqp_complex_types_test_Receiver_SOURCES})
+target_link_libraries(amqp_complex_types_test_Receiver amqp_complex_types_test_Common Common Common_Amqp ${Common_Link_LIBS})
+set_target_properties(amqp_complex_types_test_Receiver PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/amqp_complex_types_test"
+    OUTPUT_NAME Receiver
+)
+
+install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/amqp_complex_types_test/Receiver"
+        DESTINATION "${CPP_SHIM_INSTALL_ROOT}/amqp_complex_types_test")

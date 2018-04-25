@@ -76,7 +76,16 @@ class AmqpComplexTypes(qpid_interop_test.qit_common.QitTestTypeMap):
 
     # This section contains tests that should be skipped because of known issues that would cause the test to fail.
     # As the issues are resolved, these should be removed.
-    broker_skip = {}
+    broker_skip = {
+        'decimal32': {'ActiveMQ': 'decimal32 and decimal64 sent byte reversed: PROTON-1160',
+                      'qpid-cpp': 'decimal32 not supported on qpid-cpp broker: QPIDIT-5, QPID-6328',
+                      'apache-activemq-artemis': 'decimal32 and decimal64 sent byte reversed: PROTON-1160',
+                      'qpid-dispatch-router': 'decimal32 and decimal64 sent byte reversed: PROTON-1160',},
+        'decimal64': {'ActiveMQ': 'decimal32 and decimal64 sent byte reversed: PROTON-1160',
+                      'qpid-cpp': 'decimal64 not supported on qpid-cpp broker: QPIDIT-6, QPID-6328',
+                      'apache-activemq-artemis': 'decimal32 and decimal64 sent byte reversed: PROTON-1160',
+                      'qpid-dispatch-router': 'decimal32 and decimal64 sent byte reversed: PROTON-1160',},
+        }
 
     client_skip = {}
 
@@ -94,7 +103,7 @@ class AmqpComplexTypes(qpid_interop_test.qit_common.QitTestTypeMap):
             for this_type in args.exclude_type:
                 try:
                     self._type_list.remove(this_type)
-                except KeyError:
+                except (KeyError, ValueError):
                     print('No such type: "%s". Use --help for valid types' % this_type)
                     sys.exit(1) # Errors or failures present
         else:
@@ -209,10 +218,11 @@ class AmqpComplexTypesTest(qpid_interop_test.qit_common.QitTest):
         for amqp_type in self.types.get_type_list():
             if self.args.exclude_type is None or amqp_type not in self.args.exclude_type:
                 for amqp_subtype in self.types.get_subtype_list():
-                    test_case_class = self.create_testcase_class(amqp_type, amqp_subtype,
-                                                                 itertools.product(self.shim_map.values(), repeat=2),
-                                                                 int(self.args.timeout))
-                    self.test_suite.addTest(unittest.makeSuite(test_case_class))
+                    if amqp_type != 'array' or amqp_subtype != '*': # array type does not support mixed types (*)
+                        test_case_class = self.create_testcase_class(amqp_type, amqp_subtype,
+                                                                     itertools.product(self.shim_map.values(), repeat=2),
+                                                                     int(self.args.timeout))
+                        self.test_suite.addTest(unittest.makeSuite(test_case_class))
 
     def create_testcase_class(self, amqp_type, amqp_subtype, shim_product, timeout):
         """Class factory function which creates new subclasses to AmqpTypeTestCase"""
@@ -224,12 +234,12 @@ class AmqpComplexTypesTest(qpid_interop_test.qit_common.QitTest):
         def add_test_method(cls, send_shim, receive_shim, timeout):
             """Function which creates a new test method in class cls"""
 
-            @unittest.skipIf(self.types.skip_test(amqp_type, self.broker),
-                             self.types.skip_test_message(amqp_type, self.broker))
-            @unittest.skipIf(self.types.skip_client_test(amqp_type, send_shim.NAME),
-                             self.types.skip_client_test_message(amqp_type, send_shim.NAME, u'SENDER'))
-            @unittest.skipIf(self.types.skip_client_test(amqp_type, receive_shim.NAME),
-                             self.types.skip_client_test_message(amqp_type, receive_shim.NAME, u'RECEIVER'))
+            @unittest.skipIf(self.types.skip_test(amqp_subtype, self.broker),
+                             self.types.skip_test_message(amqp_subtype, self.broker))
+            @unittest.skipIf(self.types.skip_client_test(amqp_subtype, send_shim.NAME),
+                             self.types.skip_client_test_message(amqp_subtype, send_shim.NAME, u'SENDER'))
+            @unittest.skipIf(self.types.skip_client_test(amqp_subtype, receive_shim.NAME),
+                             self.types.skip_client_test_message(amqp_subtype, receive_shim.NAME, u'RECEIVER'))
             def inner_test_method(self):
                 self.run_test(self.sender_addr,
                               self.receiver_addr,

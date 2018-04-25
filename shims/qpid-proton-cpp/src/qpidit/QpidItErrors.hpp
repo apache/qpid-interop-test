@@ -26,7 +26,6 @@
 #include <sstream>
 #include <map>
 #include <proton/types.hpp>
-#include <proton/value.hpp>
 
 namespace Json
 {
@@ -64,6 +63,13 @@ namespace qpidit
         virtual ~ErrnoError() throw();
     };
 
+    class IncorrectAmqpTypeError: public std::runtime_error
+    {
+    public:
+        IncorrectAmqpTypeError(const proton::value& got, const proton::value& expected);
+        virtual ~IncorrectAmqpTypeError() throw();
+    };
+
     class IncorrectJmsMapKeyPrefixError: public std::runtime_error
     {
     public:
@@ -91,6 +97,13 @@ namespace qpidit
     public:
         IncorrectValueTypeError(const proton::value& val);
         virtual ~IncorrectValueTypeError() throw();
+    };
+
+    class InvalidAmqpSubtype: public std::runtime_error
+    {
+    public:
+        InvalidAmqpSubtype(const std::string& amqpType, const std::string& amqpSubType);
+        virtual ~InvalidAmqpSubtype() throw();
     };
 
     class InvalidJsonRootNodeError: public std::runtime_error
@@ -181,6 +194,13 @@ namespace qpidit
     public:
         explicit UnknownJmsPropertyTypeError(const std::string& jmsPropertyType);
         virtual ~UnknownJmsPropertyTypeError() throw();
+    };
+
+    class UnsupportedAmqpSubTypeError: public std::runtime_error
+    {
+    public:
+        explicit UnsupportedAmqpSubTypeError(const std::string& amqpType);
+        virtual ~UnsupportedAmqpSubTypeError() throw();
     };
 
     class UnsupportedAmqpTypeError: public std::runtime_error
