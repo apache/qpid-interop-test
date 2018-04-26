@@ -27,7 +27,7 @@ include_directories(/usr/include/jsoncpp)
 message("CMAKE_CURRENT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}")
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 link_directories(${PROTON_INSTALL_DIR}/lib64)
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 set(CPP_SHIM_INSTALL_ROOT "${CMAKE_INSTALL_PREFIX}/libexec/qpid_interop_test/shims/qpid-proton-cpp")
 
 
