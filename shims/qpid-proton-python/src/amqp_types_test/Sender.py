@@ -115,8 +115,7 @@ class AmqpTypesTestSender(proton.handlers.MessagingHandler):
         if amqp_type == 'char':
             if len(test_value) == 1: # Format 'a'
                 return proton.char(test_value)
-            val = int(test_value, 16)
-            return proton.char(_compat.unichr(val))
+            return proton.char(_compat.unichr(int(test_value, 16)))
         if amqp_type == 'timestamp':
             return proton.timestamp(int(test_value, 16))
         if amqp_type == 'uuid':

@@ -138,12 +138,16 @@ class AmqpPrimitiveTypes(qpid_interop_test.qit_common.QitTestTypeMap):
         'decimal128': ['0x00000000000000000000000000000000',
                        '0xff0102030405060708090a0b0c0d0e0f'],
         'char': [u' ', # single ASCII chars
-                 u'0',
                  u'A',
                  u'z',
-                 u'~',
-                 u'0x1', # Hex representation
+                 u'0',
+                 u'9',
+                 u'}',
+                 u'0x00', # Hex representation
+                 u'0x01',
                  u'0x7f',
+                 u'0x80',
+                 u'0xff',
                  u'0x16b5', # Rune 'G'
                  u'0x10203',
                  u'0x10ffff',

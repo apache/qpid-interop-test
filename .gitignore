@@ -1,4 +1,8 @@
 /target/
 /build/
 /docs/users-guide.html
-
+.project
+.cproject
+.pydevproject
+.classpath
+.settings
