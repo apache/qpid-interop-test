@@ -143,8 +143,8 @@ class AmqpPrimitiveTypes(qpid_interop_test.qit_common.QitTestTypeMap):
                  u'0',
                  u'9',
                  u'}',
-                 u'0x00', # Hex representation
-                 u'0x01',
+                 u'0x0', # Hex representation
+                 u'0x1',
                  u'0x7f',
                  u'0x80',
                  u'0xff',
