@@ -90,7 +90,7 @@ namespace qpidit
 
             TestDataListCitr_t r, e;
             for (r = receivedList.cbegin(), e = expectedList.cbegin(); r != receivedList.cend() && e != expectedList.cend(); ++r, ++e) {
-                if (_amqpSubType.compare("map") == 0) {
+                if (e->type() == proton::MAP) {
                     checkMapEqual(*r, *e);
                 } else if (e->type() == proton::LIST) {
                     checkListEqual(*r, *e);
