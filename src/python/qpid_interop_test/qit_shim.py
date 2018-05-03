@@ -55,7 +55,7 @@ class ShimProcess(subprocess.Popen):
                 # Workaround for Amqp.NetLite which on some OSs produces a spurious error message on stderr
                 # which should be ignored:
                 if not stderrdata.startswith('Got a bad hardware address length for an AF_PACKET'):
-                    return stderrdata # ERROR: return stderr string
+                    return 'stderr: %s\nstdout: %s' % (stderrdata, stdoutdata)
             if not stdoutdata: # zero length
                 return None
             type_value_list = stdoutdata.split('\n')[0:-1] # remove trailing '\n', split by only remaining '\n'
