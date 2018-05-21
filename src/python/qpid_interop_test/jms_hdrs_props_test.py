@@ -353,7 +353,7 @@ class TestOptions(qpid_interop_test.qit_common.QitCommonTestOptions):
     """Command-line arguments used to control the test"""
 
     def __init__(self, shim_map, default_timeout=DEFAULT_TEST_TIMEOUT,
-                 default_xunit_dir=qpid_interop_test.qit_common.DEFUALT_XUNIT_LOG_DIR):
+                 default_xunit_dir=qpid_interop_test.qit_xunit_log.DEFUALT_XUNIT_LOG_DIR):
         super(TestOptions, self).__init__('Qpid-interop AMQP client interoparability test suite for JMS headers '
                                           'and properties', shim_map, default_timeout, default_xunit_dir)
 

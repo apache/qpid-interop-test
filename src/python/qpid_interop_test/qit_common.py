@@ -22,9 +22,9 @@ Module containing common classes
 #
 
 import argparse
-from os import getcwd, getenv, path
+from os import getenv, path
 import sys
-from time import time
+import time
 import unittest
 
 from proton import symbol
@@ -40,8 +40,6 @@ if QIT_INSTALL_PREFIX is None:
 QIT_TEST_SHIM_HOME = path.join(QIT_INSTALL_PREFIX, 'libexec', 'qpid_interop_test', 'shims')
 
 QPID_JMS_SHIM_VER = '0.1.0'
-
-DEFUALT_XUNIT_LOG_DIR = path.join(getcwd(), 'xunit_logs')
 
 
 class QitTestTypeMap(object):
@@ -124,17 +122,25 @@ class QitTestTypeMap(object):
             return None
         return self.type_map[test_type]
 
-    def skip_test_message(self, test_type, broker_name):
+    def skip_test_message(self, test_type, broker_name_list):
         """Return the message to use if a test is skipped"""
-        if test_type in self.broker_skip.keys():
-            if broker_name in self.broker_skip[test_type]:
-                return str("BROKER: " + self.broker_skip[test_type][broker_name])
-        return None
+        skip_msg = None
+        for broker_name in broker_name_list:
+            if test_type in self.broker_skip.keys():
+                if broker_name in self.broker_skip[test_type].keys():
+                    if skip_msg is None:
+                        skip_msg = 'BROKER: %s' % str(self.broker_skip[test_type][broker_name])
+                    else:
+                        skip_msg += ", %s" % str(self.broker_skip[test_type][broker_name])
+        return skip_msg
 
-    def skip_test(self, test_type, broker_name):
+    def skip_test(self, test_type, broker_name_list):
         """Return boolean True if test should be skipped"""
-        return test_type in self.broker_skip.keys() and \
-            broker_name in self.broker_skip[test_type]
+        if test_type in self.broker_skip.keys():
+            for broker_name in broker_name_list:
+                if broker_name in self.broker_skip[test_type].keys():
+                    return True
+        return False
 
     def skip_client_test_message(self, test_type, client_name, role):
         """Return the message to use if a test is skipped"""
@@ -161,7 +167,8 @@ class QitCommonTestOptions(object):
     """
     Class controlling common command-line arguments used to control tests.
     """
-    def __init__(self, test_description, shim_map, default_timeout, default_xunit_dir=DEFUALT_XUNIT_LOG_DIR):
+    def __init__(self, test_description, shim_map, default_timeout,
+                 default_xunit_dir=qpid_interop_test.qit_xunit_log.DEFUALT_XUNIT_LOG_DIR):
         self._parser = argparse.ArgumentParser(description=test_description)
         self._parser.add_argument('--sender', action='store', default='localhost:5672', metavar='IP-ADDR:PORT',
                                   help='Node to which test suite will send messages.')
@@ -172,12 +179,6 @@ class QitCommonTestOptions(object):
         self._parser.add_argument('--broker-type', action='store', metavar='BROKER_NAME',
                                   help='Disable test of broker type (using connection properties) by specifying' +
                                   ' the broker name, or "None".')
-        self._parser.add_argument('--xunit-log', action='store_true',
-                                  help='Enable xUnit logging of test results')
-        self._parser.add_argument('--xunit-log-dir', action='store', default=default_xunit_dir,
-                                  metavar='LOG-DIR-PATH',
-                                  help='Default xUnit log directory where xUnit logs are written [xunit_logs dir' +
-                                  ' in current directory (%s)]' % default_xunit_dir)
         self._parser.add_argument('--timeout', action='store', default=default_timeout, metavar='SEC',
                                   help='Timeout for test in seconds (%d sec). If test is not ' % default_timeout +
                                   'complete in this time, it will be terminated')
@@ -188,17 +189,29 @@ class QitCommonTestOptions(object):
         shim_group.add_argument('--exclude-shim', action='append', metavar='SHIM-NAME',
                                 help='Name of shim to exclude. Supported shims: see "include-shim" above')
 
+        xunit_group = self._parser.add_argument_group('xUnit options')
+        xunit_group.add_argument('--xunit-log', action='store_true',
+                                 help='Enable xUnit logging of test results')
+        xunit_group.add_argument('--xunit-log-dir', action='store', default=default_xunit_dir,
+                                 metavar='LOG-DIR-PATH',
+                                 help='Default xUnit log directory where xUnit logs are written [xunit_logs dir' +
+                                 ' in current directory (%s)]' % default_xunit_dir)
+        xunit_group.add_argument('--description', action='store', metavar='DESCR',
+                                 help='Detailed description of test, used in xUnit logs')
+        xunit_group.add_argument('--broker-topology', action='store', metavar='DESCR',
+                                 help='Detailed description of broker topology used in test, used in xUnit logs')
+
     def args(self):
         """Return the parsed args"""
         return self._parser.parse_args()
 
-    def print_help(self, file=None):
+    def print_help(self, file_=None):
         """Print help"""
-        self._parser.print_help(file)
+        self._parser.print_help(file_)
 
-    def print_usage(self, file=None):
+    def print_usage(self, file_=None):
         """Print usage"""
-        self._parser.print_usage(file)
+        self._parser.print_usage(file_)
 
 
 class QitTestCase(unittest.TestCase):
@@ -216,11 +229,11 @@ class QitTestCase(unittest.TestCase):
 
     def setUp(self):
         """Called when test starts"""
-        self.start_time = time()
+        self.start_time = time.time()
 
     def tearDown(self):
         """Called when test finishes"""
-        self.duration = time() - self.start_time
+        self.duration = time.time() - self.start_time
 
 
 #class QitTestRunner(unittest.TextTestRunner):
@@ -236,17 +249,47 @@ class QitTest(object):
     Top-level test class with test entry-point
     """
 
+    class TestTime(object):
+        """Class for measuring elapsed time of a test"""
+        def __init__(self):
+            self.start_time = time.time()
+            self.end_time = 0
+            self.duration = 0
+        def stop(self):
+            """Stop timer"""
+            self.end_time = time.time()
+            self.duration = self.end_time - self.start_time
+        def start_time_str(self, num_decimal_places):
+            """Get start time as string"""
+            return '%s.%s' % (time.strftime('%Y-%m-%dT%H-%M-%S', time.localtime(self.start_time)),
+                              QitTest.TestTime.fractional_part_as_string(self.start_time, num_decimal_places))
+        def end_time_str(self, num_decimal_places):
+            """Get end time as string"""
+            return '%s.%s' % (time.strftime('%Y-%m-%dT%H-%M-%S', time.localtime(self.end_time)),
+                              QitTest.TestTime.fractional_part_as_string(self.end_time, num_decimal_places))
+        def duration_str(self, duration):
+            """Get duration as string"""
+            format_str = '%%.%df' % duration
+            return format_str % self.duration
+        @staticmethod
+        def fractional_part_as_string(float_num, num_decimal_places):
+            """Isolate fractional part of floating point number as a string to num_decimal_places digits"""
+            format_str = '%%0%dd' % num_decimal_places
+            return format_str % int((float_num - int(float_num)) * pow(10, num_decimal_places))
+
     TEST_NAME = ''
 
     def __init__(self, test_options_class, test_values_class):
         self._create_shim_map()
         self.args = test_options_class(self.shim_map).args()
         self._modify_shim_map()
-        self._discover_broker()
+        self.connection_props = []
+        self.broker = []
+        self._discover_brokers()
         self.types = test_values_class().get_types(self.args)
         self._generate_tests()
         self.test_result = None
-        self.duration = 0
+        self.duration = None
 #        unittest.installHandler()
 
     def get_result(self):
@@ -257,19 +300,14 @@ class QitTest(object):
 
     def run_test(self):
         """Run the test"""
-        start_time = time()
-#        self.test_result = QitTestRunner(verbosity=2).run(self.test_suite)
+        self.duration = QitTest.TestTime()
         self.test_result = unittest.TextTestRunner(verbosity=2).run(self.test_suite)
-        self.duration = time() - start_time
+        self.duration.stop()
 
     def write_logs(self):
         """Write the logs"""
-        if self.args.xunit_log_dir is not None:
-            xunit_log_dir = self.args.xunit_log_dir
-        else:
-            xunit_log_dir = DEFUALT_XUNIT_LOG_DIR
-        qpid_interop_test.qit_xunit_log.Xunit(self.args.xunit_log, self.TEST_NAME, xunit_log_dir, self.test_suite,
-                                              self.test_result, self.duration)
+        qpid_interop_test.qit_xunit_log.Xunit(self.TEST_NAME, self.args, self.test_suite, self.test_result,
+                                              self.duration, self.connection_props)
 
     def _create_shim_map(self):
         """Create a shim map {'shim_name': <shim_instance>}"""
@@ -326,29 +364,38 @@ class QitTest(object):
                     print('No such shim: "%s". Use --help for valid shims' % shim)
                     sys.exit(1) # Errors or failures present
 
-    def _discover_broker(self):
-        """Connect to broker and get connection properties to discover broker name and version"""
+    def _discover_brokers(self):
+        """Connect to send and receive brokers and get connection properties to discover broker name and version"""
+        self.connection_props.append(qpid_interop_test.qit_broker_props.get_broker_properties(self.args.sender))
+        if self.args.sender != self.args.receiver:
+            self.connection_props.append(qpid_interop_test.qit_broker_props.get_broker_properties(self.args.receiver))
         if self.args.broker_type is not None:
             if self.args.broker_type == 'None':
-                self.broker = None
+                self.broker.append(None)
             else:
-                self.broker = self.broker.broker_type
+                self.broker.append(self.args.broker_type)
         else:
-            connection_props = qpid_interop_test.qit_broker_props.get_broker_properties(self.args.sender)
-            if connection_props is None:
-                print('WARNING: Unable to get connection properties - unknown broker')
-                self.broker = 'unknown'
-            else:
-                self.broker = connection_props[symbol(u'product')] if symbol(u'product') in connection_props \
-                              else '<product not found>'
-                self.broker_version = connection_props[symbol(u'version')] if symbol(u'version') in connection_props \
-                                      else '<version not found>'
-                self.broker_platform = connection_props[symbol(u'platform')] if symbol(u'platform') in \
-                                       connection_props else '<platform not found>'
-                print('Test Broker: %s v.%s on %s\n' % (self.broker, self.broker_version, self.broker_platform))
-                sys.stdout.flush()
+            broker_role = 'sender'
+            for connection_prop in self.connection_props:
+                self.broker.append(self._get_broker_from_connection_props(connection_prop, broker_role)[0])
+                broker_role = 'receiver'
                 if self.args.no_skip:
-                    self.broker = None # Will cause all tests to run, no matter which broker
+                    self.broker = [None] # Will cause all tests to run, no matter which broker
+            print('\n')
+
+    @staticmethod
+    def _get_broker_from_connection_props(connection_props, broker_role):
+        if connection_props is None:
+            print('WARNING: Unable to get %s connection properties - unknown broker' % broker_role)
+            return None
+        broker_name = connection_props[symbol(u'product')] if symbol(u'product') in connection_props \
+                      else '<product not found>'
+        broker_version = connection_props[symbol(u'version')] if symbol(u'version') in connection_props \
+                         else '<version not found>'
+        broker_platform = connection_props[symbol(u'platform')] if symbol(u'platform') in connection_props \
+                          else '<platform not found>'
+        print('%s broker: %s v.%s on %s' % (broker_role.title(), broker_name, broker_version, broker_platform))
+        return (broker_name, broker_version, broker_platform)
 
     def _generate_tests(self):
         """Generate tests dynamically - each subclass must override this function"""
