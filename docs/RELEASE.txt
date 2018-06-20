@@ -1,0 +1,81 @@
+Issues addressed by release:
+
+Version 0.2.0
+-------------
+Bug
+  [QPIDIT-46] - Correctly encode AMQP types within complex types list and map
+  [QPIDIT-79] - Stopping Python tests using ctrl+c sometimes results in a zombie shim
+  [QPIDIT-85] - Tests don't limit the number of times it tries to connect to a broker
+  [QPIDIT-106] - Cmake does not find custom-installed maven
+  [QPIDIT-113] - AMQP.NetLite shims produce error message on stderr which should be ignored
+  [QPIDIT-114] - [AMQP.NetLite] AMQP char type is not supported, but is not excluded from test
+Improvement
+  [QPIDIT-65] - Add command-line controls to JMS_hdrs_props_test to control test more precisely
+  [QPIDIT-93] - Optionally produce xUnit XML report with test results
+  [QPIDIT-109] - Add ability to run Proton Python shims under Python 3
+  [QPIDIT-110] - Add check for failure of Sender shim, if so, kill Receiver shim
+  [QPIDIT-112] - Change test queue prefix from "jms.queue.qpid_interop" to "qit"
+  [QPIDIT-115] - Print both stderr and stdout output when stderr output is detected on a shim
+Task
+  [QPIDIT-37] - Add test timeout to receiver shims so that when not all expected messages are received, the test does not wait indefinitely
+  [QPIDIT-61] - Condense common code from the Python tests into a test module.
+  [QPIDIT-107] - Add support for JMS message properties in ProtonCpp shim
+  [QPIDIT-119] - Add AMQP complex type test
+
+Version 0.1.0
+-------------
+Sub-task
+  [QPIDIT-36] - Allow receiver and sender to operate concurrently for operation against Dispatch Router
+Bug
+  [QPIDIT-24] - Broker identification failure blocks tests
+  [QPIDIT-34] - Update to jsoncpp text format has broken test harness for all C++ shims
+  [QPIDIT-38] - Artemis broker-added properties not handled correctly in python receive shim
+  [QPIDIT-40] - Sender and Receiver threads don't stop when tests end in some error conditions
+  [QPIDIT-49] - Quickstart needs to describe C++ dependencies
+  [QPIDIT-50] - Large content Sender.cpp does not compile
+  [QPIDIT-51] - Method needed to skip sensing broker type
+  [QPIDIT-55] - Proton install dir is hard coded into cmake
+  [QPIDIT-56] - Rhea installs to /usr/lib regardless of cmake install dir
+  [QPIDIT-57] - Cmake installer should check for presence of Node.js and Rhea client
+  [QPIDIT-66] - Shims should install into a libexec directory, not into the Python site-packages path
+  [QPIDIT-67] - Compile errors after recent header cleanup in Proton C++ bindings
+  [QPIDIT-69] - JMS tests fail with "Import Error: no module names jms_types"
+  [QPIDIT-70] - [amqpnetlite] Receiver shim does not properly encode json results
+  [QPIDIT-71] - [amqpnetlite] cmake fails to detect program mono version
+  [QPIDIT-72] - [amqpnetlite] types test Receiver returns wrong value for null message
+  [QPIDIT-73] - Rhea shim char type broken by recent updates to Rhea
+  [QPIDIT-82] - JMS tests fail intermittently with null message
+  [QPIDIT-83] - JAVA classpath points to maven repository rather than installed location
+  [QPIDIT-88] - Need to specify supported AMQP types per shim
+  [QPIDIT-91] - AmqpNetLite does not include large_content test
+  [QPIDIT-92] - AmqpNetLite types_test Receiver compile error with Lite v2.0.0
+New Feature
+  [QPIDIT-21] - Add shims for C++ client
+  [QPIDIT-44] - Add AMQP large content test
+  [QPIDIT-62] - Add AMQP.Net Lite client shims
+Improvement
+  [QPIDIT-20] - Add ability to detect broker, skip tests that fail for that broker
+  [QPIDIT-22] - Add ability to run on Jenkins CI
+  [QPIDIT-32] - Use Maven to build Java components
+  [QPIDIT-33] - Add JMS message headers and properties to test suite
+  [QPIDIT-41] - Rearrange test directory structure to better organize tests and shims
+  [QPIDIT-42] - Split JMS message test into two separate tests: message bodies, and message headers/properties
+  [QPIDIT-53] - Eliminate use of authentication when collecting broker connection properties
+  [QPIDIT-84] - Update README, QUICKSTART, add a users' guide
+  [QPIDIT-95] - update to use the current v18 apache parent pom
+  [QPIDIT-96] - Improvements in Java component management
+  [QPIDIT-98] - Change Proton C++ Receiver shims to use latest non-deprecated API calls
+Task
+  [QPIDIT-1] - Initial code import
+  [QPIDIT-2] - Add command-line options to control which shims and/or AMQP type combinations to run
+  [QPIDIT-13] - Submit patch to Proton for AMQP type support needed by ProtonPython shim
+  [QPIDIT-16] - Place Qpid JMS shim build management under Maven
+  [QPIDIT-17] - Add JMS test suite
+  [QPIDIT-18] - Use existing structured text representation standard for communicating between test and shims
+  [QPIDIT-35] - Add Dispatch Router to Jenkins CI
+  [QPIDIT-47] - Add Rhea javascript shim for AMQP types test
+  [QPIDIT-48] - Add test options which allow separate addresses for the sender and receiver
+  [QPIDIT-52] - Make qpid-interop-test installable
+  [QPIDIT-59] - Create a HOWTO file on writing a new shim
+  [QPIDIT-60] - Create a HOWTO file on writing a new test
+  [QPIDIT-97] - Release qpid-interop-test 0.1.0
