@@ -1,6 +1,4 @@
 [["list", []],
- ["list", [["null", null],
-           ["null", null]]],
  ["list", [["boolean", true],
            ["boolean", false]]],
  ["list", [["ubyte", 0],
