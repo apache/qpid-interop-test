@@ -45,7 +45,7 @@ class AmqpComplexTypes(qpid_interop_test.qit_common.QitTestTypeMap):
                          'map',
                         ]
     _type_list = []
-    default_subtype_list = ['None',
+    default_subtype_list = [#'None', Disabled until PROTON-1858 makes it into current proton releases (ie >= 0.23)
                             #'null', Disabled until PROTON-1858 makes it into current proton releases (ie >= 0.23)
                             'boolean',
                             'ubyte',

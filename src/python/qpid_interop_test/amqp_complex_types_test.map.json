@@ -1,5 +1,4 @@
-[["map", []],
- ["map", [["boolean", false], ["boolean", false],
+[["map", [["boolean", false], ["boolean", false],
           ["boolean", true], ["boolean", true]]],
  ["map", [["ubyte", 0], ["ubyte", 0],
           ["ubyte", 127], ["ubyte", 127],

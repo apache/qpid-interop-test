@@ -1,5 +1,4 @@
-[["array", []],
- ["array", [["boolean", true],
+[["array", [["boolean", true],
             ["boolean", false]]],
  ["array", [["ubyte", 0],
             ["ubyte", 127],
