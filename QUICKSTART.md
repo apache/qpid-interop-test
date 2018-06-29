@@ -21,17 +21,21 @@ under the License.
 
 # QUICKSTART GUIDE
 
+## 1. Overview
+
 You must build *and install* qpid-interop-test before you can run the tests.
 
-By default, qpid-interop-test will install to /usr/local, but you can set any
-non-priviedged directory as the install prefix using the CMAKE_INSTALL_PREFIX
-environment variable, for example $HOME/install.
+By default, qpid-interop-test will install to `/usr/local` (and will thus also
+require root privileges), but you can set any non-privileged directory as the
+install prefix using the `CMAKE_INSTALL_PREFIX` environment variable, for
+example `$HOME/install`.
 
 The following tools are needed to build qpid-interop-test:
 
  * git
  * gcc-c++
  * Python 2.7.x
+ * Python 3.x
  * cmake
  * Java JDK
  * Maven
@@ -40,32 +44,47 @@ The following tools are needed to build qpid-interop-test:
 The following Qpid components must be installed *before* you build and install
 qpid-interop-test:
 
- * Qpid Proton (including C++ Proton API)
+ * Qpid Proton C++ development
  * Qpid Python
+ * Python2 Qpid Proton
+ * Python3 Qpid Proton
 
 The following are not required, but if installed and present, will be tested:
 
- * Rhea (a Javascript client, also requires npm and nodejs)
+ * Rhea (a JavaScript client, also requires npm and nodejs)
  * AMQP.Net Lite (requires mono)
+ 
+In addition, if you wish to run the tests against a broker on the build machine,
+it will be necessary to have a running broker. One of the following may be
+installed and started against which to run the interop tests as a local broker:
+ 
+ * Artemis Java broker
+ * ActiveMQ Java broker
+ * Qpid C++ broker
+ * Qpid Dispatch router (which may be used as a single node, or as part of a
+ routed configuration)
 
-Pre-requisites can be installed using the standard system package manager (yum,
-dnf, apt-get etc.) OR built from source and installed.
+Any AMQP 1.0 broker should work. Tests can also be run against a
+remote broker provided the broker IP address is known.
+
+These pre-requisites can be installed using the standard system package manager
+(yum, dnf, apt-get etc.) OR built from source and installed.
 
 These are the install steps:
 
 1. Install prerequisites, from packages or source
-2. Install or download / build AMQP brokers to test against (or set up networked brokers)
+2. Install or download / build AMQP brokers to test against
 3. Build qpid-interop-test
 4. Run the tests
 
-## 1. Install prerequisites
+## 2. Install prerequisites
 
-### 1.1 RHEL6
+### 2.1 RHEL6
 
-Currently RHEL6 is not supported because it uses Python 2.6.x, and the test code uses
+Currently **RHEL6 is not supported** because it uses Python 2.6.x, and the test code uses
 features of Python 2.7.x. This may be supported in a future release.
 
-### 1.2 RHEL7
+### 2.2 RHEL7
 
 From a clean install:
 
@@ -84,23 +103,23 @@ yum install epel-release-latest-7.noarch.rpm
 then install the following packages:
 
 ````
-yum install jsoncpp-devel nodejs-rhea qpid-proton-cpp-devel python-qpid-proton
+yum -y install jsoncpp-devel nodejs-rhea qpid-proton-cpp-devel python-qpid-proton qpid-proton-cpp-devel python2-qpid-proton
 ````
 
-### 1.3 Fedora 27
+### 2.3 Fedora 28
 
 All packages are available directly from the Fedora repositories:
 
 ````
-dnf install gcc-c++ cmake maven java-1.8.0-openjdk-devel perl-XML-XPath jsoncpp-devel nodejs-rhea qpid-proton-cpp-devel python-qpid-proton
+dnf -y install gcc-c++ cmake maven java-1.8.0-openjdk-devel perl-XML-XPath jsoncpp-devel nodejs-rhea qpid-proton-cpp-devel python-qpid-proton qpid-proton-cpp-devel python2-qpid-proton python3-qpid-proton
 ````
 
-### 1.4 CentOS7 Docker image
+### 2.4 CentOS7 Docker image
 
 Docker images come with only the bare essentials, so there is more to install than a standard bare-metal install:
 
 ````
-yum -y install vim unzip wget git gcc-c++ make cmake maven swig java-1.8.0-openjdk-devel perl-XML-XPath python-devel
+yum -y install vim unzip wget git gcc-c++ make cmake maven swig java-1.8.0-openjdk-devel perl-XML-XPath python-devel procps-ng
 ````
 
 Some packages will need to be downloaded from [EPEL](https://fedoraproject.org/wiki/EPEL).
@@ -114,12 +133,16 @@ yum -y install epel-release-latest-7.noarch.rpm
 then install the following packages:
 
 ````
-yum -y install mono-devel python34-devel jsoncpp-devel nodejs-rhea qpid-proton-cpp-devel python-qpid-proton
+yum -y install mono-devel python34-devel jsoncpp-devel nodejs-rhea qpid-proton-cpp-devel python-qpid-proton qpid-proton-cpp-devel python2-qpid-proton
 ````
 
-### 1.5 Fedora 27 Docker image
+Note that at the time of release, there is no python3-qpid-proton package available for CentOS7, but this should be available soon.
 
-(TODO)
+### 2.5 Fedora 28 Docker image
+
+````
+dnf -y install vim unzip wget procps-ng git gcc-c++ make cmake maven swig java-1.8.0-openjdk-devel perl-XML-XPath python-devel mono-devel python3-devel jsoncpp-devel nodejs-rhea python-qpid-proton qpid-proton-cpp-devel python2-qpid-proton python3-qpid-proton
+````
 
 ## 2. Obtaining a broker
 
@@ -145,7 +168,11 @@ Download from [Apache](https://activemq.apache.org/artemis/download.html).
 
 ### 2.3 Qpid cpp broker
 
-    yum install qpid-cpp-server
+    yum -y install qpid-cpp-server # CentOS7/RHEL
+
+or
+
+    dnf -y install qpid-cpp-server # Fedora 28
 
 and set the configuration file in /etc/qpid/qpidd.conf as follows:
 
@@ -153,6 +180,14 @@ and set the configuration file in /etc/qpid/qpidd.conf as follows:
 auth=no
 queue-patterns=qit
 ````
+
+The broker may be started via service, but if running in a Docker container, this may not work. In this case, start the broker directly:
+
+    /sbin/qpidd -d
+
+and can be stopped with
+
+    /sbin/qpidd -q
 
 ### 2.4 Qpid Dispatch Router
 
@@ -170,98 +205,13 @@ listener {
 
 ````
 
-## 2. Build and install Qpid Proton
+The broker may be started via service, but if running in a Docker container, this may not work. In this case, start the broker directly:
 
-Qpid Proton is available as a package. However, this can only contain either Python2
-_OR_ Python3 bindings.  Because QIT tests the Python2 and Python3 bindings against each
-other as separate clients, we need both clients at the same time. Currently, there is
-no "official" install method to do this.
+    /sbin/qdrouterd -d
 
-To work around this, QIT relies on the following installation locations for the Python
-client bindings:
+and can be stopped with
 
-Python2:
-````
-${CMAKE_INSTALL_PREFIX}/lib64/proton/bindings/python
-````
-
-and Python3:
-````
-${CMAKE_INSTALL_PREFIX}/lib64/proton/bindings/python3
-````
-
-To build for both clients, the follow the following steps:
-
-### 2.1 Clone Qpid Proton git repo
-
-````
-git clone https://git-wip-us.apache.org/repos/asf/qpid-proton.git
-````
-
-### 2.2 Create a build script to automate the build
-
-Use the following script to build Qpid Proton into a local install directory:
-
-````
-#!/bin/bash
-
-PWD=`pwd`
-
-REDHAT_DIR=${HOME}
-BUILD_DIR=${REDHAT_DIR}/qpid-proton/build
-INSTALL_DIR=${REDHAT_DIR}/install
-
-PY2_INSTALL_DIR=${INSTALL_DIR}/lib64/proton/bindings/python
-CMAKE_PY2_EXECUTABLE=/usr/bin/python
-CMAKE_PY2_INCLUDE_DIR=/usr/include/python2.7
-CMAKE_PY2_LIBRARY=/usr/lib64/libpython2.7.so
-
-PY3_INSTALL_DIR=${INSTALL_DIR}/lib64/proton/bindings/python3
-CMAKE_PY3_EXECUTABLE=/usr/bin/python3.6m
-CMAKE_PY3_INCLUDE_DIR=/usr/include/python3.6m
-CMAKE_PY3_LIBRARY=/usr/lib64/libpython3.6m.so
-
-rm -rf ${PY2_INSTALL_DIR} ${PY3_INSTALL_DIR}
-mkdir -p ${BUILD_DIR}
-cd ${BUILD_DIR}
-
-# First build under Python 3
-cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR} -DBUILD_PYTHON="ON" -DPYTHON_EXECUTABLE=${CMAKE_PY3_EXECUTABLE} -DPYTHON_INCLUDE_DIR=${CMAKE_PY3_INCLUDE_DIR} -DPYTHON_LIBRARY=${CMAKE_PY3_LIBRARY} ..
-make install
-mv ${PY2_INSTALL_DIR} ${PY3_INSTALL_DIR}
-
-# Now build under Python 2
-cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR} -DBUILD_PYTHON="ON" -DPYTHON_EXECUTABLE=${CMAKE_PY2_EXECUTABLE} -DPYTHON_INCLUDE_DIR=${CMAKE_PY2_INCLUDE_DIR} -DPYTHON_LIBRARY=${CMAKE_PY2_LIBRARY} ..
-make install
-
-cd ${PWD}
-echo
-echo "Checking Python libs built:"
-ls -l --color=auto ${INSTALL_DIR}/lib64/proton/bindings/python*/_cproton.so
-echo "done"
-````
-
-NOTE:
-* Adjust REDHAT_DIR if you are not building in your home directory. This is the
-  location where Qpid Proton was cloned in the previous step. This script needs
-  to be located in ${REDHAT_DIR} directory.
-* Check the CMAKE_PY3_* details for your system. For example, on CentOS7, the
-  following changes need to be made:
-
-````
-CMAKE_PY3_EXECUTABLE=/usr/bin/python3.4m
-CMAKE_PY3_INCLUDE_DIR=/usr/include/python3.4m
-CMAKE_PY3_LIBRARY=/usr/lib64/libpython3.4m.so
-````
-
-If the script builds and installs successfully, you should see the following at the end:
-
-````
-Checking Python libs built:
--rwxr-xr-x. 1 kvdr kvdr 1608536 Feb 27 21:00 /home/kvdr/RedHat/install/lib64/proton/bindings/python/_cproton.so
--rwxr-xr-x. 1 kvdr kvdr 1609328 Feb 27 21:00 /home/kvdr/RedHat/install/lib64/proton/bindings/python3/_cproton.so
-done
-````
+    pkill qdrouterd # Needs procps-ng package installed in Docker containers
 
 ## 3. Install qpid-interop-test
 
@@ -271,9 +221,11 @@ option to the `cmake` command. If it is omitted, then qpid-interop-test will be 
 into the default system directories.  The source may be unpacked, or (if you need to use the
 latest and greatest), cloned from git:
 
-````
-git clone https://git-wip-us.apache.org/repos/asf/qpid-interop-test.git
-````
+    git clone https://git-wip-us.apache.org/repos/asf/qpid-interop-test.git
+    
+or
+    
+    git clone https://github.com/apache/qpid-interop-test.git
 
 Assuming the source tree is located in directory qpid-interop-test:
 
@@ -289,7 +241,7 @@ cmake -DCMAKE_INSTALL_PREFIX=<abs-path-to-local-install-dir> ..
 make install
 ````
 
-For a system install, root privileges are required:
+For a system install (root privileges are required):
 
 ````
 cmake ..
@@ -321,10 +273,14 @@ The available tests are:
 
 | Module | Description | Clients |
 | ------ | ----------- | ------- |
-| amqp_large_content_test | Tests implementation of large messages up to 10MB | C++ Python AMQP.NetLite |
-| amqp_types_test | Tests the implementation of AMQP 1.0 types | C++ Python Rhea AMQP.NetLite |
-| jms_hdrs_props_test | Tests JMS headers and properties | C++ JMS Python |
-| jms_messages_test | Tests all JMS message types (except ObjectMessage) | C++ JMS Python |
+| amqp_complex_types_test | Tests complex AMQP 1.0 types | C++ Python2 Python3 |
+| amqp_large_content_test | Tests implementation of large messages up to 10MB | C++ Python2 Python3 AMQP.NetLite |
+| amqp_types_test | Tests the implementation of AMQP 1.0 types | C++ Python2 Python3 Rhea AMQP.NetLite |
+| jms_hdrs_props_test | Tests JMS headers and properties | C++ JMS Python2 Python3 |
+| jms_messages_test | Tests all JMS message types (except ObjectMessage) | C++ JMS Python2 Python3 |
+
+Each test has command-line options which can be used to limit or modify the test, use the `--help` option to see
+these options.
 
 The preferred method to run the tests is using the Python module option as follows:
 
@@ -351,3 +307,40 @@ python -m qpid_interop_test.amqp_types_test --sender <broker-ip-addr-A> --receiv
 python -m qpid_interop_test.jms_messages_test --sender <broker-ip-addr-A> --receiver <broker-ip-addr-B>
 ...
 ````
+
+**CentOS7 Note:**
+
+CentOS7 does not have the `python3-qpid-proton` package available at the time of the 0.2.0 release. To avoid
+errors in the test on CentOS7 (which does not yet auto-detect but assumes the availability of this package), use the
+`--exclude-shim ProtonPython3` command-line parameter to disable this shim. See
+[QPIDIT-126](https://issues.apache.org/jira/browse/QPIDIT-126) for progress and further details on this issue.
+
+## 5. Optional Components
+
+### 5.1 AMQP.Net Lite Client
+
+(TODO: import details to this document)
+
+A detailed description of how to install and run the AMQP.Net Lite client on Fedora may be found at Apache
+JIRA [QPIDIT-105](https://issues.apache.org/jira/browse/QPIDIT-105), and can easily be adapted to other
+Linux operating systems. The following packages need to be installed:
+
+ * Mono
+ * Pre-compiled AMQP.Net Lite library
+
+See the above JIRA for detailed instructions.
+
+### 5.2 Rhea JavaScript Client
+
+The following packages need to be installed:
+ 
+ * nodejs
+ * npm
+
+The Rhea source may be cloned from github:
+
+    git clone https://github.com/amqp/rhea.git
+
+If the `rhea` directory is discovered when qpid-interop-test runs `cmake`, then the Rhea client tests
+will be enabled. If the directory is not found, it may be set through the `RHEA_DIR` variable
+when running `cmake`.
