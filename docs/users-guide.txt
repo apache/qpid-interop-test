@@ -33,7 +33,8 @@ under test. For example, the amqp_types test has shims for the following
 clients:
 * AmqpNetLite
 * ProtonCpp
-* ProtonPython
+* ProtonPython2
+* ProtonPython3
 * RheaJS
 
 To obtain both self- and interoperability testing, each test program will
@@ -46,23 +47,32 @@ following combinations of shims being used:
 
 |1 |AmqpNetLite | AmqpNetLite
 |2 |AmqpNetLite | ProtonCpp
-|3 |AmqpNetLite | ProtonPython
-|4 |AmqpNetLite | RheaJS
-|5 |ProtonCpp | AmqpNetLite
-|6 |ProtonCpp | ProtonCpp
-|7 |ProtonCpp | ProtonPython
-|8 |ProtonCpp | RheaJS
-|9 |ProtonPython | AmqpNetLite
-|10 |ProtonPython | ProtonCpp
-|11 |ProtonPython | ProtonPython
-|12 |ProtonPython | RheaJS
-|13 |RheaJS | AmqpNetLite
-|14 |RheaJS | ProtonCpp
-|15 |RheaJS | ProtonPython
-|16 |RheaJS | RheaJS
+|3 |AmqpNetLite | ProtonPython2
+|4 |AmqpNetLite | ProtonPython3
+|5 |AmqpNetLite | RheaJS
+|6 |ProtonCpp | AmqpNetLite
+|7 |ProtonCpp | ProtonCpp
+|8 |ProtonCpp | ProtonPython2
+|9 |ProtonCpp | ProtonPython3
+|10 |ProtonCpp | RheaJS
+|11 |ProtonPython2 | AmqpNetLite
+|12 |ProtonPython2 | ProtonCpp
+|13 |ProtonPython2 | ProtonPython2
+|14 |ProtonPython2 | ProtonPython3
+|15 |ProtonPython2 | RheaJS
+|16 |ProtonPython3 | AmqpNetLite
+|17 |ProtonPython3 | ProtonCpp
+|18 |ProtonPython3 | ProtonPython2
+|19 |ProtonPython3 | ProtonPython3
+|20 |ProtonPython3 | RheaJS
+|21 |RheaJS | AmqpNetLite
+|22 |RheaJS | ProtonCpp
+|23 |RheaJS | ProtonPython2
+|24 |RheaJS | ProtonPython3
+|25 |RheaJS | RheaJS
 |===
 
-so that for each test case, 16 individual tests are run. The test program
+so that for each test case, 25 individual tests are run. The test program
 will by default run all the available shims against each other in this way,
 but it is possible to control which shims are used using the --include-shim
 or --exclude-shim arguments (see below).
@@ -70,15 +80,17 @@ or --exclude-shim arguments (see below).
 == 2. Obtaining
 qpid-interop-test is an Apache Qpid project.
 
-Web page: xxx
+Web page: https://qpid.apache.org/components/interop-test/index.html
 
-Download soruce: xxx
+Download soruce: https://qpid.apache.org/download.html
+
+Git: https://github.com/apache/qpid-interop-test.git
 
 == 3. Building
 
 === a. Install dependencies:
-   * Build tools: git, gcc, cmake
-   * Qpid Proton: qpid-proton-c-devel
+   * Build tools: git, gcc-c++, cmake, maven, json-cpp
+   * Qpid Proton: qpid-proton-cpp-devel, python2-qpid-proton, python3-qpid-proton
 
 === b. Decide on local vs system install
 ==== Local install:
@@ -94,27 +106,7 @@ Installs the files into traditional system locations. This type of install
 requires root privileges. As the files are located in expected locations, no
 environment settings need be made.
 
-=== c. Build qpid-proton
-*System install:*
-----
- $ cd qpid-proton
- $ mkdir build
- $ cd build
- $ cmake ..
- $ make
- $ sudo make install
-----
-
-*Local install:*
-----
- $ cd qpid-proton
- $ mkdir build
- $ cd build
- $ cmake ..
- $ make install
-----
-
-=== d. Build qpid-interop-test
+=== c. Build qpid-interop-test
 *System install:*
 ----
  $ cd qpid-interop-test
@@ -130,14 +122,14 @@ environment settings need be made.
  $ cd qpid-interop-test
  $ mkdir build
  $ cd build
- $ cmake ..
+ $ cmake -DCMAKE_INSTALL_PREFIX=<path/to/local/install/dir> ..
  $ make install
 ----
 
 == 4. Running
 
-The tests assume a broker is available and running. The assumed default is at
-`localhost:5672`. For other broker location(s), use the `--sender` and `--receiver`
+The tests by default assume a broker is available and running. The assumed default
+is at `localhost:5672`. For other broker location(s), use the `--sender` and `--receiver`
 arguments to specify where the clients should interact, see below.
 
 The tests do not start or stop brokers.
@@ -177,10 +169,17 @@ Each test is executed directly.
                Format: For our current brokers: one of: "ActiveMQ", "qpid-cpp",
                "qpid-dispatch-router". Artemis does not currently pass its name
                in connection properties, and is equivalent to "None".
+|`--timeout' |Timeout for the test in seconds (default: 10 seconds, may vary with test). If the
+              test does not complete within this time, it will be terminated and marked as a
+              failure.
 |`--include-shim` |Name of shim to include. Cannot be used together with `--exclude-shim`. May
                be used multiple times to include more than one shim.
 |`--exclude-shim` |Name of shim to exclude. Cannot be used together with `--include-shim`. May
                be used multiple times to exclude more that one shim.
+|`--xunit-log` |Enable the generation of xUnit log files at the conclusion of the tests. |
+|`--xunit-log-dir` |Path where xUnit log files are written.
+|`--description` |Description of test used in xUnit log file.
+|`--broker-topology` | Description of broker and broker topology (where needed) used in xUnit log file.
 |===
 
 .amqp-types-test
@@ -190,6 +189,22 @@ Each test is executed directly.
                    May be used multiple times to include more than one type.
 |`--exclude-type` |Name of AMQP type to exclude. Cannot be used together with `--include-type`.
                    May be used multiple times to exclude more than one type.
+|===
+
+.amqp-complex-types-test
+[cols="20%,80%"]
+|===
+|`--include-type` |Name of AMQP complex type to include. Cannot be used together with `--exclude-type`.
+                   May be used multiple times to include more than one type.
+|`--exclude-type` |Name of AMQP complex type to exclude. Cannot be used together with `--include-type`.
+                   May be used multiple times to exclude more than one type.
+|`--include-subtype` |Name of AMQP subtype to include. This is the AMQP type used within a primary complex
+                      type (for example, the types used within an AMQP list). Cannot be used together with
+                      `--exclude-subtype`. May be used multiple times to include more than one subtype.
+                      NOTE: There is a special `*` wildcard that can be used for this, and will allow
+                      all valid types to be used together in the same test.
+|`--exclude-subtype` |Name of AMQP subtype to exclude.  Cannot be used together with
+                      `--include-subtype`. May be used multiple times to exclude more than one subtype.
 |===
 
 .amqp-large-content-test
@@ -259,5 +274,9 @@ the test.
  AssertionError: JmsReceiver error: Unexpected JMS message header: JMS_PRIORITY: Expected default priority (4), found priority 0
 ----
 
-Currently, the tests do not produce log files.
+Currently, the tests do not produce text log files. However, by using the `--xunit-log` command-line option, xunit log files
+will be generated at the conclusion of the test in the `xunit_logs` directory. The directory may be changed by
+using the `--xunit-log-dir` command-line option. Log file management is the responsibility of the user, and if
+xunit logging is used regularly, these files will accumulate, possibly exhausting the available disk space. NOTE
+that if a test is interrupted (by using ctl+c, for example), then the log files will not be generated.)
 
