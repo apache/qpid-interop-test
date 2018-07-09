@@ -319,16 +319,38 @@ errors in the test on CentOS7 (which does not yet auto-detect but assumes the av
 
 ### 5.1 AMQP.Net Lite Client
 
-(TODO: import details to this document)
-
 A detailed description of how to install and run the AMQP.Net Lite client on Fedora may be found at Apache
 JIRA [QPIDIT-105](https://issues.apache.org/jira/browse/QPIDIT-105), and can easily be adapted to other
 Linux operating systems. The following packages need to be installed:
 
  * Mono
- * Pre-compiled AMQP.Net Lite library
+ * Pre-compiled AMQP.Net Lite library (available from https://www.nuget.org/api/v2/package/AMQPNetLite/)
 
-See the above JIRA for detailed instructions.
+See the above JIRA for detailed instructions. Here is a summary:
+
+Download/install the Amqp.Net Lite dlls. They are initially zipped, unzip them into a well-known location.
+Make sure you can find the path to the required .dll file for the version you are using, for example:
+
+```
+/abs/path/to/amqp.netlite/lib/net45
+```
+
+When building qpid-interop-test (section 3 above), add the following environment variable to the cmake parameters:
+`-DAMQPNETLITE_LIB_DIR=<abs/path/to/amqp.netlite/lib/net45>`. When cmake completes, look for the following:
+
+```
+-- BUILD_AMQPNETLITE = ON
+```
+
+which shows that the dll was found and the .netlite tests will be enabled. If you see the following,
+then the required dll was not found:
+
+```
+-- BUILD_AMQPNETLITE = OFF
+```
+
+The messages immediately preceding this will give a clue as to why it was not found, one of `AMQPNETLITE_LIB_DIR`
+not defined or `Amqp.Net.dll` was not found in the path.
 
 ### 5.2 Rhea JavaScript Client
 
