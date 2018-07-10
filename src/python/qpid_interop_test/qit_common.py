@@ -39,7 +39,7 @@ if QIT_INSTALL_PREFIX is None:
     sys.exit(1)
 QIT_TEST_SHIM_HOME = path.join(QIT_INSTALL_PREFIX, 'libexec', 'qpid_interop_test', 'shims')
 
-QPID_JMS_SHIM_VER = '0.1.0'
+QPID_JMS_SHIM_VER = '0.2.0'
 
 
 class QitTestTypeMap(object):
