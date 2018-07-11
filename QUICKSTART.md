@@ -230,8 +230,9 @@ or
 Assuming the source tree is located in directory qpid-interop-test:
 
 ````
-git checkout <tagname> # tagname is the release, for example 0.2.0-rc3
 cd qpid-interop-test
+git tag -l # See list of tags
+git checkout tags/<tagname> # tagname is the release, for example 0.2.0-rc3
 mkdir build
 cd build
 ````
