@@ -217,21 +217,12 @@ and can be stopped with
 Qpid-interop-test may be installed locally (preferred for local builds) or to the system
 (which requires root privileges). For a local install, use the `-DCMAKE_INSTALL_PREFIX`
 option to the `cmake` command. If it is omitted, then qpid-interop-test will be installed
-into the default system directories.  The source may be unpacked, or (if you need to use the
-latest and greatest), cloned from git:
-
-    git clone https://git-wip-us.apache.org/repos/asf/qpid-interop-test.git
-    
-or
-    
-    git clone https://github.com/apache/qpid-interop-test.git
+into the default system directories.
 
 Assuming the source tree is located in directory qpid-interop-test:
 
 ````
 cd qpid-interop-test
-git tag -l # See list of tags
-git checkout tags/<tagname> # tagname is the release, for example 0.2.0-rc3
 mkdir build
 cd build
 ````
@@ -250,6 +241,16 @@ make
 sudo make install
 
 ````
+
+If you are a developer working on changes to qpid-interop-test itself, the
+source repository can be cloned from git as follows:
+
+    git clone https://git-wip-us.apache.org/repos/asf/qpid-interop-test.git
+    
+or
+    
+    git clone https://github.com/apache/qpid-interop-test.git
+
 
 ## 5. Run the tests
 
