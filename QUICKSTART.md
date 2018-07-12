@@ -242,6 +242,8 @@ sudo make install
 
 ````
 
+### 4.1 Source repository
+
 If you are a developer working on changes to qpid-interop-test itself, the
 source repository can be cloned from git as follows:
 
