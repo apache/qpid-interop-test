@@ -79,12 +79,9 @@ These are the install steps:
 
 ## 2. Install prerequisites
 
-### 2.1 RHEL6
+If installing prerequisites from packages, the following are some suggestions
 
-Currently **RHEL6 is not supported** because it uses Python 2.6.x, and the test code uses
-features of Python 2.7.x. This may be supported in a future release.
-
-### 2.2 RHEL7
+### 2.1 RHEL7
 
 From a clean install:
 
@@ -106,7 +103,9 @@ then install the following packages:
 yum -y install jsoncpp-devel nodejs-rhea qpid-proton-cpp-devel python-qpid-proton qpid-proton-cpp-devel python2-qpid-proton
 ````
 
-### 2.3 Fedora 28
+Note that RHEL6 is not supported because it uses Python 2.6.x, and the test code uses features of Python 2.7.x.
+
+### 2.2 Fedora 28
 
 All packages are available directly from the Fedora repositories:
 
@@ -114,7 +113,7 @@ All packages are available directly from the Fedora repositories:
 dnf -y install gcc-c++ cmake maven java-1.8.0-openjdk-devel perl-XML-XPath jsoncpp-devel nodejs-rhea qpid-proton-cpp-devel python-qpid-proton qpid-proton-cpp-devel python2-qpid-proton python3-qpid-proton
 ````
 
-### 2.4 CentOS7 Docker image
+### 2.3 CentOS7 Docker image
 
 Docker images come with only the bare essentials, so there is more to install than a standard bare-metal install:
 
@@ -138,19 +137,19 @@ yum -y install mono-devel python34-devel jsoncpp-devel nodejs-rhea qpid-proton-c
 
 Note that at the time of release, there is no python3-qpid-proton package available for CentOS7, but this should be available soon.
 
-### 2.5 Fedora 28 Docker image
+### 2.4 Fedora 28 Docker image
 
 ````
 dnf -y install vim unzip wget procps-ng git gcc-c++ make cmake maven swig java-1.8.0-openjdk-devel perl-XML-XPath python-devel mono-devel python3-devel jsoncpp-devel nodejs-rhea python-qpid-proton qpid-proton-cpp-devel python2-qpid-proton python3-qpid-proton
 ````
 
-## 2. Obtaining a broker
+## 3. Obtaining a broker
 
 Qpid-interop-test requires a running broker to be available. This
 may be on localhost as a local install or build, or on another machine, in which case its
 IP addresss must be known. Some local broker install options are:
 
-### 2.1 ActiveMQ 5
+### 3.1 ActiveMQ 5
 
 Download from [Apache](http://activemq.apache.org/download.html).
 
@@ -162,11 +161,11 @@ Make the following changes to the `activemq.xml` config file: For XML element
 <transportConnector name="amqp" uri="amqp://0.0.0.0:5672?maximumConnections=1000&amp;wireFormat.maxFrameSize=1048576000&amp;wireFormat.allowNonSaslConnections=true"/>
 ````
 
-### 2.2 Artemis
+### 3.2 Artemis
 
 Download from [Apache](https://activemq.apache.org/artemis/download.html).
 
-### 2.3 Qpid cpp broker
+### 3.3 Qpid cpp broker
 
     yum -y install qpid-cpp-server # CentOS7/RHEL
 
@@ -189,7 +188,7 @@ and can be stopped with
 
     /sbin/qpidd -q
 
-### 2.4 Qpid Dispatch Router
+### 3.4 Qpid Dispatch Router
 
     yum install qpid-dispatch-router
 
@@ -213,7 +212,7 @@ and can be stopped with
 
     pkill qdrouterd # Needs procps-ng package installed in Docker containers
 
-## 3. Install qpid-interop-test
+## 4. Install qpid-interop-test
 
 Qpid-interop-test may be installed locally (preferred for local builds) or to the system
 (which requires root privileges). For a local install, use the `-DCMAKE_INSTALL_PREFIX`
@@ -252,9 +251,9 @@ sudo make install
 
 ````
 
-## 4. Run the tests
+## 5. Run the tests
 
-### 4.1 Set the environment
+### 5.1 Set the environment
 
 The config.sh script is in the qpid-interop-test build directory: 
 
@@ -262,14 +261,14 @@ The config.sh script is in the qpid-interop-test build directory:
 source build/config.sh
 ````
 
-### 4.2 Start the test broker
+### 5.2 Start the test broker
 
 If the broker is at a remote location rather than localhost, the IP address must be known.  In tests using
 the Qpid Dispatch Router, then the entire broker network must be running before the tests are run. The IP
 addresses of the sender (the broker to which messages are being sent) and receiver (the broker from which
 messages will be received) must be known.
 
-### 4.3 Run chosen tests
+### 5.3 Run chosen tests
 
 The available tests are:
 
@@ -317,9 +316,9 @@ errors in the test on CentOS7 (which does not yet auto-detect but assumes the av
 `--exclude-shim ProtonPython3` command-line parameter to disable this shim. See
 [QPIDIT-126](https://issues.apache.org/jira/browse/QPIDIT-126) for progress and further details on this issue.
 
-## 5. Optional Components
+## 6. Optional Components
 
-### 5.1 AMQP.Net Lite Client
+### 6.1 AMQP.Net Lite Client
 
 A detailed description of how to install and run the AMQP.Net Lite client on Fedora may be found at Apache
 JIRA [QPIDIT-105](https://issues.apache.org/jira/browse/QPIDIT-105), and can easily be adapted to other
@@ -354,7 +353,7 @@ then the required dll was not found:
 The messages immediately preceding this will give a clue as to why it was not found, one of `AMQPNETLITE_LIB_DIR`
 not defined or `Amqp.Net.dll` was not found in the path.
 
-### 5.2 Rhea JavaScript Client
+### 6.2 Rhea JavaScript Client
 
 The following packages need to be installed:
  
