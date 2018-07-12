@@ -19,17 +19,9 @@ under the License.
 
 -->
 
-# Qpid Client Interoperability Test Suite
+# Qpid Interop Test Suite
 
-This directory contains the Qpid Proton Client API test suite.
-
-All files in this directory are under the Apache License - see [LICENSE](file:LICENSE) for
-details.
-
-## Source Code
-
-Source code may be obtained from Apache git server
-[https://git-wip-us.apache.org/repos/asf/qpid-interop-test.git](https://git-wip-us.apache.org/repos/asf/qpid-interop-test.git)
+This directory contains the [Qpid Interop Test](http://qpid.apache.org/components/interop-test/index.html) suite.
 
 ## Documentation
 
