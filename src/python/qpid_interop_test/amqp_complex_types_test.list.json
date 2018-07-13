@@ -145,7 +145,6 @@
                     ["symbol", "world"], ["long", -12345678],
                     ["binary", "today\\x01\\x02"], ["byte", -7]]]]],
  ["list", [["string", "*"],
-           ["null", null],
            ["boolean", true],
            ["ubyte", 1],
            ["ushort", 2],

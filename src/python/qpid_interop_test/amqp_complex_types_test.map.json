@@ -111,7 +111,6 @@
  ["map", [["string", "map01"], ["map", [["boolean", false], ["boolean", false],
                                         ["boolean", true], ["boolean", true]]]]],
  ["map", [["string", "*"], ["string", "*"],
-          ["null", null], ["null", null],
           ["boolean", false], ["boolean", true],
           ["ubyte", 1], ["ubyte", 2],
           ["ushort", 3], ["ushort", 4],
