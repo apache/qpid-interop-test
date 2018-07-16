@@ -418,6 +418,8 @@ class QitJmsTest(QitTest):
         else:
             classpath = path.join(QIT_TEST_SHIM_HOME, 'qpid-jms',
                                   'qpid-interop-test-jms-shim-%s-jar-with-dependencies.jar' % QPID_JMS_SHIM_VER)
+            if not path.isfile(classpath):
+                print('WARNING: Jar not found: %s' % classpath)
 
         self.shim_map[qpid_interop_test.qit_shim.QpidJmsShim.NAME] = \
             qpid_interop_test.qit_shim.QpidJmsShim(classpath, qpid_jms_snd_shim, qpid_jms_rcv_shim)

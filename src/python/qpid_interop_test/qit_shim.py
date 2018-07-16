@@ -156,8 +156,8 @@ class QpidJmsShim(Shim):
     NAME = 'QpidJms'
     JMS_CLIENT = True
 
-    JAVA_HOME = os.getenv('JAVA_HOME', '/usr/bin') # Default only works in Linux
-    JAVA_EXEC = os.path.join(JAVA_HOME, 'java')
+    JAVA_HOME = os.getenv('JAVA_HOME', '/usr')
+    JAVA_EXEC = os.path.join(JAVA_HOME, 'bin', 'java')
 
     def __init__(self, dependency_class_path, sender_shim, receiver_shim):
         super(QpidJmsShim, self).__init__(sender_shim, receiver_shim)
