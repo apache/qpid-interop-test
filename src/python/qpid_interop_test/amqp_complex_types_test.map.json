@@ -45,8 +45,6 @@
           ["float", -2.71828], ["float", -2.71828],
           ["float", "1.2345e+38"], ["float", "1.2345e+38"],
           ["float", "-1.2345e-38"], ["float", "-1.2345e-38"],
-          ["float", "inf"], ["float", "inf"],
-          ["float", "-inf"], ["float", "-inf"],
           ["float", "NaN"], ["float", "NaN"]]],
  ["map", [["double", 0.0], ["double", 0.0],
           ["double", 3.141592653589793], ["double", 3.141592653589793],
