@@ -136,7 +136,8 @@ then install the following packages:
 yum -y install mono-devel python34-devel jsoncpp-devel nodejs-rhea qpid-proton-cpp-devel python-qpid-proton qpid-proton-cpp-devel python2-qpid-proton
 ````
 
-Note that at the time of release, there is no python3-qpid-proton package available for CentOS7, but this should be available soon.
+Note that at the time of release, there is no python3-qpid-proton package available for CentOS7, but this should be available soon. Tests should be run with
+the --exclude-shim ProtonPython3 flag to avoid errors.
 
 ### 2.5 Fedora 28 Docker image
 
