@@ -15,5 +15,15 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-PYTHON_DIR=`ls -d /usr/lib/python2*`
-echo -n ${PYTHON_DIR##*/}
+# $1: Python major version, either 2 or 3
+
+if [[ $# != 1 ]]; then
+    echo "Python major ver required as parameter"
+    exit 1
+fi
+PYTHON_DIR=`ls -d /usr/lib/python${1}* 2> /dev/null`
+if [[ $? == 0 ]]; then
+    echo -n ${PYTHON_DIR##*/}
+else
+    echo -n "NOT_FOUND"
+fi

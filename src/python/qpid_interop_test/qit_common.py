@@ -37,6 +37,7 @@ QIT_INSTALL_PREFIX = getenv('QIT_INSTALL_PREFIX')
 if QIT_INSTALL_PREFIX is None:
     print('ERROR: Environment variable QIT_INSTALL_PREFIX is not set')
     sys.exit(1)
+QIT_ENABLE_PYTHON3_SHIM = getenv('PYTHON3PATH') is not None
 QIT_TEST_SHIM_HOME = path.join(QIT_INSTALL_PREFIX, 'libexec', 'qpid_interop_test', 'shims')
 
 QPID_JMS_SHIM_VER = '0.2.0'
@@ -320,9 +321,12 @@ class QitTest(object):
                          qpid_interop_test.qit_shim.ProtonCppShim(proton_cpp_snd_shim, proton_cpp_rcv_shim),
                          qpid_interop_test.qit_shim.ProtonPython2Shim.NAME: \
                          qpid_interop_test.qit_shim.ProtonPython2Shim(proton_python_snd_shim, proton_python_rcv_shim),
-                         qpid_interop_test.qit_shim.ProtonPython3Shim.NAME: \
-                         qpid_interop_test.qit_shim.ProtonPython3Shim(proton_python_snd_shim, proton_python_rcv_shim),
+#                         qpid_interop_test.qit_shim.ProtonPython3Shim.NAME: \
+#                         qpid_interop_test.qit_shim.ProtonPython3Shim(proton_python_snd_shim, proton_python_rcv_shim),
                         }
+        if QIT_ENABLE_PYTHON3_SHIM:
+            self.shim_map[qpid_interop_test.qit_shim.ProtonPython3Shim.NAME] = \
+                qpid_interop_test.qit_shim.ProtonPython3Shim(proton_python_snd_shim, proton_python_rcv_shim)
 
         # Add shims that need detection during installation only if the necessary bits are present
         # Rhea Javascript client
