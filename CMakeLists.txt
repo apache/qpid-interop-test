@@ -36,9 +36,12 @@ endif ()
 # Find Python 2.7.x install path
 
 find_package( PythonInterp 2.7 REQUIRED )
-execute_process(COMMAND ${CMAKE_SOURCE_DIR}/get-python-dir-name
-                OUTPUT_VARIABLE PYTHON_DIR_NAME)
-message(STATUS "Python install directory name: ${PYTHON_DIR_NAME}")
+execute_process(COMMAND ${CMAKE_SOURCE_DIR}/get-python-dir-name 2
+                OUTPUT_VARIABLE PYTHON2_DIR_NAME)
+message(STATUS "Python 2 install directory name: ${PYTHON2_DIR_NAME}")
+execute_process(COMMAND ${CMAKE_SOURCE_DIR}/get-python-dir-name 3
+                OUTPUT_VARIABLE PYTHON3_DIR_NAME)
+message(STATUS "Python 3 install directory name: ${PYTHON3_DIR_NAME}")
 
 # Find Java
 
@@ -126,7 +129,7 @@ add_subdirectory(shims/rhea-js)
 add_subdirectory(docs)
 
 # Install files using python setup.py
-install(CODE "MESSAGE(STATUS \"Python install dir: ${CMAKE_INSTALL_PREFIX}/lib/${PYTHON_DIR_NAME}/site-packages/qpid_interop_test/\")")
+install(CODE "MESSAGE(STATUS \"Python install dir: ${CMAKE_INSTALL_PREFIX}/lib/${PYTHON2_DIR_NAME}/site-packages/qpid_interop_test/\")")
 install(CODE "execute_process(COMMAND python setup.py install --prefix ${CMAKE_INSTALL_PREFIX}
                               WORKING_DIRECTORY ../)")
 
@@ -134,6 +137,6 @@ install(CODE "execute_process(COMMAND python setup.py install --prefix ${CMAKE_I
 # Find a way to handle this as part of the Python install process instead
 # Set the following Python scripts to executable:
 install(CODE "execute_process(COMMAND bash -c \"chmod +x *_test.py\"
-                              WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}/lib/${PYTHON_DIR_NAME}/site-packages/qpid_interop_test/)")
+                              WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}/lib/${PYTHON2_DIR_NAME}/site-packages/qpid_interop_test/)")
 
 configure_file(config.sh.in config.sh)
