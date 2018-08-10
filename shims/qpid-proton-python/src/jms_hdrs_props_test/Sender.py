@@ -34,7 +34,7 @@ import json
 import proton
 import proton.handlers
 import proton.reactor
-from qpid_interop_test.qit_common import QitTestTypeMap
+#from qpid_interop_test.qit_common import QitTestTypeMap
 from qpid_interop_test.qit_errors import InteropTestError
 from qpid_interop_test.qit_jms_types import create_annotation
 import _compat
@@ -125,6 +125,14 @@ class JmsHdrsPropsTestSender(proton.handlers.MessagingHandler):
                     return True
         return False
 
+    @staticmethod
+    def merge_dicts(*dict_args):
+        """Merge two or more dictionaries"""
+        res = {}
+        for this_dict in dict_args:
+            res.update(this_dict)
+        return res
+
     # TODO: Change this to return a list of messages. That way each test can return more than one message
     def _create_message(self, test_value_type, test_value, value_num, hdr_kwargs, hdr_annotations):
         """Create a single message of the appropriate JMS message type"""
@@ -154,8 +162,8 @@ class JmsHdrsPropsTestSender(proton.handlers.MessagingHandler):
                                    (test_value, test_value_type))
         return proton.Message(id=(self.sent+1),
                               content_type='application/octet-stream',
-                              annotations=QitTestTypeMap.merge_dicts(create_annotation('JMS_MESSAGE_TYPE'),
-                                                                     hdr_annotations),
+                              annotations=JmsHdrsPropsTestSender.merge_dicts(create_annotation('JMS_MESSAGE_TYPE'),
+                                                                             hdr_annotations),
                               **hdr_kwargs)
 
     def _create_jms_bytesmessage(self, test_value_type, test_value, hdr_kwargs, hdr_annotations):
@@ -190,8 +198,8 @@ class JmsHdrsPropsTestSender(proton.handlers.MessagingHandler):
                               body=body_bytes,
                               inferred=True,
                               content_type='application/octet-stream',
-                              annotations=QitTestTypeMap.merge_dicts(create_annotation('JMS_BYTESMESSAGE_TYPE'),
-                                                                     hdr_annotations),
+                              annotations=JmsHdrsPropsTestSender.merge_dicts(create_annotation('JMS_BYTESMESSAGE_TYPE'),
+                                                                             hdr_annotations),
                               **hdr_kwargs)
 
     def _create_jms_mapmessage(self, test_value_type, test_value, name, hdr_kwargs, hdr_annotations):
@@ -222,8 +230,8 @@ class JmsHdrsPropsTestSender(proton.handlers.MessagingHandler):
         return proton.Message(id=(self.sent+1),
                               body={name: value},
                               inferred=False,
-                              annotations=QitTestTypeMap.merge_dicts(create_annotation('JMS_MAPMESSAGE_TYPE'),
-                                                                     hdr_annotations),
+                              annotations=JmsHdrsPropsTestSender.merge_dicts(create_annotation('JMS_MAPMESSAGE_TYPE'),
+                                                                             hdr_annotations),
                               **hdr_kwargs)
 
     def _create_jms_objectmessage(self, test_value, hdr_kwargs, hdr_annotations):
@@ -233,8 +241,8 @@ class JmsHdrsPropsTestSender(proton.handlers.MessagingHandler):
                               body=java_binary,
                               inferred=True,
                               content_type='application/x-java-serialized-object',
-                              annotations=QitTestTypeMap.merge_dicts(create_annotation('JMS_MAPMESSAGE_TYPE'),
-                                                                     hdr_annotations),
+                              annotations=JmsHdrsPropsTestSender.merge_dicts(create_annotation('JMS_MAPMESSAGE_TYPE'),
+                                                                             hdr_annotations),
                               **hdr_kwargs)
 
     @staticmethod
@@ -279,16 +287,16 @@ class JmsHdrsPropsTestSender(proton.handlers.MessagingHandler):
         return proton.Message(id=(self.sent+1),
                               body=body_list,
                               inferred=True,
-                              annotations=QitTestTypeMap.merge_dicts(create_annotation('JMS_STREAMMESSAGE_TYPE'),
-                                                                     hdr_annotations),
+                              annotations=JmsHdrsPropsTestSender.merge_dicts(create_annotation('JMS_STREAMMESSAGE_TYPE'),
+                                                                             hdr_annotations),
                               **hdr_kwargs)
 
     def _create_jms_textmessage(self, test_value_text, hdr_kwargs, hdr_annotations):
         """Create a JMS text message"""
         return proton.Message(id=(self.sent+1),
                               body=_compat.unicode(test_value_text),
-                              annotations=QitTestTypeMap.merge_dicts(create_annotation('JMS_TEXTMESSAGE_TYPE'),
-                                                                     hdr_annotations),
+                              annotations=JmsHdrsPropsTestSender.merge_dicts(create_annotation('JMS_TEXTMESSAGE_TYPE'),
+                                                                             hdr_annotations),
                               **hdr_kwargs)
 
     def _get_jms_message_header_kwargs(self):
