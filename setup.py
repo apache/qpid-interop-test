@@ -24,7 +24,7 @@ LIBEXEC_DIR = 'libexec/qpid_interop_test'
 SHIM_DIR = '%s/shims' % LIBEXEC_DIR
 
 setup(name='qpid-interop-test',
-      version='0.1',
+      version='0.2',
       description='Test suite for testing interoperability between Qpid AMQP clients',
       author='Apache Qpid',
       author_email='users@qpid.apache.org',
@@ -34,7 +34,8 @@ setup(name='qpid-interop-test',
       
       # Shims, installed into {INSTALL_PREFIX}/libexec/qpid_interop_test/shims/
      data_files=[ ('%s/qpid-proton-python' % SHIM_DIR,
-                      ['shims/qpid-proton-python/src/_compat.py']
+                      ['shims/qpid-proton-python/src/_compat.py',
+                      ]
                   ),
                   ('%s/qpid-proton-python/amqp_types_test' % SHIM_DIR,
                      ['shims/qpid-proton-python/src/amqp_types_test/Receiver.py',

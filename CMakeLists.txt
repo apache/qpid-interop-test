@@ -133,6 +133,16 @@ install(CODE "MESSAGE(STATUS \"Python install dir: ${CMAKE_INSTALL_PREFIX}/lib/$
 install(CODE "execute_process(COMMAND python setup.py install --prefix ${CMAKE_INSTALL_PREFIX}
                               WORKING_DIRECTORY ../)")
 
+# This section is temporary - make links from python3.x site-packages dir to python2.7 files needed by shims
+# when running under Python 3.x.
+install(CODE "MESSAGE(STATUS \"Python install dir: ${CMAKE_INSTALL_PREFIX}/lib/${PYTHON3_DIR_NAME}/site-packages/qpid_interop_test/\")")
+install(CODE "execute_process(COMMAND mkdir -p ${CMAKE_INSTALL_PREFIX}/lib/${PYTHON3_DIR_NAME}/site-packages/qpid_interop_test/
+                              WORKING_DIRECTORY ../)")
+install(CODE "execute_process(COMMAND ln -s ${CMAKE_INSTALL_PREFIX}/lib/${PYTHON2_DIR_NAME}/site-packages/qpid_interop_test/qit_errors.py
+                                            ${CMAKE_INSTALL_PREFIX}/lib/${PYTHON3_DIR_NAME}/site-packages/qpid_interop_test/qit_errors.py)")
+install(CODE "execute_process(COMMAND ln -s ${CMAKE_INSTALL_PREFIX}/lib/${PYTHON2_DIR_NAME}/site-packages/qpid_interop_test/qit_jms_types.py
+                                            ${CMAKE_INSTALL_PREFIX}/lib/${PYTHON3_DIR_NAME}/site-packages/qpid_interop_test/qit_jms_types.py)")
+
 # TODO: THIS IS UGLY!
 # Find a way to handle this as part of the Python install process instead
 # Set the following Python scripts to executable:
