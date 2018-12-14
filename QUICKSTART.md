@@ -248,7 +248,7 @@ sudo make install
 If you are a developer working on changes to qpid-interop-test itself, the
 source repository can be cloned from git as follows:
 
-    git clone https://git-wip-us.apache.org/repos/asf/qpid-interop-test.git
+    git clone https://gitbox.apache.org/repos/asf/qpid-interop-test.git
     
 or
     
