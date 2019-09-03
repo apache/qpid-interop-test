@@ -22,6 +22,7 @@ gets the broker connection properties so as to identify the broker.
 # under the License.
 #
 
+import sys
 import proton.handlers
 import proton.reactor
 from qpid_interop_test.qit_errors import InteropTestError
@@ -30,17 +31,21 @@ class Client(proton.handlers.MessagingHandler):
     """
     Client to connect to broker and collect connection properties, used to identify the test broker
     """
-    def __init__(self, url):
+    def __init__(self, url, max_num_retries):
         super(Client, self).__init__()
         self.url = url
+        self.max_num_retries = max_num_retries;
+        self.num_retries = 0
         self.remote_properties = None
 
     def on_start(self, event):
         """Event loop start"""
-        event.container.connect(url=self.url, sasl_enabled=False, reconnect=False)
+        event.container.connect(url=self.url, sasl_enabled=False)
 
     def on_connection_remote_open(self, event):
         """Callback for remote connection open"""
+        if self.num_retries > 0:
+            print(' broker found.')
         self.remote_properties = event.connection.remote_properties
         event.connection.close()
 
@@ -49,10 +54,19 @@ class Client(proton.handlers.MessagingHandler):
         return self.remote_properties
 
     def on_transport_error(self, event):
-        raise InteropTestError('ERROR: broker not found at %s' % self.url)
+        self.num_retries += 1
+        if (self.num_retries == 1):
+            sys.stdout.write('WARNING: broker not found at %s, retrying *' % self.url)
+            sys.stdout.flush()
+        elif (self.num_retries <= self.max_num_retries):
+            sys.stdout.write(' *')
+            sys.stdout.flush()
+        else:
+            print('')
+            raise InteropTestError('ERROR: broker not found at %s after %d retries' % (self.url, self.max_num_retries))
 
 def get_broker_properties(broker_url):
     """Start client, then return its connection properties"""
-    msg_handler = Client(broker_url)
+    msg_handler = Client(broker_url, 25)
     proton.reactor.Container(msg_handler).run()
     return msg_handler.get_connection_properties()
