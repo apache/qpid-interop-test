@@ -24,7 +24,6 @@ github:
     - messaging
     - interop
     - amqp10
-    - amqps
     - cpp
     - dotnet
     - java
