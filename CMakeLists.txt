@@ -96,10 +96,12 @@ endif ()
 execute_process(COMMAND python3 src/python/qpid_interop_test/amqp_complex_types_test_generator.py --gen cpp --src-dir src/python/qpid_interop_test --gen-dir shims/qpid-proton-cpp/src/qpidit/amqp_complex_types_test
                               WORKING_DIRECTORY ../
                               RESULT_VARIABLE retcode
+                              OUTPUT_VARIABLE stdouttext
                               ERROR_VARIABLE stderrtext
 )
 if(NOT "${retcode}" STREQUAL "0")
-    message("${stderrtext}")
+    message(STATUS "stdouttext=${stdouttext}")
+    message(STATUS "stderrtext=${stderrtext}")
     message(FATAL_ERROR "Data code file generation for C++ failed")
 endif()
 
