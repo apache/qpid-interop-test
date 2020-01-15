@@ -98,8 +98,10 @@ execute_process(COMMAND python3 src/python/qpid_interop_test/amqp_complex_types_
                               RESULT_VARIABLE retcode
                               OUTPUT_VARIABLE stdouttext
                               ERROR_VARIABLE stderrtext
+                              COMMAND_ECHO STDOUT
 )
 if(NOT "${retcode}" STREQUAL "0")
+    message(STATUS "retcode=${retcode}")
     message(STATUS "stdouttext=${stdouttext}")
     message(STATUS "stderrtext=${stderrtext}")
     message(FATAL_ERROR "Data code file generation for C++ failed")
