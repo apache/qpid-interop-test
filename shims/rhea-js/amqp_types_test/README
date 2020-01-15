@@ -30,6 +30,6 @@ The AMQP types and test values are all set within the top-level test program.
 
 Required modules
 ----------------
- rhea (https://github.com/grs/rhea.git)
+ rhea (https://github.com/amqp/rhea.git)
  node-uuid (via npm)
 

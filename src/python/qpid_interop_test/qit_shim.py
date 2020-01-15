@@ -54,7 +54,9 @@ class ShimProcess(subprocess.Popen):
             if stderrdata: # length > 0
                 # Workaround for Amqp.NetLite which on some OSs produces a spurious error message on stderr
                 # which should be ignored:
-                if not stderrdata.startswith('Got a bad hardware address length for an AF_PACKET'):
+                # Workaround for deprecation warning on stderr:
+                if not stderrdata.startswith('Got a bad hardware address length for an AF_PACKET') and \
+                not "[DEP0005]" in stderrdata:
                     return 'stderr: %s\nstdout: %s' % (stderrdata, stdoutdata)
             if not stdoutdata: # zero length
                 return None
@@ -174,5 +176,5 @@ class AmqpNetLiteShim(Shim):
     NAME = 'AmqpNetLite'
     def __init__(self, sender_shim, receiver_shim):
         super(AmqpNetLiteShim, self).__init__(sender_shim, receiver_shim)
-        self.send_params = ['mono', self.sender_shim]
-        self.receive_params = ['mono', self.receiver_shim]
+        self.send_params = ['dotnet', self.sender_shim]
+        self.receive_params = ['dotnet', self.receiver_shim]

@@ -25,10 +25,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading;
-using System.Web.Script.Serialization;
 using Amqp;
 using Amqp.Framing;
 using Amqp.Types;
+using Newtonsoft.Json;
 
 namespace Qpidit
 {
@@ -431,8 +431,7 @@ namespace Qpidit
             List<Message> messagesToSend = new List<Message>();
 
             // Deserialize the json message list
-            JavaScriptSerializer jss = new JavaScriptSerializer();
-            var itMsgs = jss.Deserialize<dynamic>(jsonMessages);
+            var itMsgs = JsonConvert.DeserializeObject<dynamic>(jsonMessages);
             //if (!(itMsgs is Array))
             //    throw new ApplicationException(String.Format(
             //        "Messages are not formatted as a json list: {0}, but as type: {1}", jsonMessages, itMsgs.GetType().Name));
@@ -440,7 +439,7 @@ namespace Qpidit
             // Generate messages
             foreach (object itMsg in itMsgs)
             {
-                MessageValue mv = new MessageValue(amqpType, itMsg);
+                MessageValue mv = new MessageValue(amqpType, itMsg.ToString());
                 mv.Encode();
                 messagesToSend.Add(mv.ToMessage());
             }

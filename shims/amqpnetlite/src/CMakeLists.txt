@@ -18,9 +18,7 @@
 #
 
 # Building AMQP.Net Lite shim requires
-# * Mono version 4.2.4 or later
-# * AMQPNETLITE_LIB_DIR names directory that holds Ampq.Net.dll
-#   and optionally .pdb and .xml files.
+# * DotNet version 2.1
 #
 # Define -DBUILD_AMQPNETLITE=ON (or OFF) at the cmake command line
 # to force a build or not.
@@ -29,55 +27,38 @@ project (qpid-interop-test-amqpnetlite-shims)
 
 cmake_minimum_required(VERSION 2.8.7 FATAL_ERROR)
 
-# Set BUILD_AMQPNETLITE control variable based on sensed environment
-set(lite_default ON)
 
-find_program(PROG_MONO mono)
+# Check for presence of dotnet assembly
+MACRO (check_dotnet_assembly
+       env_var               # Environment variable name to be checked containing path to directory
+       file_name             # Name of file in directory to be checked
+       found_flag)           # Variable which will contain ON or OFF if successfully found
+  if ("${${env_var}}" STREQUAL "")
+    message(STATUS "AMQP.Net Lite shim requires '${file_name}' to be in folder located in '${env_var}' environment variable, but '${env_var}' is not defined.")
+    set(${found_flag} OFF)
+  else()
+    if (NOT EXISTS ${${env_var}})
+      # Env var "env_var" is set, check if its value is a directory
+      message(STATUS "AMQP.Net Lite shim requires '${file_name}' to be in folder located in '${env_var}' environment variable")
+      message(STATUS "AMQP.Net Lite library directory '${${env_var}}' does not exist.")
+      set(${found_flag} OFF)
+    else()
+      # Check file "file_name" exists in directory contained in env var "env_var"
+      if (EXISTS ${${env_var}}/${file_name})
+        message(STATUS "Required dll found: ${${env_var}}/${file_name}")
+      else()
+        message(STATUS "AMQP.Net Lite shim requires '${file_name}' to be in folder located in '${env_var}' environment variable, but was not found")
+        set(${found_flag} OFF)
+      endif()
+    endif()
+  endif()
+ENDMACRO(check_dotnet_assembly)
 
-if (PROG_MONO STREQUAL "PROG_MONO-NOTFOUND")
-  message(STATUS "Program 'mono' is not found. AMQP.Net Lite shim requires mono.")
-  set(lite_default OFF)
-else ()
-  # mono found. Check version
-  execute_process(COMMAND mono --version OUTPUT_VARIABLE ov)
-  if("${ov}" STREQUAL "")
-    message(STATUS "Mono appears to be installed but the version is not detected. AMQP.Net Lite requires mono minimum version 4.2.4.")
-    set(lite_default OFF)
-  else ()
-    string(REPLACE " " ";" ov_list ${ov})
-    list(GET ov_list 4 mono_ver)
-    if (mono_ver VERSION_LESS "4.2.4")
-      message(STATUS "Mono version ${mono_ver} detected. AMQP.Net Lite requires mono minimum version 4.2.4.")
-      set(lite_default OFF)
-    else ()
-      # check for DLL source directory
-      if ("${AMQPNETLITE_LIB_DIR}" STREQUAL "")
-        message(STATUS "AMQP.Net Lite shim requires Amqp.Net.dll to be in folder located with AMQPNETLITE_LIB_DIR environment variable and AMQPNETLITE_LIB_DIR is not defined.")
-        set(lite_default OFF)
-      else ()
-        if (NOT EXISTS ${AMQPNETLITE_LIB_DIR})
-          message(STATUS "AMQP.Net Lite shim requires Amqp.Net.dll to be in folder located with AMQPNETLITE_LIB_DIR environment variable")
-          message(STATUS "AMQP.Net Lite library directory '${AMQPNETLITE_LIB_DIR}' does not exist.")
-          set(lite_default OFF)
-        else ()
-          if (NOT EXISTS ${AMQPNETLITE_LIB_DIR}/Amqp.Net.dll)
-            message(STATUS "AMQP.Net Lite shim requires Amqp.Net.dll to be in folder located with AMQPNETLITE_LIB_DIR environment variable")
-            message(STATUS "AMQP.Net Lite DLL does not exist in library directory '${AMQPNETLITE_LIB_DIR}'")
-            set(lite_default OFF)
-          endif ()
-        endif ()
-      endif ()
-    endif ()
-  endif ()
-endif ()
-
-# Set option that controls the build process
-option(BUILD_AMQPNETLITE "Build AMQP.Net Lite shim under mono" ${lite_default})
-
-message(STATUS "BUILD_AMQPNETLITE = ${BUILD_AMQPNETLITE}")
 
 # Configure/build/install a single test
-MACRO (define_lite_test testname)
+MACRO (define_lite_test
+       testname)             # Name of test
+
   # Configure the csproj files
   configure_file(               ${testname}/Receiver/Receiver.csproj.in
     ${CMAKE_CURRENT_BINARY_DIR}/${testname}/Receiver/Receiver.csproj
@@ -90,13 +71,13 @@ MACRO (define_lite_test testname)
   add_custom_target(
     amqpnetlite_${testname}_Sender
     ALL
-    COMMAND xbuild Sender.csproj > xbuild.log
+    COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/${testname}/Sender/Sender.cs ${CMAKE_BINARY_DIR}/shims/amqpnetlite/src/${testname}/Sender/
+    COMMAND dotnet add package AMQPNetLite
+    COMMAND dotnet add package Newtonsoft.Json
+    COMMAND dotnet publish --output ${LITE_INSTALL_ROOT}/${testname}/Sender/ --verbosity minimal
     DEPENDS
       ${CMAKE_CURRENT_BINARY_DIR}/${testname}/Sender/Sender.csproj
       ${CMAKE_CURRENT_SOURCE_DIR}/${testname}/Sender/Sender.cs
-      ${CMAKE_CURRENT_SOURCE_DIR}/${testname}/Sender/Properties/AssemblyInfo.cs
-      ${CMAKE_CURRENT_SOURCE_DIR}/${testname}/Sender/App.config
-      ${CMAKE_CURRENT_SOURCE_DIR}/${testname}/Sender/packages.config
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${testname}/Sender
     COMMENT Cross compiling amqpnetlite ${testname}/Sender
   )
@@ -104,53 +85,55 @@ MACRO (define_lite_test testname)
   add_custom_target(
     amqpnetlite_${testname}_Receiver
     ALL
-    COMMAND xbuild Receiver.csproj > xbuild.log
+    COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/${testname}/Receiver/Receiver.cs ${CMAKE_BINARY_DIR}/shims/amqpnetlite/src/${testname}/Receiver/
+    COMMAND dotnet add package AMQPNetLite
+    COMMAND dotnet publish --output ${LITE_INSTALL_ROOT}/${testname}/Receiver/ --verbosity minimal
     DEPENDS
       ${CMAKE_CURRENT_BINARY_DIR}/${testname}/Receiver/Receiver.csproj
       ${CMAKE_CURRENT_SOURCE_DIR}/${testname}/Receiver/Receiver.cs
-      ${CMAKE_CURRENT_SOURCE_DIR}/${testname}/Receiver/Properties/AssemblyInfo.cs
-      ${CMAKE_CURRENT_SOURCE_DIR}/${testname}/Receiver/App.config
-      ${CMAKE_CURRENT_SOURCE_DIR}/${testname}/Receiver/packages.config
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${testname}/Receiver
     COMMENT Cross compiling amqpnetlite ${testname}/Receiver
   )
 
-  # Install
-  
-  install(
-    FILES ${CMAKE_CURRENT_BINARY_DIR}/${testname}/Receiver/bin/Amqp.Net.dll
-    DESTINATION ${LITE_INSTALL_ROOT}/${testname}/)
-  
-  install(
-    FILES ${CMAKE_CURRENT_BINARY_DIR}/${testname}/Receiver/bin/Receiver.exe
-    DESTINATION ${LITE_INSTALL_ROOT}/${testname}/)
-
-  install(
-    FILES ${CMAKE_CURRENT_BINARY_DIR}/${testname}/Receiver/bin/Receiver.exe.config
-    DESTINATION ${LITE_INSTALL_ROOT}/${testname}/)
-
-  install(
-    FILES ${CMAKE_CURRENT_BINARY_DIR}/${testname}/Receiver/bin/Receiver.exe.mdb
-    DESTINATION ${LITE_INSTALL_ROOT}/${testname}/)
-
-  install(
-    FILES ${CMAKE_CURRENT_BINARY_DIR}/${testname}/Sender/bin/Sender.exe
-    DESTINATION ${LITE_INSTALL_ROOT}/${testname}/)
-
-  install(
-    FILES ${CMAKE_CURRENT_BINARY_DIR}/${testname}/Sender/bin/Sender.exe.config
-    DESTINATION ${LITE_INSTALL_ROOT}/${testname}/)
-
-  install(
-    FILES ${CMAKE_CURRENT_BINARY_DIR}/${testname}/Sender/bin/Sender.exe.mdb
-    DESTINATION ${LITE_INSTALL_ROOT}/${testname}/)
 ENDMACRO (define_lite_test)
 
-# Stage the build
+
+
+
+set(build_amqpnetlite_default ON)  # Set BUILD_AMQPNETLITE control variable based on prerequisites being present
+set(REQUIRED_DOTNET_VERSION 3.1)
+set(BUILD_CONFIG Release) # Debug or Release
+
+# --- Check prerequisites ---
+# 1. Find dotnet
+find_program(DOTNET dotnet)
+if (DOTNET STREQUAL "DOTNET-NOTFOUND")
+  message(STATUS "Program 'dotnet' not found.")
+  set(build_amqpnetlite_default OFF)
+else()
+  # 2. dotnet found. Check required version exists
+  execute_process(COMMAND dotnet --version OUTPUT_VARIABLE ov)
+  if("${ov}" STREQUAL "")
+    message(STATUS "'dotnet' appears to be installed but version is not detected. 'dotnet' version ${REQUIRED_DOTNET_VERSION} required.")
+    set(build_amqpnetlite_default OFF)
+  else()
+    # 3. dotnet version string obtained, isolate version number as string, check version requirement
+    string(REGEX MATCH "[0-9]+(\\.[0-9]+)" dotnet_ver "${ov}")
+    if (${dotnet_ver} VERSION_EQUAL "${REQUIRED_DOTNET_VERSION}")
+      message(STATUS  "'dotnet' version ${dotnet_ver} found.")
+    else()
+      message(STATUS "'dotnet' version ${dotnet_ver} found. 'dotnet' version ${REQUIRED_DOTNET_VERSION} required.")
+      set(build_amqpnetlite_default OFF)
+    endif()
+  endif()
+endif()
+
+# Set option that controls the build process
+option(BUILD_AMQPNETLITE "Build AMQP.Net Lite shim under dotnet v.${REQUIRED_DOTNET_VERSION}" ${build_amqpnetlite_default})
+message(STATUS "BUILD_AMQPNETLITE = ${BUILD_AMQPNETLITE}")
+
+# --- Stage the build ---
 if (BUILD_AMQPNETLITE)
-  # Drop lite dll into build/packages
-  file(GLOB LITE_LIBS "${AMQPNETLITE_LIB_DIR}/Amqp.Net.*")
-  file(COPY ${LITE_LIBS} DESTINATION ${CMAKE_BINARY_DIR}/shims/amqpnetlite/packages/amqpnetlite/lib/net45/)
 
   # define lite install root
   set(LITE_INSTALL_ROOT ${CMAKE_INSTALL_PREFIX}/libexec/qpid_interop_test/shims/amqpnetlite)

@@ -339,8 +339,8 @@ class QitTest(object):
             print('WARNING: Rhea Javascript shims not found')
 
         # AMQP DotNetLite client
-        amqpnetlite_rcv_shim = path.join(QIT_TEST_SHIM_HOME, 'amqpnetlite', self.TEST_NAME, 'Receiver.exe')
-        amqpnetlite_snd_shim = path.join(QIT_TEST_SHIM_HOME, 'amqpnetlite', self.TEST_NAME, 'Sender.exe')
+        amqpnetlite_rcv_shim = path.join(QIT_TEST_SHIM_HOME, 'amqpnetlite', self.TEST_NAME, 'Receiver', 'Receiver.dll')
+        amqpnetlite_snd_shim = path.join(QIT_TEST_SHIM_HOME, 'amqpnetlite', self.TEST_NAME, 'Sender', 'Sender.dll')
         if path.isfile(amqpnetlite_rcv_shim) and path.isfile(amqpnetlite_snd_shim):
             self.shim_map[qpid_interop_test.qit_shim.AmqpNetLiteShim.NAME] = \
                 qpid_interop_test.qit_shim.AmqpNetLiteShim(amqpnetlite_snd_shim, amqpnetlite_rcv_shim)

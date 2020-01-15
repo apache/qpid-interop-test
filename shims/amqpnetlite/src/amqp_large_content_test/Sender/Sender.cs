@@ -26,10 +26,10 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
-using System.Web.Script.Serialization;
 using Amqp;
 using Amqp.Framing;
 using Amqp.Types;
+using Newtonsoft.Json;
 
 // Large_content_test is driven by a list like this:
 //
@@ -632,8 +632,7 @@ namespace Qpidit
                 String.Equals(amqpType, "symbol", StringComparison.OrdinalIgnoreCase))
             {
                 // Deserialize the count spec list
-                JavaScriptSerializer csl = new JavaScriptSerializer();
-                var itMsgs = csl.Deserialize<dynamic>(countSpec);
+                var itMsgs = JsonConvert.DeserializeObject<dynamic>(countSpec);
                 //if (!(itMsgs is Array))
                 //    throw new ApplicationException(String.Format(
                 //        "Messages are not formatted as a json list: {0}, but as type: {1}", countSpec, itMsgs.GetType().Name));
