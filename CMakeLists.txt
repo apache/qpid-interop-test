@@ -96,15 +96,9 @@ endif ()
 execute_process(COMMAND python3 src/python/qpid_interop_test/amqp_complex_types_test_generator.py --gen cpp --src-dir src/python/qpid_interop_test --gen-dir shims/qpid-proton-cpp/src/qpidit/amqp_complex_types_test
                               WORKING_DIRECTORY ../
                               RESULT_VARIABLE retcode
-                              OUTPUT_VARIABLE stdouttext
-                              ERROR_VARIABLE stderrtext
-                              COMMAND_ECHO STDOUT
 )
 if(NOT "${retcode}" STREQUAL "0")
-    message(STATUS "retcode=${retcode}")
-    message(STATUS "stdouttext=${stdouttext}")
-    message(STATUS "stderrtext=${stderrtext}")
-    message(FATAL_ERROR "Data code file generation for C++ failed")
+    message(FATAL_ERROR "Data code file generation for C++ failed: ${retcode}")
 endif()
 
 execute_process(COMMAND python3 src/python/qpid_interop_test/amqp_complex_types_test_generator.py --gen python --src-dir src/python/qpid_interop_test --gen-dir shims/qpid-proton-python/src/amqp_complex_types_test
@@ -112,7 +106,7 @@ execute_process(COMMAND python3 src/python/qpid_interop_test/amqp_complex_types_
                               RESULT_VARIABLE retcode
 )
 if(NOT "${retcode}" STREQUAL "0")
-    message(FATAL_ERROR "Data code file generation for Python failed")
+    message(FATAL_ERROR "Data code file generation for Python failed: ${retcode}")
 endif()
 
 execute_process(COMMAND python3 src/python/qpid_interop_test/amqp_complex_types_test_generator.py --gen javascript --src-dir src/python/qpid_interop_test --gen-dir shims/rhea-js/amqp_complex_types_test
@@ -120,7 +114,7 @@ execute_process(COMMAND python3 src/python/qpid_interop_test/amqp_complex_types_
                               RESULT_VARIABLE retcode
 )
 if(NOT "${retcode}" STREQUAL "0")
-    message(FATAL_ERROR "Data code file generation for JavaScript failed")
+    message(FATAL_ERROR "Data code file generation for JavaScript failed: ${retcode}")
 endif()
 
 execute_process(COMMAND python3 src/python/qpid_interop_test/amqp_complex_types_test_generator.py --gen dotnet --src-dir src/python/qpid_interop_test --gen-dir shims/amqpnetlite/src/amqp_complex_types_test
@@ -128,7 +122,7 @@ execute_process(COMMAND python3 src/python/qpid_interop_test/amqp_complex_types_
                               RESULT_VARIABLE retcode
 )
 if(NOT "${retcode}" STREQUAL "0")
-    message(FATAL_ERROR "Data code file generation for .Net failed")
+    message(FATAL_ERROR "Data code file generation for .Net failed: ${retcode}")
 endif()
 
 add_subdirectory(shims/qpid-proton-cpp/src)
