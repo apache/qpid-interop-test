@@ -101,7 +101,7 @@ ENDMACRO (define_lite_test)
 
 
 set(build_amqpnetlite_default ON)  # Set BUILD_AMQPNETLITE control variable based on prerequisites being present
-set(REQUIRED_DOTNET_VERSION 3.1)
+set(REQUIRED_DOTNET_VERSION 2.1)
 set(BUILD_CONFIG Release) # Debug or Release
 
 # --- Check prerequisites ---
