@@ -18,7 +18,6 @@
 
 # Source this file to set up environment variables for the Qpid interop tests.
 
-export QPID_INTEROP_TEST_HOME=@CMAKE_SOURCE_DIR@
 export QIT_INSTALL_PREFIX=@CMAKE_INSTALL_PREFIX@
 
 # Set PYTHON2PATH and PYTHON3PATH for respective python shims
