@@ -71,9 +71,9 @@ find_python(python3 "PYTHON3_FOUND" "PYTHON3_VER" "PYTHON3_SITE_DIR_NAME")
 # Find Java
 
 find_package(Java 1.8 COMPONENTS Development)
+# if (NOT Java_FOUND)
 # RHEL7 bug: Java_FOUND is not being set, so workaround:
-#if (NOT DEFINED Java_JAVA_EXECUTABLE OR NOT DEFINED Java_JAVAC_EXECUTABLE OR NOT DEFINED Java_JAR_EXECUTABLE)
-if (NOT Java_FOUND)
+if (NOT DEFINED Java_JAVA_EXECUTABLE OR NOT DEFINED Java_JAVAC_EXECUTABLE OR NOT DEFINED Java_JAR_EXECUTABLE)
     message(STATUS "ERROR: Java compiler not found, but is required")
     set (ErrorFlag TRUE)
 endif ()
