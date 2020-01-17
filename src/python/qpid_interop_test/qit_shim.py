@@ -38,6 +38,8 @@ class ShimProcess(subprocess.Popen):
         self.env = copy.deepcopy(os.environ)
         if python3_flag:
             self.env['PYTHONPATH'] = self.env['PYTHON3PATH']
+        else:
+            self.env['PYTHONPATH'] = self.env['PYTHON2PATH']
         super(ShimProcess, self).__init__(params, stdout=subprocess.PIPE, stderr=subprocess.PIPE, preexec_fn=os.setsid,
                                           env=self.env)
 

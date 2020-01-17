@@ -1,3 +1,5 @@
+#! /bin/bash
+
 #  Licensed to the Apache Software Foundation (ASF) under one or more
 #  contributor license agreements.  See the NOTICE file distributed with
 #  this work for additional information regarding copyright ownership.
@@ -18,14 +20,26 @@
 
 export QPID_INTEROP_TEST_HOME=@CMAKE_SOURCE_DIR@
 export QIT_INSTALL_PREFIX=@CMAKE_INSTALL_PREFIX@
-CURRENT_PYTHONPATH=$PYTHONPATH
-export PYTHONPATH=@CMAKE_INSTALL_PREFIX@/lib64/proton/bindings/python:@CMAKE_INSTALL_PREFIX@/lib/@PYTHON2_DIR_NAME@/site-packages:@CMAKE_INSTALL_PREFIX@/libexec/qpid_interop_test/shims/qpid-proton-python:$CURRENT_PYTHONPATH
-if [[ "@PYTHON3_DIR_NAME@" == "NOT_FOUND" ]]; then
-    unset PYTHON3PATH
+
+# Set PYTHON2PATH and PYTHON3PATH for respective python shims
+
+unset PYTHON2PATH
+py2_found_str="@PYTHON2_FOUND@"
+if [[ "${py2_found_str#*-}" == "NOTFOUND" ]]; then
+    echo "No Python 2.x found, Python 2 shims disabled"
+else
+    export PYTHON2PATH=@CMAKE_INSTALL_PREFIX@/lib64/proton/bindings/python:@CMAKE_INSTALL_PREFIX@/lib/@PYTHON2_SITE_DIR_NAME@/site-packages:@CMAKE_INSTALL_PREFIX@/libexec/qpid_interop_test/shims/qpid-proton-python
+fi
+
+unset PYTHON3PATH
+py3_found_str="@PYTHON3_FOUND@"
+if [[ "${py3_found_str#*-}" == "NOTFOUND" ]]; then
     echo "No Python 3.x found, Python 3 shims disabled"
 else
-    CURRENT_PYTHON3PATH=$PYTHON3PATH
-    export PYTHON3PATH=@CMAKE_INSTALL_PREFIX@/lib64/proton/bindings/python3:@CMAKE_INSTALL_PREFIX@/lib/@PYTHON3_DIR_NAME@/site-packages:@CMAKE_INSTALL_PREFIX@/libexec/qpid_interop_test/shims/qpid-proton-python:$CURRENT_PYTHON3PATH
+    export PYTHON3PATH=@CMAKE_INSTALL_PREFIX@/lib64/proton/bindings/python3:@CMAKE_INSTALL_PREFIX@/lib/@PYTHON3_SITE_DIR_NAME@/site-packages:@CMAKE_INSTALL_PREFIX@/libexec/qpid_interop_test/shims/qpid-proton-python
 fi
+# To run the main program use python 2
+export PYTHONPATH=$PYTHON2PATH
+
 export LD_LIBRARY_PATH=@CMAKE_INSTALL_PREFIX@/lib64:$LD_LIBRARY_PATH
 export PATH=@CMAKE_INSTALL_PREFIX@/lib/@PYTHON_DIR_NAME@/site-packages/qpid_interop_test:$PATH

@@ -37,6 +37,7 @@ QIT_INSTALL_PREFIX = getenv('QIT_INSTALL_PREFIX')
 if QIT_INSTALL_PREFIX is None:
     print('ERROR: Environment variable QIT_INSTALL_PREFIX is not set')
     sys.exit(1)
+QIT_ENABLE_PYTHON2_SHIM = getenv('PYTHON2PATH') is not None
 QIT_ENABLE_PYTHON3_SHIM = getenv('PYTHON3PATH') is not None
 QIT_TEST_SHIM_HOME = path.join(QIT_INSTALL_PREFIX, 'libexec', 'qpid_interop_test', 'shims')
 
@@ -312,21 +313,26 @@ class QitTest(object):
 
     def _create_shim_map(self):
         """Create a shim map {'shim_name': <shim_instance>}"""
+        # Proton C++ shim
         proton_cpp_rcv_shim = path.join(QIT_TEST_SHIM_HOME, 'qpid-proton-cpp', self.TEST_NAME, 'Receiver')
         proton_cpp_snd_shim = path.join(QIT_TEST_SHIM_HOME, 'qpid-proton-cpp', self.TEST_NAME, 'Sender')
-        proton_python_rcv_shim = path.join(QIT_TEST_SHIM_HOME, 'qpid-proton-python', self.TEST_NAME, 'Receiver.py')
-        proton_python_snd_shim = path.join(QIT_TEST_SHIM_HOME, 'qpid-proton-python', self.TEST_NAME, 'Sender.py')
-
         self.shim_map = {qpid_interop_test.qit_shim.ProtonCppShim.NAME: \
                          qpid_interop_test.qit_shim.ProtonCppShim(proton_cpp_snd_shim, proton_cpp_rcv_shim),
-                         qpid_interop_test.qit_shim.ProtonPython2Shim.NAME: \
-                         qpid_interop_test.qit_shim.ProtonPython2Shim(proton_python_snd_shim, proton_python_rcv_shim),
-#                         qpid_interop_test.qit_shim.ProtonPython3Shim.NAME: \
-#                         qpid_interop_test.qit_shim.ProtonPython3Shim(proton_python_snd_shim, proton_python_rcv_shim),
                         }
+
+        # Python shims
+        proton_python_rcv_shim = path.join(QIT_TEST_SHIM_HOME, 'qpid-proton-python', self.TEST_NAME, 'Receiver.py')
+        proton_python_snd_shim = path.join(QIT_TEST_SHIM_HOME, 'qpid-proton-python', self.TEST_NAME, 'Sender.py')
+        if QIT_ENABLE_PYTHON2_SHIM:
+            self.shim_map[qpid_interop_test.qit_shim.ProtonPython2Shim.NAME] = \
+                qpid_interop_test.qit_shim.ProtonPython2Shim(proton_python_snd_shim, proton_python_rcv_shim)
+        else:
+            print('Python 2 shim disabled: no PYTHON2PATH in environment')
         if QIT_ENABLE_PYTHON3_SHIM:
             self.shim_map[qpid_interop_test.qit_shim.ProtonPython3Shim.NAME] = \
                 qpid_interop_test.qit_shim.ProtonPython3Shim(proton_python_snd_shim, proton_python_rcv_shim)
+        else:
+            print('Python 3 shim disabled: no PYTHON3PATH in environment')
 
         # Add shims that need detection during installation only if the necessary bits are present
         # Rhea Javascript client
@@ -348,7 +354,7 @@ class QitTest(object):
             print('WARNING: AMQP DotNetLite shims not found')
 
     def _modify_shim_map(self):
-        """Modify shim_map based on args"""
+        """Modify shim_map based on command-line args --include-shim or --exclude-shim"""
         # Use only shims included from the command-line
         if self.args.include_shim is not None:
             temp_shim_map = {}
