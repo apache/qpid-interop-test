@@ -165,8 +165,11 @@ endif()
 configure_file(config.sh.in config.sh @ONLY)
 
 # Install files using python setup.py
-install(CODE "MESSAGE(STATUS \"Python install dir: ${CMAKE_INSTALL_PREFIX}/lib/${PYTHON2_DIR_NAME}/site-packages/qpid_interop_test/\")")
+install(CODE "MESSAGE(STATUS \"Python 2 install dir: ${CMAKE_INSTALL_PREFIX}/lib/${PYTHON2_DIR_NAME}/site-packages/qpid_interop_test/\")")
 install(CODE "execute_process(COMMAND python setup.py install --prefix ${CMAKE_INSTALL_PREFIX}
+                              WORKING_DIRECTORY ../)")
+install(CODE "MESSAGE(STATUS \"Python 3 install dir: ${CMAKE_INSTALL_PREFIX}/lib/${PYTHON3_DIR_NAME}/site-packages/qpid_interop_test/\")")
+install(CODE "execute_process(COMMAND python3 setup.py install --prefix ${CMAKE_INSTALL_PREFIX}
                               WORKING_DIRECTORY ../)")
 install(FILES build/config.sh
         DESTINATION ${CMAKE_INSTALL_PREFIX}/libexec/qpid_interop_test/)
