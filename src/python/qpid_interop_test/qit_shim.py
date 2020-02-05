@@ -126,8 +126,8 @@ class ProtonPython2Shim(Shim):
     NAME = 'ProtonPython2'
     def __init__(self, sender_shim, receiver_shim):
         super(ProtonPython2Shim, self).__init__(sender_shim, receiver_shim)
-        self.send_params = ['python', self.sender_shim]
-        self.receive_params = ['python', self.receiver_shim]
+        self.send_params = ['python2', self.sender_shim]
+        self.receive_params = ['python2', self.receiver_shim]
 
 
 class ProtonPython3Shim(Shim):
