@@ -116,6 +116,8 @@ endfunction(addJmsTest testName)
 # --- Common files and libs ---
 
 set(Common_SOURCES
+    qpidit/Base64.hpp
+    qpidit/Base64.cpp
     qpidit/QpidItErrors.hpp
     qpidit/QpidItErrors.cpp
 )

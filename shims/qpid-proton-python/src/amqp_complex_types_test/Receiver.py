@@ -107,19 +107,20 @@ class AmqpComplexTypesTestReceiver(amqp_complex_types_test.Common.AmqpComplexTyp
         if len(arr1.elements) != len(arr2.elements):
             return False
         # Check each element is the same value
-        for elt1, elt2 in zip(arr1.elements, arr2.elements):
-            if arr1.type == proton.Data.ARRAY and isinstance(elt1, proton.Array):
-                if not AmqpComplexTypesTestReceiver.check_arrays_equal(elt1, elt2):
-                    return False
-            elif arr1.type == proton.Data.LIST and isinstance(elt1, list):
-                if not AmqpComplexTypesTestReceiver.check_lists_equal(elt1, elt2):
-                    return False
-            elif arr1.type == proton.Data.MAP and isinstance(elt1, dict):
-                if not AmqpComplexTypesTestReceiver.check_maps_equal(elt1, elt2):
-                    return False
-            else:
-                if not AmqpComplexTypesTestReceiver.check_simple_values_equal(elt1, elt2):
-                    return False
+        if len(arr1.elements) > 0:
+            for elt1, elt2 in zip(arr1.elements, arr2.elements):
+                if arr1.type == proton.Data.ARRAY and isinstance(elt1, proton.Array):
+                    if not AmqpComplexTypesTestReceiver.check_arrays_equal(elt1, elt2):
+                        return False
+                elif arr1.type == proton.Data.LIST and isinstance(elt1, list):
+                    if not AmqpComplexTypesTestReceiver.check_lists_equal(elt1, elt2):
+                        return False
+                elif arr1.type == proton.Data.MAP and isinstance(elt1, dict):
+                    if not AmqpComplexTypesTestReceiver.check_maps_equal(elt1, elt2):
+                        return False
+                else:
+                    if not AmqpComplexTypesTestReceiver.check_simple_values_equal(elt1, elt2):
+                        return False
         return True
 
     @staticmethod

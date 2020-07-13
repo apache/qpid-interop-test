@@ -23,6 +23,7 @@ AMQP type test receiver shim for qpid-interop-test
 # under the License.
 #
 
+import base64
 import json
 import os.path
 import signal
@@ -32,7 +33,6 @@ import sys
 import traceback
 import uuid
 
-import proton
 import proton.handlers
 import proton.reactor
 import _compat
@@ -126,18 +126,13 @@ class AmqpTypesTestReceiver(proton.handlers.MessagingHandler):
         if amqp_type == 'uuid':
             return str(amqp_value)
         if amqp_type == 'binary':
-            return amqp_value.decode('utf-8')
+            return base64.b64encode(amqp_value).decode('utf-8')
         if amqp_type == 'string':
             return amqp_value
         if amqp_type == 'symbol':
             return amqp_value
-        if amqp_type == 'list':
-            return AmqpTypesTestReceiver.decode_amqp_list(amqp_value)
-        if amqp_type == 'map':
-            return AmqpTypesTestReceiver.decode_amqp_map(amqp_value)
-        if amqp_type == 'array':
-            #return AmqpTypesTestReceiver.decode_amqp_array(amqp_value)
-            print('receive: Unsupported AMQP type "%s"' % amqp_type)
+        if amqp_type in ['array', 'list', 'map']:
+            print('receive: Complex AMQP type "%s" unsupported, see amqp_complex_types_test' % amqp_type)
             return None
         print('receive: Unknown AMQP type "%s"' % amqp_type)
         return None
@@ -205,39 +200,6 @@ class AmqpTypesTestReceiver(proton.handlers.MessagingHandler):
             return "map"
 
         print('receive: Unmapped AMQP type: %s:%s' % (type(amqp_value), amqp_value))
-
-    @staticmethod
-    def decode_complex_amqp_element(amqp_value):
-        """Decode an element from a complex AMQP type from its Python value"""
-        amqp_type = AmqpTypesTestReceiver.get_amqp_type(amqp_value)
-        if amqp_type == "list":
-            return AmqpTypesTestReceiver.decode_amqp_list(amqp_value)
-        if amqp_type == "map":
-            return AmqpTypesTestReceiver.decode_amqp_map(amqp_value)
-        return "%s:%s" % (amqp_type, AmqpTypesTestReceiver.decode_amqp_type(amqp_type, amqp_value))
-
-    @staticmethod
-    def decode_amqp_list(amqp_value):
-        """Decode amqp list type"""
-#        print('LIST:%s' % amqp_value)
-        amqp_list = []
-        for list_item in amqp_value:
-            amqp_list.append(AmqpTypesTestReceiver.decode_complex_amqp_element(list_item))
-        return amqp_list
-
-    @staticmethod
-    def decode_amqp_map(amqp_value):
-        """Decode amqp map type"""
-        amqp_map = {}
-        for key, value in amqp_value.items():
-            amqp_map[AmqpTypesTestReceiver.decode_complex_amqp_element(key)] = \
-                    AmqpTypesTestReceiver.decode_complex_amqp_element(value)
-        return amqp_map
-
-    @staticmethod
-    def decode_amqp_array(amqp_value):
-        """Decode amqp array type"""
-        return amqp_value
 
     def on_transport_error(self, event):
         print('Receiver: Broker not found at %s' % self.broker_url)

@@ -129,7 +129,7 @@ namespace qpidit
     class JsonParserError: public std::runtime_error
     {
     public:
-        explicit JsonParserError(const Json::Reader& jsonReader);
+        explicit JsonParserError(const std::string& parseErrors);
         virtual ~JsonParserError() throw();
     };
 

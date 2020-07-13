@@ -20,6 +20,7 @@
  */
 
 #include "qpidit/amqp_types_test/Sender.hpp"
+#include "qpidit/Base64.hpp"
 
 #include <cstdlib>
 #include <iomanip>
@@ -68,16 +69,6 @@ namespace qpidit
             msg.id(_msgsSent + 1);
             msg.body(convertAmqpValue(_amqpType, testValue));
             return msg;
-        }
-
-        //static
-        std::string Sender::bytearrayToHexStr(const char* src, int len) {
-            std::ostringstream oss;
-            oss << "0x" << std::hex;
-            for (int i=0; i<len; ++i) {
-                oss <<  std::setw(2) << std::setfill('0') << ((int)src[i] & 0xff);
-            }
-            return oss.str();
         }
 
         //static
@@ -184,7 +175,8 @@ namespace qpidit
                 return val;
             }
             if (amqpType.compare("binary") == 0) {
-                return proton::binary(testValue.asString());
+                // Base64 decode to binary string
+                return b64_decode(testValue.asString());
             }
             if (amqpType.compare("string") == 0) {
                 return std::string(testValue.asString());
@@ -193,127 +185,15 @@ namespace qpidit
                 return proton::symbol(testValue.asString());
             }
             if (amqpType.compare("list") == 0) {
-                std::vector<proton::value> list;
-                processList(list, testValue);
-                return list;
-            } else if (amqpType.compare("map") == 0) {
-                std::map<proton::value, proton::value> map;
-                processMap(map, testValue);
-                return map;
+                throw qpidit::UnsupportedAmqpTypeError(amqpType);
+            }
+            if (amqpType.compare("map") == 0) {
+                throw qpidit::UnsupportedAmqpTypeError(amqpType);
             }
             if (amqpType.compare("array") == 0) {
-/*
-                std::vector<proton::value> array;
-                processArray(array, testValue);
-                return proton::as<proton::ARRAY>(array);
-*/
                 throw qpidit::UnsupportedAmqpTypeError(amqpType);
             }
             throw qpidit::UnknownAmqpTypeError(amqpType);
-        }
-
-//        //static
-//        Json::Value::ValueType getArrayType(const Json::Value& val) {
-//            if (val.size()) > 0) {
-//                return val[0].type();
-//            } else {
-//                return Json::Value::nullValue; // TODO: find a way to represent empty array
-//            }
-//        }
-
-        //static
-        void Sender::processArray(std::vector<proton::value>& array, const Json::Value& testValues) {
-            for (Json::Value::const_iterator i = testValues.begin(); i != testValues.end(); ++i) {
-                if ((*i).isArray()) {
-                    std::vector<proton::value> subArray;
-                    processArray(subArray, *i);
-                    array.push_back(proton::value(subArray));
-                } else if ((*i).isObject()) {
-                    std::map<proton::value, proton::value> subMap;
-                    processMap(subMap, *i);
-                    array.push_back(proton::value(subMap));
-                } else {
-                    proton::value v;
-                    if ((*i).isNull())
-                        ;
-                    else if ((*i).isBool())
-                        v = (*i).asBool();
-                    else if ((*i).isInt())
-                        v = (*i).asInt();
-                    else if ((*i).isUInt())
-                        v = (*i).asUInt();
-                    else if ((*i).isDouble())
-                        v = (*i).asDouble();
-                    else if ((*i).isString())
-                        v = (*i).asString();
-                    else
-                        ; // TODO handle this case
-                    array.push_back(v);
-                }
-            }
-        }
-
-        //static
-        proton::value Sender::processElement(const Json::Value& testValue) {
-            const std::string testValueStr(testValue.asString());
-            // testValue has the format amqp-type:amqp-str-value
-            const std::size_t splitIndex = testValueStr.find_first_of(':');
-            if (splitIndex == std::string::npos) {
-                throw qpidit::InvalidTestValueError(testValueStr);
-            }
-            const std::string amqpType = testValueStr.substr(0, splitIndex);
-            const std::string amqpValueAsStr = testValueStr.substr(splitIndex + 1);
-            return convertAmqpValue(amqpType, amqpValueAsStr);
-        }
-
-        //static
-        void Sender::processList(std::vector<proton::value>& list, const Json::Value& testValues) {
-            for (Json::Value::const_iterator i = testValues.begin(); i != testValues.end(); ++i) {
-                if ((*i).isArray()) {
-                    std::vector<proton::value> subList;
-                    processList(subList, *i);
-                    list.push_back(proton::value(subList));
-                } else if ((*i).isObject()) {
-                    std::map<proton::value, proton::value> subMap;
-                    processMap(subMap, *i);
-                    list.push_back(proton::value(subMap));
-                } else {
-                    list.push_back(processElement(*i));
-                }
-            }
-        }
-
-        //static
-        void Sender::processMap(std::map<proton::value, proton::value>& map, const Json::Value& testValues) {
-            Json::Value::Members keys = testValues.getMemberNames();
-            for (std::vector<std::string>::const_iterator i=keys.begin(); i!=keys.end(); ++i) {
-                proton::value key = processElement(*i);
-                Json::Value mapVal = testValues[*i];
-                if (mapVal.isArray()) {
-                    std::vector<proton::value> subList;
-                    processList(subList, mapVal);
-                    map[key] = subList;
-                } else if (mapVal.isObject()) {
-                    std::map<proton::value, proton::value> subMap;
-                    processMap(subMap, mapVal);
-                    map[key] = subMap;
-                } else {
-                    map[key] = processElement(mapVal);
-                }
-            }
-        }
-
-        //static
-        void Sender::revMemcpy(char* dest, const char* src, int n) {
-            for (int i = 0; i < n; ++i) {
-                *(dest + i) = *(src + n - i - 1);
-            }
-        }
-
-        //static
-        void Sender::uint64ToChar16(char* dest, uint64_t upper, uint64_t lower) {
-            revMemcpy(dest, (const char*)&upper, sizeof(uint64_t));
-            revMemcpy(dest + 8, (const char*)&lower, sizeof(uint64_t));
         }
 
     } /* namespace amqp_types_test */
@@ -329,16 +209,18 @@ namespace qpidit
  */
 
 int main(int argc, char** argv) {
-    // TODO: improve arg management a little...
-    if (argc != 5) {
-        throw qpidit::ArgumentError("Incorrect number of arguments");
-    }
-
     try {
+        // TODO: improve arg management a little...
+        if (argc != 5) {
+            throw qpidit::ArgumentError("Incorrect number of arguments");
+        }
+
         Json::Value testValues;
-        Json::Reader jsonReader;
-        if (not jsonReader.parse(argv[4], testValues, false)) {
-            throw qpidit::JsonParserError(jsonReader);
+        Json::CharReaderBuilder rbuilder;
+        Json::CharReader* jsonReader = rbuilder.newCharReader();
+        std::string parseErrors;
+        if (not jsonReader->parse(argv[4], argv[4] + ::strlen(argv[4]), &testValues, &parseErrors)) {
+            throw qpidit::JsonParserError(parseErrors);
         }
 
         qpidit::amqp_types_test::Sender sender(argv[1], argv[2], argv[3], testValues);

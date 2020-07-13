@@ -98,9 +98,9 @@ function Sender(brokerAddr, brokerPort, queueName, amqpType, testValues) {
         case "binary": return {body: amqp_types.wrap_binary(this.encodeBinary(testValue))};
         case "string": return {body: amqp_types.wrap_string(this.encodeString(testValue))};
         case "symbol": return {body: amqp_types.wrap_symbol(this.encodeSymbol(testValue))};
-        case "list": return {body: amqp_types.wrap_list(this.encodeList(testValue))};
-        case "map": return {body: amqp_types.wrap_map(this.encodeMap(testValue))};
-        case "array": return {body: amqp_types.wrap_array(this.encodeArray(testValue.slice(1), AmqpArrayTypes[testValue[0]]))};
+        case "list":
+        case "map":
+        case "array": throw "Unsupported complex AMQP type: \"" + this.amqpType + "\"";
         default: throw "Unknown AMQP type: \"" + this.amqpType + "\"";
         }
     };
@@ -129,9 +129,9 @@ function Sender(brokerAddr, brokerPort, queueName, amqpType, testValues) {
         case "binary": return this.encodeBinary(testValue);
         case "string": return this.encodeString(testValue);
         case "symbol": return this.encodeSymbol(testValue);
-        case "list": return this.encodeList(testValue);
-        case "map": return this.encodeMap(testValue);
-        case "array": return this.encodeArray(testValue);
+        case "list":
+        case "map":
+        case "array": throw "Unsupported complex AMQP type: \"" + this.amqpType + "\"";
         default: throw "Unknown AMQP type: \"" + this.amqpType + "\"";
         }
     };
@@ -256,7 +256,8 @@ function Sender(brokerAddr, brokerPort, queueName, amqpType, testValues) {
     };
 
     this.encodeBinary = function(testValue) {
-        return testValue;
+        var buff = new Buffer(testValue, 'base64')
+        return buff;
     };
 
     this.encodeString = function(testValue) {
@@ -265,19 +266,6 @@ function Sender(brokerAddr, brokerPort, queueName, amqpType, testValues) {
 
     this.encodeSymbol = function(testValue) {
         return testValue;
-    };
-
-    this.encodeList = function(testValue) {
-        return testValue; // TODO: encode list
-    };
-
-    this.encodeMap = function(testValue) {
-        return testValue; // TODO: encode map
-    };
-
-    // testValue format for arrays: ['type', 'val1', 'val2', ... ]
-    this.encodeArray = function(testValue) {
-        return testValue.slice(1); // TODO: encode array
     };
 
     this.handleEncodeError = function(amqpType, testValue, err) {

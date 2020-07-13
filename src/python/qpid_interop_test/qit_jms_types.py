@@ -23,7 +23,7 @@ Common JMS types and definitions as implemented by QpidJMS
 
 from proton import byte, symbol
 
-QPID_JMS_TYPE_ANNOTATION_NAME = symbol(u'x-opt-jms-msg-type')
+QPID_JMS_TYPE_ANNOTATION_NAME = symbol('x-opt-jms-msg-type')
 
 QPID_JMS_TYPE_ANNOTATIONS = {
     'JMS_MESSAGE_TYPE': byte(0),

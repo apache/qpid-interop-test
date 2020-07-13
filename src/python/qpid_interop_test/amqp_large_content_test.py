@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Module to test AMQP messages with large content (bodies and headers/properties) across different clients
@@ -33,7 +33,7 @@ from json import dumps
 import qpid_interop_test.qit_common
 from qpid_interop_test.qit_errors import InteropTestError, InteropTestTimeout
 
-DEFAULT_TEST_TIMEOUT = 180 # seconds
+DEFAULT_TEST_TIMEOUT = 300 # seconds
 
 
 class AmqpVariableSizeTypes(qpid_interop_test.qit_common.QitTestTypeMap):
@@ -74,6 +74,7 @@ class AmqpVariableSizeTypes(qpid_interop_test.qit_common.QitTestTypeMap):
 class AmqpLargeContentTestCase(qpid_interop_test.qit_common.QitTestCase):
     """Abstract base class for AMQP large content tests"""
 
+    #pylint: disable=too-many-arguments
     def run_test(self, sender_addr, receiver_addr, amqp_type, test_value_list, send_shim, receive_shim, timeout):
         """
         Run this test by invoking the shim send method to send the test values, followed by the shim receive method
@@ -124,9 +125,9 @@ class AmqpLargeContentTestCase(qpid_interop_test.qit_common.QitTestCase):
     @staticmethod
     def get_num_messages(amqp_type, test_value_list):
         """Find the total number of messages to be sent for this test"""
-        if amqp_type == 'binary' or amqp_type == 'string' or amqp_type == 'symbol':
+        if amqp_type in ('binary', 'string', 'symbol'):
             return len(test_value_list)
-        if amqp_type == 'list' or amqp_type == 'map':
+        if amqp_type in ('list', 'map'):
             tot_len = 0
             for test_item in test_value_list:
                 tot_len += len(test_item[1])

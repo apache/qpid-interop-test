@@ -20,6 +20,7 @@
  */
 
 #include <qpidit/amqp_types_test/Receiver.hpp>
+#include "qpidit/Base64.hpp"
 
 #include <iostream>
 #include <json/json.h>
@@ -111,79 +112,32 @@ namespace qpidit
         //static
         std::string Receiver::getAmqpType(const proton::value& val) {
             switch(val.type()) {
-            case proton::NULL_TYPE: return "null";
-            case proton::BOOLEAN: return "boolean";
-            case proton::UBYTE: return "ubyte";
-            case proton::USHORT: return "ushort";
-            case proton::UINT: return "uint";
-            case proton::ULONG: return "ulong";
-            case proton::BYTE: return "byte";
-            case proton::SHORT: return "short";
-            case proton::INT: return "int";
-            case proton::LONG: return "long";
-            case proton::FLOAT: return "float";
-            case proton::DOUBLE: return "double";
-            case proton::DECIMAL32: return "decimal32";
-            case proton::DECIMAL64: return "decimal64";
-            case proton::DECIMAL128: return "decimal128";
-            case proton::CHAR: return "char";
-            case proton::TIMESTAMP: return "timestamp";
-            case proton::UUID: return "uuid";
-            case proton::BINARY: return "binary";
-            case proton::STRING: return "string";
-            case proton::SYMBOL: return "symbol";
-            case proton::LIST: return "list";
-            case proton::MAP: return "map";
-            case proton::ARRAY: return "array";
-            //default: throw qpidit::UnknownAmqpTypeError(val);
+                case proton::NULL_TYPE: return "null";
+                case proton::BOOLEAN: return "boolean";
+                case proton::UBYTE: return "ubyte";
+                case proton::USHORT: return "ushort";
+                case proton::UINT: return "uint";
+                case proton::ULONG: return "ulong";
+                case proton::BYTE: return "byte";
+                case proton::SHORT: return "short";
+                case proton::INT: return "int";
+                case proton::LONG: return "long";
+                case proton::FLOAT: return "float";
+                case proton::DOUBLE: return "double";
+                case proton::DECIMAL32: return "decimal32";
+                case proton::DECIMAL64: return "decimal64";
+                case proton::DECIMAL128: return "decimal128";
+                case proton::CHAR: return "char";
+                case proton::TIMESTAMP: return "timestamp";
+                case proton::UUID: return "uuid";
+                case proton::BINARY: return "binary";
+                case proton::STRING: return "string";
+                case proton::SYMBOL: return "symbol";
+                case proton::LIST: return "list";
+                case proton::MAP: return "map";
+                case proton::ARRAY: return "array";
             }
-        }
-
-        //static
-        Json::Value& Receiver::getMap(Json::Value& jsonMap, const proton::value& val) {
-            std::map<proton::value, proton::value> msgMap;
-            proton::get(val, msgMap);
-            for (std::map<proton::value, proton::value>::const_iterator i = msgMap.begin(); i != msgMap.end(); ++i) {
-
-                // Process key
-                Json::Value mapKey;
-                if (i->first.type() == proton::LIST || i->first.type() == proton::MAP || i->first.type() == proton::ARRAY) {
-                    mapKey = getValue(i->first);
-                } else {
-                    std::ostringstream oss;
-                    oss << getAmqpType(i->first) << ":" << getValue(i->first).asString();
-                    mapKey = oss.str();
-                }
-
-                // Process value
-                Json::Value mapValue;
-                if (i->second.type() == proton::LIST || i->second.type() == proton::MAP || i->second.type() == proton::ARRAY) {
-                    mapValue = getValue(i->second);
-                } else {
-                    std::ostringstream oss;
-                    oss << getAmqpType(i->second) << ":" << getValue(i->second).asString();
-                    mapValue = oss.str();
-                }
-
-                jsonMap[mapKey.asString()] = mapValue;
-            }
-            return jsonMap;
-        }
-
-        //static
-        Json::Value& Receiver::getSequence(Json::Value& jsonList, const proton::value& val) {
-            std::vector<proton::value> msgList;
-            proton::get(val, msgList);
-            for (std::vector<proton::value>::const_iterator i=msgList.begin(); i!=msgList.end(); ++i) {
-                if (i->type() == proton::LIST || i->type() == proton::MAP || i->type() == proton::ARRAY) {
-                    jsonList.append(getValue(*i));
-                } else {
-                    std::ostringstream oss;
-                    oss << getAmqpType(*i) << ":" << getValue(*i).asString();
-                    jsonList.append(oss.str());
-                }
-            }
-            return jsonList;
+            return "unknown";
         }
 
         //static
@@ -280,7 +234,8 @@ namespace qpidit
             }
             if (amqpType.compare("binary") == 0) {
                 checkMessageType(val, proton::BINARY);
-                return std::string(proton::get<proton::binary>(val));
+                // Encode binary to base64 before returning value as string
+                return b64_encode(proton::get<proton::binary>(val));
             }
             if (amqpType.compare("string") == 0) {
                 checkMessageType(val, proton::STRING);
@@ -291,14 +246,10 @@ namespace qpidit
                 return proton::get<proton::symbol>(val);
             }
             if (amqpType.compare("list") == 0) {
-                checkMessageType(val, proton::LIST);
-                Json::Value jsonList(Json::arrayValue);
-                return getSequence(jsonList, val);
+                throw qpidit::UnsupportedAmqpTypeError(amqpType);
             }
             if (amqpType.compare("map") == 0) {
-                checkMessageType(val, proton::MAP);
-                Json::Value jsonMap(Json::objectValue);
-                return getMap(jsonMap, val);
+                throw qpidit::UnsupportedAmqpTypeError(amqpType);
             }
             if (amqpType.compare("array") == 0) {
                 throw qpidit::UnsupportedAmqpTypeError(amqpType);
@@ -319,18 +270,22 @@ namespace qpidit
  */
 
 int main(int argc, char** argv) {
-    // TODO: improve arg management a little...
-    if (argc != 5) {
-        throw qpidit::ArgumentError("Incorrect number of arguments");
-    }
-
     try {
+        // TODO: improve arg management a little...
+        if (argc != 5) {
+            throw qpidit::ArgumentError("Incorrect number of arguments");
+        }
+
         qpidit::amqp_types_test::Receiver receiver(argv[1], argv[2], argv[3], std::strtoul(argv[4], NULL, 0));
         proton::container(receiver).run();
 
         std::cout << argv[3] << std::endl;
-        Json::FastWriter fw;
-        std::cout << fw.write(receiver.getReceivedValueList());
+        Json::StreamWriterBuilder wbuilder;
+        wbuilder["indentation"] = "";
+        std::unique_ptr<Json::StreamWriter> writer(wbuilder.newStreamWriter());
+        std::ostringstream oss;
+        writer->write(receiver.getReceivedValueList(), &oss);
+        std::cout << oss.str() << std::endl;
     } catch (const std::exception& e) {
         std::cerr << "AmqpReceiver error: " << e.what() << std::endl;
         exit(-1);

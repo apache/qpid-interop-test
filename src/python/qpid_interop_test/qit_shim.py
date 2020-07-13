@@ -51,26 +51,28 @@ class ShimProcess(subprocess.Popen):
         try:
             timer.start()
             (stdoutdata, stderrdata) = self.communicate()
+            stdoutstr =  stdoutdata.decode('ascii')
+            stderrstr = stderrdata.decode('ascii')
             if self.killed_flag:
                 raise InteropTestTimeout('%s: Timeout after %d seconds' % (self.proc_name, timeout))
             if self.returncode != 0:
-                return 'Return code %d\nstderr=%s\nstdout=%s' % (self.returncode, stderrdata, stdoutdata)
-            if stderrdata: # length > 0
+                return 'Return code %d\nstderr=%s\nstdout=%s' % (self.returncode, stderrstr, stdoutstr)
+            if stderrstr: # length > 0
                 # Workaround for Amqp.NetLite which on some OSs produces a spurious error message on stderr
                 # which should be ignored:
                 # Workaround for deprecation warning on stderr:
-                if not stderrdata.startswith('Got a bad hardware address length for an AF_PACKET') and \
-                not "[DEP0005]" in stderrdata:
-                    return 'stderr: %s\nstdout: %s' % (stderrdata, stdoutdata)
-            if not stdoutdata: # zero length
+                if not stderrstr.startswith('Got a bad hardware address length for an AF_PACKET') and \
+                "[DEP0005]" not in stderrstr:
+                    return 'stderr: %s\nstdout: %s' % (stderrstr, stdoutstr)
+            if not stdoutstr: # zero length
                 return None
-            type_value_list = stdoutdata.split('\n')[0:-1] # remove trailing '\n', split by only remaining '\n'
+            type_value_list = stdoutstr.split('\n')[0:-1] # remove trailing '\n', split by only remaining '\n'
             if len(type_value_list) == 2:
                 try:
                     return (type_value_list[0], json.loads(type_value_list[1])) # Return tuple
                 except ValueError:
-                    return stdoutdata # ERROR: return single string
-            return stdoutdata # ERROR: return single string
+                    return stdoutstr # ERROR: return single string
+            return stdoutstr # ERROR: return single string
         except (KeyboardInterrupt) as err:
             self.send_signal(signal.SIGINT)
             raise err
@@ -79,6 +81,7 @@ class ShimProcess(subprocess.Popen):
 
     def _kill(self, timeout):
         """Method called when timer expires"""
+        del timeout # unused
         self.kill()
         self.killed_flag = True
 
@@ -95,7 +98,7 @@ class Receiver(ShimProcess):
         #print('\n>>>RCVR>>> %s python3_flag=%s' % (params, python3_flag))
         super(Receiver, self).__init__(params, python3_flag, proc_name)
 
-class Shim(object):
+class Shim:
     """Abstract shim class, parent of all shims."""
     NAME = ''
     JMS_CLIENT = False # Enables certain JMS-specific message checks

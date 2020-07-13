@@ -50,7 +50,12 @@ class AmqpComplexTypesTestShim(proton.handlers.MessagingHandler):
     def get_array(self, array_data):
         """Get AMQP array from array_data"""
         for array in array_data:
-            if array.type == self.proton_type(self.amqp_subtype):
+            # Empty arrays are of type proton.Data.NULL, but have no elements
+            if self.amqp_subtype == 'None' and array.type == self.proton_type(self.amqp_subtype) and not array.elements:
+                return array
+            if self.amqp_subtype == 'null' and array.type == self.proton_type(self.amqp_subtype) and array.elements:
+                return array
+            if self.amqp_subtype not in ['None', 'null'] and array.type == self.proton_type(self.amqp_subtype):
                 return array
         print('%s: get_array(): Unable to find array subtype "%s" in array test data' %
               (self.role, self.amqp_subtype), file=sys.stderr)
@@ -142,7 +147,7 @@ class AmqpComplexTypesTestShim(proton.handlers.MessagingHandler):
             print('%s: get_class(): Unknown subtype "%s"' % (self.role, amqp_subtype), file=sys.stderr)
             sys.exit(1)
 
-    PROTON_TYPE_MAP = {'None': None,
+    PROTON_TYPE_MAP = {'None': proton.Data.NULL,
                        'null': proton.Data.NULL,
                        'boolean': proton.Data.BOOL,
                        'ubyte': proton.Data.UBYTE,

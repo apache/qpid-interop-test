@@ -19,6 +19,7 @@
 /target/
 /build/
 /docs/users-guide.html
+/src/python/qpid_interop_test/amqp_complex_types_test_data.*
 .project
 .cproject
 .pydevproject

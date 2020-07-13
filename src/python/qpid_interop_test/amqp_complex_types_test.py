@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Module to test AMQP complex types across different clients
@@ -33,7 +33,7 @@ import itertools
 import qpid_interop_test.qit_common
 from qpid_interop_test.qit_errors import InteropTestError, InteropTestTimeout
 
-DEFAULT_TEST_TIMEOUT = 10 # seconds
+DEFAULT_TEST_TIMEOUT = 20 # seconds
 
 class AmqpComplexTypes(qpid_interop_test.qit_common.QitTestTypeMap):
     """
@@ -89,6 +89,7 @@ class AmqpComplexTypes(qpid_interop_test.qit_common.QitTestTypeMap):
 
     client_skip = {}
 
+    #pylint: disable=too-many-branches
     def get_types(self, args):
         """Return the list of types"""
         if "include_type" in args and args.include_type is not None:
@@ -139,6 +140,8 @@ class AmqpComplexTypes(qpid_interop_test.qit_common.QitTestTypeMap):
 class AmqpComplexTypeTestCase(qpid_interop_test.qit_common.QitTestCase):
     """Abstract base class for AMQP Complex Type test cases"""
 
+    #pylint: disable=too-many-arguments
+    #pylint: disable=too-many-locals
     def run_test(self, sender_addr, receiver_addr, amqp_type, amqp_subtype, send_shim, receive_shim, timeout):
         """
         Runs this test by invoking the shim send method to send the test values, followed by the shim receive method
@@ -219,8 +222,10 @@ class AmqpComplexTypesTest(qpid_interop_test.qit_common.QitTest):
             if self.args.exclude_type is None or amqp_type not in self.args.exclude_type:
                 for amqp_subtype in self.types.get_subtype_list():
                     if amqp_type != 'array' or amqp_subtype != '*': # array type does not support mixed types (*)
-                        test_case_class = self.create_testcase_class(amqp_type, amqp_subtype,
-                                                                     itertools.product(self.shim_map.values(), repeat=2),
+                        test_case_class = self.create_testcase_class(amqp_type,
+                                                                     amqp_subtype,
+                                                                     itertools.product(self.shim_map.values(),
+                                                                                       repeat=2),
                                                                      int(self.args.timeout))
                         self.test_suite.addTest(unittest.makeSuite(test_case_class))
 
@@ -237,9 +242,9 @@ class AmqpComplexTypesTest(qpid_interop_test.qit_common.QitTest):
             @unittest.skipIf(self.types.skip_test(amqp_subtype, self.broker),
                              self.types.skip_test_message(amqp_subtype, self.broker))
             @unittest.skipIf(self.types.skip_client_test(amqp_subtype, send_shim.NAME),
-                             self.types.skip_client_test_message(amqp_subtype, send_shim.NAME, u'SENDER'))
+                             self.types.skip_client_test_message(amqp_subtype, send_shim.NAME, 'SENDER'))
             @unittest.skipIf(self.types.skip_client_test(amqp_subtype, receive_shim.NAME),
-                             self.types.skip_client_test_message(amqp_subtype, receive_shim.NAME, u'RECEIVER'))
+                             self.types.skip_client_test_message(amqp_subtype, receive_shim.NAME, 'RECEIVER'))
             def inner_test_method(self):
                 self.run_test(self.sender_addr,
                               self.receiver_addr,

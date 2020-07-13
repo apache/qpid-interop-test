@@ -23,6 +23,7 @@ JMS message headers and properties test sender shim for qpid-interop-test
 # under the License.
 #
 
+import base64
 import os.path
 import signal
 import struct
@@ -175,10 +176,10 @@ class JmsHdrsPropsTestSender(proton.handlers.MessagingHandler):
         elif test_value_type == 'byte':
             body_bytes = struct.pack('b', int(test_value, 16))
         elif test_value_type == 'bytes':
-            body_bytes = test_value.encode('utf-8')
+            body_bytes = base64.b64decode(test_value)
         elif test_value_type == 'char':
             # JMS expects two-byte chars, ASCII chars can be prefixed with '\x00'
-            body_bytes = b'\x00' + test_value.encode('utf-8')
+            body_bytes = b'\x00' + base64.b64decode(test_value)
         elif test_value_type == 'double' or test_value_type == 'float':
             body_bytes = test_value[2:].decode('hex')
         elif test_value_type == 'int':
@@ -209,9 +210,9 @@ class JmsHdrsPropsTestSender(proton.handlers.MessagingHandler):
         elif test_value_type == 'byte':
             value = proton.byte(int(test_value, 16))
         elif test_value_type == 'bytes':
-            value = test_value.encode('utf-8')
+            value = base64.b64decode(test_value)
         elif test_value_type == 'char':
-            value = proton.char(test_value)
+            value = proton.char(base64.b64decode(test_value).decode('utf-8'))
         elif test_value_type == 'double':
             value = struct.unpack('!d', test_value[2:].decode('hex'))[0]
         elif test_value_type == 'float':
@@ -266,9 +267,9 @@ class JmsHdrsPropsTestSender(proton.handlers.MessagingHandler):
         elif test_value_type == 'byte':
             body_list = [proton.byte(int(test_value, 16))]
         elif test_value_type == 'bytes':
-            body_list = [test_value.encode('utf-8')]
+            body_list = [base64.b64decode(test_value)]
         elif test_value_type == 'char':
-            body_list = [proton.char(test_value)]
+            body_list = [proton.char(base64.b64decode(test_value).decode('utf-8'))]
         elif test_value_type == 'double':
             body_list = [struct.unpack('!d', test_value[2:].decode('hex'))[0]]
         elif test_value_type == 'float':
@@ -317,7 +318,7 @@ class JmsHdrsPropsTestSender(proton.handlers.MessagingHandler):
                 if value_type == 'string':
                     hdr_kwargs['correlation_id'] = value
                 elif value_type == 'bytes':
-                    hdr_kwargs['correlation_id'] = value.encode('utf-8')
+                    hdr_kwargs['correlation_id'] = base64.b64decode(value)
                 else:
                     raise InteropTestError('JmsSenderShim._get_jms_message_header_kwargs(): ' +
                                            'JMS_CORRELATIONID_HEADER requires value type "string" or "bytes", ' +

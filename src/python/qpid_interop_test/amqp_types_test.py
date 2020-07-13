@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Module to test AMQP primitive types across different clients
@@ -27,6 +27,7 @@ import signal
 import sys
 import unittest
 
+from base64 import b64encode
 from itertools import product
 from json import dumps
 from time import mktime, time
@@ -35,7 +36,7 @@ from uuid import UUID, uuid4
 import qpid_interop_test.qit_common
 from qpid_interop_test.qit_errors import InteropTestError, InteropTestTimeout
 
-DEFAULT_TEST_TIMEOUT = 10 # seconds
+DEFAULT_TEST_TIMEOUT = 20 # seconds
 
 class AmqpPrimitiveTypes(qpid_interop_test.qit_common.QitTestTypeMap):
     """
@@ -137,21 +138,21 @@ class AmqpPrimitiveTypes(qpid_interop_test.qit_common.QitTestTypeMap):
                       '0xffefffffffffffff'],
         'decimal128': ['0x00000000000000000000000000000000',
                        '0xff0102030405060708090a0b0c0d0e0f'],
-        'char': [u' ', # single ASCII chars
-                 u'A',
-                 u'z',
-                 u'0',
-                 u'9',
-                 u'}',
-                 u'0x0', # Hex representation
-                 u'0x1',
-                 u'0x7f',
-                 u'0x80',
-                 u'0xff',
-                 u'0x16b5', # Rune 'G'
-                 u'0x10203',
-                 u'0x10ffff',
-                 #u'0x12345678' # 32-bit number, not real char # Disabled until Python can handle it
+        'char': [' ', # single ASCII chars
+                 'A',
+                 'z',
+                 '0',
+                 '9',
+                 '}',
+                 '0x0', # Hex representation
+                 '0x1',
+                 '0x7f',
+                 '0x80',
+                 '0xff',
+                 '0x16b5', # Rune 'G'
+                 '0x10203',
+                 '0x10ffff',
+                 #'0x12345678' # 32-bit number, not real char # Disabled until Python can handle it
                 ],
         # timestamp: Must be in milliseconds since the Unix epoch
         'timestamp': ['0x0',
@@ -162,96 +163,23 @@ class AmqpPrimitiveTypes(qpid_interop_test.qit_common.QitTestTypeMap):
                  str(UUID('00010203-0405-0607-0809-0a0b0c0d0e0f')),
                  str(uuid4())],
         'binary': [bytes(),
-                   bytes(12345),
+                   bytes([1, 2, 3, 4, 5]),
                    b'Hello, world',
-                   b'\\x01\\x02\\x03\\x04\\x05abcde\\x80\\x81\\xfe\\xff',
-                   b'The quick brown fox jumped over the lazy dog 0123456789.' * 100
+                   b'\x01\x02\x03\x04\x05abcde\x80\x81\xfe\xff',
+                   b'The quick brown fox jumped over the lazy dog 0123456789.' * 10#0
                   ],
-        # strings must be unicode to comply with AMQP spec
-        'string': [u'',
-                   u'Hello, world',
-                   u'"Hello, world"',
-                   u"Charlie's peach",
-                   u'The quick brown fox jumped over the lazy dog 0123456789.' * 100
+        'string': ['',
+                   '12345'
+                   'Hello, world',
+                   '"Hello, world"', # Embedded quotes
+                   "Charlie's peach", # Embedded apostrophe
+                   'The quick brown fox jumped over the lazy dog 0123456789.' * 100
                   ],
         'symbol': ['',
+                   '12345'
                    'myDomain.123',
                    'domain.0123456789.' * 100,
                   ],
-        'list': [[],
-                 ['ubyte:0x1', 'int:-0x2', 'float:0x40490fdb'],
-                 ['string:a', 'string:hello', 'string:world!', 'binary:\x01\x02\x03\x04\x05abcde'],
-                 ['long:0x102030405',
-                  'timestamp:0x%x' % int(time()*1000),
-                  'short:-0x8000',
-                  'uuid:%s' % str(uuid4()),
-                  'symbol:a.b.c',
-                  'null:None',
-                  'ulong:0x400921fb54442eea',
-                  #'decimal64:0x400921fb54442eea' # Decimal byte reversal issue: PROTON-1160
-                 ],
-                 [[],
-                  'null:None',
-                  ['ubyte:0x1', 'ubyte:0x2', 'ubyte:0x3'],
-                  'boolean:True',
-                  'boolean:False',
-                  {},
-                  {'string:hello': 'long:-0x1234', 'string:goodbye': 'boolean:True'}
-                 ],
-                 [[], [[], [[], [], []], []], []],
-                 ['short:0x0',
-                  'short:0x1',
-                  'short:0x2',
-                  'short:0x3',
-                  'short:0x4',
-                  'short:0x5',
-                  'short:0x6',
-                  'short:0x7',
-                  'short:0x8',
-                  'short:0x9'] * 10
-                ],
-        'map': [{}, # Enpty map
-                # Map with string keys
-                {'string:one': 'ubyte:0x1',
-                 'string:two': 'ushort:0x2'},
-                # Map with other AMQP simple types as keys
-                {'null:None': 'string:None',
-                 'string:None': 'null:None',
-                 'string:One': 'long:-0x102030405',
-                 'short:0x2': 'int:0x2',
-                 'boolean:True': 'string:True',
-                 'string:False': 'boolean:False',
-                 #['string:AAA', 'ushort:0x5951']: 'string:list value',
-                 #{'byte:-55': 'ubyte:200',
-                 # 'boolean:True': 'string:Hello, world'}: 'symbol:map.value',
-                 'string:list': ['byte:0x12', 'ushort:0x234', 'uuid:%s' % str(uuid4()), ],
-                 'string:map': {'char:A': 'int:0x1',
-                                'char:B': 'int:0x2'}
-                },
-               ],
-        # array: Each array is constructed from the test values in this map. This list contains
-        # the keys to the array value types to be included in the test. See function create_test_arrays()
-        # for the top-level function that performs the array creation.
-        #'array': ['boolean',
-        #          'ubyte',
-        #          'ushort',
-        #          'uint',
-        #          'ulong',
-        #          'byte',
-        #          'short',
-        #          'int',
-        #          'long',
-        #          'float',
-        #          'double',
-        #          'decimal32',
-        #          'decimal64',
-        #          'decimal128',
-        #          'char',
-        #          'uuid',
-        #          'binary',
-        #          'string',
-        #          'symbol',
-        #         ],
         }
 
     # This section contains tests that should be skipped because of known issues that would cause the test to fail.
@@ -296,27 +224,26 @@ class AmqpPrimitiveTypes(qpid_interop_test.qit_common.QitTestTypeMap):
                 test_array.append(val)
         return test_array
 
-    def create_test_arrays(self):
-        """ Method to synthesize the test arrays from the values used in the previous type tests """
-        test_arrays = []
-        for array_amqp_type in self.type_map['array']:
-            test_arrays.append(self.create_array(array_amqp_type, 1))
-        print(test_arrays)
-        return test_arrays
-
     def get_test_values(self, test_type):
         """
-        Overload the parent method so that arrays can be synthesized rather than read directly.
+        Overload the parent method so that binary types can be base64 encoded for use in json.
         The test_type parameter is the AMQP type in this case
         """
-        if test_type == 'array':
-            return self.create_test_arrays()
+        if test_type == 'binary':
+            # Convert all binary to base64 strings, as bytes are not JSON serializable
+            test_values = []
+            bytes_test_values = super(AmqpPrimitiveTypes, self).get_test_values(test_type)
+            for bytes_test_value in bytes_test_values:
+                test_values.append(b64encode(bytes_test_value).decode('ascii'))
+            return test_values
         return super(AmqpPrimitiveTypes, self).get_test_values(test_type)
 
 
 class AmqpTypeTestCase(qpid_interop_test.qit_common.QitTestCase):
     """Abstract base class for AMQP Type test cases"""
 
+    #pylint: disable=too-many-arguments
+    #pylint: disable=too-many-locals
     def run_test(self, sender_addr, receiver_addr, amqp_type, test_value_list, send_shim, receive_shim, timeout):
         """
         Run this test by invoking the shim send method to send the test values, followed by the shim receive method

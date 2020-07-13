@@ -20,6 +20,7 @@
  */
 
 #include "qpidit/jms_messages_test/Sender.hpp"
+#include "qpidit/Base64.hpp"
 
 #include <cerrno>
 #include <iomanip>
@@ -132,13 +133,14 @@ namespace qpidit
                 uint8_t val = getIntegralValue<int8_t>(testValueStr);
                 bin.push_back(char(val));
             } else if (subType.compare("bytes") == 0) {
-                bin.assign(testValueStr.begin(), testValueStr.end());
+                bin = b64_decode(testValueStr);
             } else if (subType.compare("char") == 0) {
+                std::string decodedStr = b64_decode(testValueStr);
                 bin.push_back(char(0));
-                if (testValueStr[0] == '\\') { // Format: '\xNN'
-                    bin.push_back(getIntegralValue<char>(testValueStr.substr(2)));
+                if (decodedStr[0] == '\\') { // Format: '\xNN'
+                    bin.push_back(getIntegralValue<char>(decodedStr.substr(2)));
                 } else { // Format: 'c'
-                    bin.push_back(testValueStr[0]);
+                    bin.push_back(decodedStr[0]);
                 }
             } else if (subType.compare("double") == 0) {
                 uint64_t val;
@@ -146,30 +148,21 @@ namespace qpidit
                     val = htobe64(std::strtoul(testValueStr.data(), NULL, 16));
                 } catch (const std::exception& e) { throw qpidit::InvalidTestValueError("double", testValueStr); }
                 numToBinary(val, bin);
-               //for (int i=0; i<sizeof(val); ++i) {
-               //     bin.push_back(* ((char*)&val + i));
-               // }
             } else if (subType.compare("float") == 0) {
                 uint32_t val;
                 try {
                     val = htobe32((uint32_t)std::strtoul(testValueStr.data(), NULL, 16));
                 } catch (const std::exception& e) { throw qpidit::InvalidTestValueError("float", testValueStr); }
                 numToBinary(val, bin);
-                //for (int i=0; i<sizeof(val); ++i) {
-                //    bin.push_back(* ((char*)&val + i));
-                //}
             } else if (subType.compare("long") == 0) {
                 uint64_t val = htobe64(getIntegralValue<uint64_t>(testValueStr));
                 numToBinary(val, bin);
-                //bin.assign(sizeof(val), val);
             } else if (subType.compare("int") == 0) {
                 uint32_t val = htobe32(getIntegralValue<uint32_t>(testValueStr));
                 numToBinary(val, bin);
-                //bin.assign(sizeof(val), val);
             } else if (subType.compare("short") == 0) {
                 uint16_t val = htobe16(getIntegralValue<int16_t>(testValueStr));
                 numToBinary(val, bin);
-                //bin.assign(sizeof(val), val);
             } else if (subType.compare("string") == 0) {
                 std::ostringstream oss;
                 uint16_t strlen = htobe16((uint16_t)testValueStr.size());
@@ -199,13 +192,14 @@ namespace qpidit
             } else if (subType.compare("byte") == 0) {
                 m[mapKey] = int8_t(getIntegralValue<int8_t>(testValueStr));
             } else if (subType.compare("bytes") == 0) {
-                m[mapKey] = proton::binary(testValueStr);
+                m[mapKey] = b64_decode(testValueStr);
             } else if (subType.compare("char") == 0) {
+                std::string decodedStr = b64_decode(testValueStr);
                 wchar_t val;
-                if (testValueStr[0] == '\\') { // Format: '\xNN'
-                    val = (wchar_t)getIntegralValue<wchar_t>(testValueStr.substr(2));
+                if (decodedStr[0] == '\\') { // Format: '\xNN'
+                    val = (wchar_t)getIntegralValue<wchar_t>(decodedStr.substr(2));
                 } else { // Format: 'c'
-                    val = testValueStr[0];
+                    val = decodedStr[0];
                 }
                 m[mapKey] = val;
             } else if (subType.compare("double") == 0) {
@@ -246,13 +240,14 @@ namespace qpidit
             } else if (subType.compare("byte") == 0) {
                 l.push_back(int8_t(getIntegralValue<int8_t>(testValueStr)));
             } else if (subType.compare("bytes") == 0) {
-                l.push_back(proton::binary(testValueStr));
+                l.push_back(b64_decode(testValueStr));
             } else if (subType.compare("char") == 0) {
+                std::string decodedStr = b64_decode(testValueStr);
                 wchar_t val;
-                if (testValueStr[0] == '\\') { // Format: '\xNN'
-                    val = (wchar_t)getIntegralValue<wchar_t>(testValueStr.substr(2));
+                if (decodedStr[0] == '\\') { // Format: '\xNN'
+                    val = (wchar_t)getIntegralValue<wchar_t>(decodedStr.substr(2));
                 } else { // Format: 'c'
-                    val = testValueStr[0];
+                    val = decodedStr[0];
                 }
                 l.push_back(val);
             } else if (subType.compare("double") == 0) {
@@ -334,9 +329,11 @@ int main(int argc, char** argv) {
         oss << argv[1] << "/" << argv[2];
 
         Json::Value testParams;
-        Json::Reader jsonReader;
-        if (not jsonReader.parse(argv[4], testParams, false)) {
-            throw qpidit::JsonParserError(jsonReader);
+        Json::CharReaderBuilder builder;
+        Json::CharReader* jsonReader = builder.newCharReader();
+        std::string parseErrors;
+        if (not jsonReader->parse(argv[4], argv[4] + ::strlen(argv[4]), &testParams, &parseErrors)) {
+            throw qpidit::JsonParserError(parseErrors);
         }
 
         qpidit::jms_messages_test::Sender sender(oss.str(), argv[3], testParams);

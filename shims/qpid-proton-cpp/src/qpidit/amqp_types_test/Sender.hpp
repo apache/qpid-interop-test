@@ -47,16 +47,7 @@ namespace qpidit
         protected:
             proton::message& setMessage(proton::message& msg, const Json::Value& testValue);
 
-            static std::string bytearrayToHexStr(const char* src, int len);
-            static void revMemcpy(char* dest, const char* src, int n);
-            static void uint64ToChar16(char* dest, uint64_t upper, uint64_t lower);
-
             static proton::value convertAmqpValue(const std::string& amqpType, const Json::Value& testValue);
-            //static Json::Value::ValueType getArrayType(const Json::Value& val);
-            static void processArray(std::vector<proton::value>& array, const Json::Value& testValues);
-            static proton::value processElement(const Json::Value& testValue);
-            static void processList(std::vector<proton::value>& list, const Json::Value& testValues);
-            static void processMap(std::map<proton::value, proton::value>& map, const Json::Value& testValues);
 
             template<size_t N> static void hexStringToBytearray(proton::byte_array<N>& ba, const std::string s, size_t fromArrayIndex = 0, size_t arrayLen = N) {
                 for (size_t i=0; i<arrayLen; ++i) {

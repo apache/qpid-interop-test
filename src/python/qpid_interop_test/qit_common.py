@@ -44,7 +44,7 @@ QIT_TEST_SHIM_HOME = path.join(QIT_INSTALL_PREFIX, 'libexec', 'qpid_interop_test
 QPID_JMS_SHIM_VER = '0.3.0-SNAPSHOT'
 
 
-class QitTestTypeMap(object):
+class QitTestTypeMap:
     """
     Class which contains all the described types and the test values to be used in testing against those types.
     """
@@ -165,7 +165,7 @@ class QitTestTypeMap(object):
         return res
 
 
-class QitCommonTestOptions(object):
+class QitCommonTestOptions:
     """
     Class controlling common command-line arguments used to control tests.
     """
@@ -246,12 +246,13 @@ class QitTestCase(unittest.TestCase):
 #        test(result)
 
 
-class QitTest(object):
+#pylint: disable=too-many-instance-attributes
+class QitTest:
     """
     Top-level test class with test entry-point
     """
 
-    class TestTime(object):
+    class TestTime:
         """Class for measuring elapsed time of a test"""
         def __init__(self):
             self.start_time = time.time()
@@ -398,11 +399,11 @@ class QitTest(object):
         if connection_props is None:
             print('WARNING: Unable to get %s connection properties - unknown broker' % broker_role)
             return None
-        broker_name = connection_props[symbol(u'product')] if symbol(u'product') in connection_props \
+        broker_name = connection_props[symbol('product')] if symbol('product') in connection_props \
                       else '<product not found>'
-        broker_version = connection_props[symbol(u'version')] if symbol(u'version') in connection_props \
+        broker_version = connection_props[symbol('version')] if symbol('version') in connection_props \
                          else '<version not found>'
-        broker_platform = connection_props[symbol(u'platform')] if symbol(u'platform') in connection_props \
+        broker_platform = connection_props[symbol('platform')] if symbol('platform') in connection_props \
                           else '<platform not found>'
         print('%s broker: %s v.%s on %s' % (broker_role.title(), broker_name, broker_version, broker_platform))
         return (broker_name, broker_version, broker_platform)

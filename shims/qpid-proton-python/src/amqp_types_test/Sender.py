@@ -23,6 +23,7 @@ AMQP type test sender shim for qpid-interop-test
 # under the License.
 #
 
+import base64
 import json
 import os.path
 import signal
@@ -31,7 +32,6 @@ import sys
 import traceback
 import uuid
 
-import proton
 import proton.handlers
 import proton.reactor
 import _compat
@@ -121,76 +121,18 @@ class AmqpTypesTestSender(proton.handlers.MessagingHandler):
         if amqp_type == 'uuid':
             return uuid.UUID(test_value)
         if amqp_type == 'binary':
-            return test_value.encode('utf-8')
+            return base64.b64decode(test_value)
+        if amqp_type == 'binarystr':
+            return _compat.unicode(test_value)
         if amqp_type == 'string':
             return _compat.unicode(test_value)
         if amqp_type == 'symbol':
             return proton.symbol(test_value)
-        if amqp_type == 'list':
-            return AmqpTypesTestSender.encode_amqp_list(test_value)
-        if amqp_type == 'map':
-            return AmqpTypesTestSender.encode_amqp_map(test_value)
-        if amqp_type == 'array':
-            #return AmqpTypesTestSender.encode_amqp_array(test_value)
-            print('send: Unsupported AMQP type "%s"' % amqp_type)
+        if amqp_type in ['array', 'list', 'map']:
+            print('send: Complex AMQP type "%s" unsupported, see amqp_complex_types_test' % amqp_type)
             return None
         print('send: Unknown AMQP type "%s"' % amqp_type)
         return None
-
-    @staticmethod
-    def encode_complex_amqp_element(test_element, make_hashable=False):
-        """
-        Encode a single complex AMQP element (ie list or array member, map key or value)
-        A complex element may be one of:
-        str/unicode: 'amqp_type:amqp_value'
-        list: [...]
-        dict: {...}
-        """
-        if _compat.IS_PY3:
-            is_string = isinstance(test_element, str)
-        else:
-            is_string = isinstance(test_element, unicode)
-        if is_string:
-            split_list = test_element.split(':', 1)
-            return AmqpTypesTestSender.encode_amqp_type(split_list[0], split_list[1])
-        if isinstance(test_element, list):
-            enc_list = AmqpTypesTestSender.encode_amqp_list(test_element)
-            if make_hashable:
-                return tuple(enc_list) # Convert list to tuple
-            return enc_list
-        if isinstance(test_element, dict):
-            enc_dict = AmqpTypesTestSender.encode_amqp_map(test_element)
-            if make_hashable:
-                return tuple(enc_dict.items()) # Convert to tuple of k,v pairs
-            return enc_dict
-        else:
-            print('Unexpected complex amqp element type: %s, value=%s' % (type(test_element), str(test_element)))
-
-    @staticmethod
-    def encode_amqp_list(test_value):
-        """
-        Encode an AMQP list from the format [val1, val2, ...]
-        Each val is in the string format amqp_type:amqp_val_as_str
-        """
-        val_list = []
-        for val in test_value:
-            val_list.append(AmqpTypesTestSender.encode_complex_amqp_element(val))
-        return val_list
-
-    @staticmethod
-    def encode_amqp_map(test_value):
-        """Encode an AMQP map from the format {key1:val1, key2:val2, ...}"""
-        val_map = {}
-        for key, val in test_value.items():
-            encoded_key = AmqpTypesTestSender.encode_complex_amqp_element(key, True) # make keys hashable
-            encoded_val = AmqpTypesTestSender.encode_complex_amqp_element(val)
-            val_map[encoded_key] = encoded_val
-        return val_map
-
-    @staticmethod
-    def encode_amqp_array(test_value):
-        """Encode an AMQP array"""
-        return test_value
 
     def on_accepted(self, event):
         """Event callback for when a sent message is accepted by the broker"""

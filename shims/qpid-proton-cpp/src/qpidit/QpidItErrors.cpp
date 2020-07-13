@@ -163,8 +163,8 @@ namespace qpidit
 
     // --- JsonParserError ---
 
-    JsonParserError::JsonParserError(const Json::Reader& jsonReader) :
-                    std::runtime_error(MSG("JSON test values failed to parse: " << jsonReader.getFormattedErrorMessages()))
+    JsonParserError::JsonParserError(const std::string& parseErrors) :
+                    std::runtime_error(MSG("JSON test values failed to parse: " << parseErrors))
     {}
 
     JsonParserError::~JsonParserError() throw() {}

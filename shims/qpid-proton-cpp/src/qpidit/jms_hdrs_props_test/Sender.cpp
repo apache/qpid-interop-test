@@ -20,6 +20,7 @@
  */
 
 #include "qpidit/jms_hdrs_props_test/Sender.hpp"
+#include "qpidit/Base64.hpp"
 
 #include <cerrno>
 #include <iomanip>
@@ -136,13 +137,14 @@ namespace qpidit
                 uint8_t val = getIntegralValue<int8_t>(testValueStr);
                 bin.push_back(char(val));
             } else if (subType.compare("bytes") == 0) {
-                bin.assign(testValueStr.begin(), testValueStr.end());
+                bin = b64_decode(testValueStr);
             } else if (subType.compare("char") == 0) {
+                std::string decodedStr = b64_decode(testValueStr);
                 bin.push_back(char(0));
                 if (testValueStr[0] == '\\') { // Format: '\xNN'
-                    bin.push_back(getIntegralValue<char>(testValueStr.substr(2)));
+                    bin.push_back(getIntegralValue<char>(decodedStr.substr(2)));
                 } else { // Format: 'c'
-                    bin.push_back(testValueStr[0]);
+                    bin.push_back(decodedStr[0]);
                 }
             } else if (subType.compare("double") == 0) {
                 uint64_t val;
@@ -203,13 +205,14 @@ namespace qpidit
             } else if (subType.compare("byte") == 0) {
                 m[mapKey] = int8_t(getIntegralValue<int8_t>(testValueStr));
             } else if (subType.compare("bytes") == 0) {
-                m[mapKey] = proton::binary(testValueStr);
+                m[mapKey] = b64_decode(testValueStr);
             } else if (subType.compare("char") == 0) {
+                std::string decodedStr = b64_decode(testValueStr);
                 wchar_t val;
-                if (testValueStr[0] == '\\') { // Format: '\xNN'
-                    val = (wchar_t)getIntegralValue<wchar_t>(testValueStr.substr(2));
+                if (decodedStr[0] == '\\') { // Format: '\xNN'
+                    val = (wchar_t)getIntegralValue<wchar_t>(decodedStr.substr(2));
                 } else { // Format: 'c'
-                    val = testValueStr[0];
+                    val = decodedStr[0];
                 }
                 m[mapKey] = val;
             } else if (subType.compare("double") == 0) {
@@ -250,13 +253,14 @@ namespace qpidit
             } else if (subType.compare("byte") == 0) {
                 l.push_back(int8_t(getIntegralValue<int8_t>(testValueStr)));
             } else if (subType.compare("bytes") == 0) {
-                l.push_back(proton::binary(testValueStr));
+                l.push_back(b64_decode(testValueStr));
             } else if (subType.compare("char") == 0) {
+                std::string decodedStr = b64_decode(testValueStr);
                 wchar_t val;
-                if (testValueStr[0] == '\\') { // Format: '\xNN'
-                    val = (wchar_t)getIntegralValue<wchar_t>(testValueStr.substr(2));
+                if (decodedStr[0] == '\\') { // Format: '\xNN'
+                    val = (wchar_t)getIntegralValue<wchar_t>(decodedStr.substr(2));
                 } else { // Format: 'c'
-                    val = testValueStr[0];
+                    val = decodedStr[0];
                 }
                 l.push_back(val);
             } else if (subType.compare("double") == 0) {
@@ -297,7 +301,7 @@ namespace qpidit
                     setJmsTypeHeader(msg, val);
                 } else if (i->compare("JMS_CORRELATIONID_HEADER") == 0) {
                     if (headerValueType.compare("bytes") == 0) {
-                        setJmsCorrelationId(msg, proton::binary(val));
+                        setJmsCorrelationId(msg, b64_decode(val));
                     } else {
                         setJmsCorrelationId(msg, val);
                     }
@@ -424,19 +428,21 @@ namespace qpidit
  */
 
 int main(int argc, char** argv) {
-    // TODO: improve arg management a little...
-    if (argc != 5) {
-        throw qpidit::ArgumentError("Incorrect number of arguments");
-    }
-
-    std::ostringstream oss;
-    oss << argv[1] << "/" << argv[2];
-
     try {
+        // TODO: improve arg management a little...
+        if (argc != 5) {
+            throw qpidit::ArgumentError("Incorrect number of arguments");
+        }
+
+        std::ostringstream oss;
+        oss << argv[1] << "/" << argv[2];
+
         Json::Value testParams;
-        Json::Reader jsonReader;
-        if (not jsonReader.parse(argv[4], testParams, false)) {
-            throw qpidit::JsonParserError(jsonReader);
+        Json::CharReaderBuilder builder;
+        Json::CharReader* jsonReader = builder.newCharReader();
+        std::string parseErrors;
+        if (not jsonReader->parse(argv[4], argv[4] + ::strlen(argv[4]), &testParams, &parseErrors)) {
+            throw qpidit::JsonParserError(parseErrors);
         }
 
         qpidit::jms_hdrs_props_test::Sender sender(oss.str(), argv[3], testParams);

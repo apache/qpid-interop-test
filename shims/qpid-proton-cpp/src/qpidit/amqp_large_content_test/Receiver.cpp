@@ -134,6 +134,7 @@ namespace qpidit
             if (_amqpType.compare("symbol") == 0) {
                 return proton::get<proton::symbol>(testString).size() / 1024 / 1024;
             }
+            return 0;
         }
 
         void Receiver::appendListMapSize(Json::Value& numEltsList, std::pair<uint32_t, uint32_t> val) {
@@ -172,8 +173,12 @@ int main(int argc, char** argv) {
         proton::container(receiver).run();
 
         std::cout << argv[3] << std::endl;
-        Json::FastWriter fw;
-        std::cout << fw.write(receiver.getReceivedValueList());
+        Json::StreamWriterBuilder wbuilder;
+        wbuilder["indentation"] = "";
+        std::unique_ptr<Json::StreamWriter> writer(wbuilder.newStreamWriter());
+        std::ostringstream oss;
+        writer->write(receiver.getReceivedValueList(), &oss);
+        std::cout << oss.str() << std::endl;
     } catch (const std::exception& e) {
         std::cerr << "amqp_large_content_test receiver error: " << e.what() << std::endl;
         exit(-1);

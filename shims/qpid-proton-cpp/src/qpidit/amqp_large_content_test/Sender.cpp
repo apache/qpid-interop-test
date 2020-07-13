@@ -150,16 +150,18 @@ namespace qpidit
  */
 
 int main(int argc, char** argv) {
-    // TODO: improve arg management a little...
-    if (argc != 5) {
-        throw qpidit::ArgumentError("Incorrect number of arguments");
-    }
-
     try {
+        // TODO: improve arg management a little...
+        if (argc != 5) {
+            throw qpidit::ArgumentError("Incorrect number of arguments");
+        }
+
         Json::Value testValues;
-        Json::Reader jsonReader;
-        if (not jsonReader.parse(argv[4], testValues, false)) {
-            throw qpidit::JsonParserError(jsonReader);
+        Json::CharReaderBuilder builder;
+        Json::CharReader* jsonReader = builder.newCharReader();
+        std::string parseErrors;
+        if (not jsonReader->parse(argv[4], argv[4] + ::strlen(argv[4]), &testValues, &parseErrors)) {
+            throw qpidit::JsonParserError(parseErrors);
         }
 
         qpidit::amqp_large_content_test::Sender sender(argv[1], argv[2], argv[3], testValues);

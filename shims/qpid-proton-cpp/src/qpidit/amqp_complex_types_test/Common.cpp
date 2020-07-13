@@ -70,9 +70,6 @@ namespace qpidit
             return _testDataMap.size();
         }
 
-        const TestDataList_t& Common::testDataList() const {
-
-        }
         bool Common::isAmqpSubType(const proton::value& protonValue) const {
             TestDataList_t valueList;
             proton::get(protonValue, valueList);

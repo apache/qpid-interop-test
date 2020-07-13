@@ -24,6 +24,7 @@ import java.io.StringWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
@@ -210,15 +211,15 @@ public class Receiver {
                 byte[] bytesBuff = new byte[65536];
                 int numBytesRead = ((BytesMessage)message).readBytes(bytesBuff);
                 if (numBytesRead >= 0) {
-                    jasonTestValuesArrayBuilder.add(new String(Arrays.copyOfRange(bytesBuff, 0, numBytesRead)));
+                    jasonTestValuesArrayBuilder.add(Base64.getEncoder().encodeToString(Arrays.copyOfRange(bytesBuff, 0, numBytesRead)));
                 } else {
                     // NOTE: For this case, an empty byte array has nothing to return
-                    jasonTestValuesArrayBuilder.add(new String());
+                    jasonTestValuesArrayBuilder.add(Base64.getEncoder().encodeToString("".getBytes()));
                 }
             }
             break;
         case "char":
-            jasonTestValuesArrayBuilder.add(formatChar(((BytesMessage)message).readChar()));
+            jasonTestValuesArrayBuilder.add(Base64.getEncoder().encodeToString(formatChar(((BytesMessage)message).readChar()).getBytes()));
             break;
         case "double":
             long l = Double.doubleToRawLongBits(((BytesMessage)message).readDouble());
@@ -269,10 +270,10 @@ public class Receiver {
             jasonTestValuesArrayBuilder.add(formatByte(((MapMessage)message).getByte(name)));
             break;
         case "bytes":
-            jasonTestValuesArrayBuilder.add(new String(((MapMessage)message).getBytes(name)));
+            jasonTestValuesArrayBuilder.add(Base64.getEncoder().encodeToString((((MapMessage)message).getBytes(name))));
             break;
         case "char":
-            jasonTestValuesArrayBuilder.add(formatChar(((MapMessage)message).getChar(name)));
+            jasonTestValuesArrayBuilder.add(Base64.getEncoder().encodeToString(formatChar(((MapMessage)message).getChar(name)).getBytes()));
             break;
         case "double":
             long l = Double.doubleToRawLongBits(((MapMessage)message).getDouble(name));
@@ -319,14 +320,14 @@ public class Receiver {
             byte[] bytesBuff = new byte[65536];
             int numBytesRead = ((StreamMessage)message).readBytes(bytesBuff);
             if (numBytesRead >= 0) {
-                jasonTestValuesArrayBuilder.add(new String(Arrays.copyOfRange(bytesBuff, 0, numBytesRead)));
+                jasonTestValuesArrayBuilder.add(Base64.getEncoder().encodeToString(Arrays.copyOfRange(bytesBuff, 0, numBytesRead)));
             } else {
                 System.out.println("StreamMessage.readBytes() returned " + numBytesRead);
                 jasonTestValuesArrayBuilder.add("<bytes error>");
             }
             break;
         case "char":
-            jasonTestValuesArrayBuilder.add(formatChar(((StreamMessage)message).readChar()));
+            jasonTestValuesArrayBuilder.add(Base64.getEncoder().encodeToString(formatChar(((StreamMessage)message).readChar()).getBytes()));
             break;
         case "double":
             long l = Double.doubleToRawLongBits(((StreamMessage)message).readDouble());
@@ -423,7 +424,7 @@ public class Receiver {
     protected void addMessageHeaderByteArray(String headerName, byte[] value) {
         if (value != null) {
             JsonObjectBuilder valueMap = Json.createObjectBuilder();
-            valueMap.add("bytes", new String(value));
+            valueMap.add("bytes", Base64.getEncoder().encodeToString(value));
             _jsonMessageHeaderMapBuilder.add(headerName, valueMap);
         }        
     }

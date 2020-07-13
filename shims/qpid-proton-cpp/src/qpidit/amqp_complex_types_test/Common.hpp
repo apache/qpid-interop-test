@@ -51,7 +51,6 @@ namespace qpidit
             void initializeDataMap(); // Generated function
             static void setUuid(proton::uuid& val, const std::string& uuidStr);
             std::size_t size() const;
-            const TestDataList_t& testDataList() const;
 
             template<size_t N> static void hexStringToBytearray(proton::byte_array<N>& ba, const std::string& s, size_t fromArrayIndex = 0, size_t arrayLen = N) {
                 size_t len = (s.size()/2 > arrayLen) ? arrayLen : s.size()/2;

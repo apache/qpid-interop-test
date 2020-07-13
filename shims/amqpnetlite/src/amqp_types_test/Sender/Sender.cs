@@ -172,17 +172,11 @@ namespace Qpidit
                         qpiditType = "symbol";
                         break;
                     case "Array":
-                        qpiditType = "list";
-                        break;
                     case "ArrayList":
-                        qpiditType = "list";
-                        break;
                     case "Dictionary":
-                        qpiditType = "map";
-                        break;
                     case "Dictionary`2":
-                        qpiditType = "map";
-                        break;
+                         throw new ApplicationException(String.Format(
+                            "Unsupported complex AMQP type {0}", typename));
                     default:
                         throw new ApplicationException(String.Format(
                             "Can not translate system type {0} to a QpidIT type", typename));
@@ -372,7 +366,7 @@ namespace Qpidit
                     case "binary":
                         // TODO: fix this
                         value = (string)baseValue;
-                        byte[] binval = Encoding.ASCII.GetBytes(value);
+                        byte[] binval = Convert.FromBase64String(value);
                         valueDirect = binval;
                         break;
                     case "string":

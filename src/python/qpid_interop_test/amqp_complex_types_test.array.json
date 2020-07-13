@@ -28,7 +28,7 @@
  ["array", [["byte", -128],
             ["byte", -1],
             ["byte", 0],
-            ["byte", 255]]],
+            ["byte", 127]]],
  ["array", [["short", "-0x8000"],
             ["short", -1],
             ["short", 0],

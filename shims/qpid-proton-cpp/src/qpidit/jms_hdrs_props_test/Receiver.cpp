@@ -20,6 +20,7 @@
  */
 
 #include "qpidit/jms_hdrs_props_test/Receiver.hpp"
+#include "qpidit/Base64.hpp"
 
 #include <ctime>
 #include <iostream>
@@ -174,11 +175,11 @@ namespace qpidit
                 } else if (subType.compare("byte") == 0) {
                     _receivedSubTypeList.append(Json::Value(toHexStr<int8_t>(proton::get<int8_t>(val))));
                 } else if (subType.compare("bytes") == 0) {
-                    _receivedSubTypeList.append(Json::Value(std::string(proton::get<proton::binary>(val))));
+                    _receivedSubTypeList.append(Json::Value(b64_encode(proton::get<proton::binary>(val))));
                 } else if (subType.compare("char") == 0) {
                     std::ostringstream oss;
                     oss << (char)proton::get<wchar_t>(val);
-                    _receivedSubTypeList.append(Json::Value(oss.str()));
+                    _receivedSubTypeList.append(Json::Value(b64_encode(proton::binary(oss.str()))));
                 } else if (subType.compare("double") == 0) {
                     double d = proton::get<double>(val);
                     _receivedSubTypeList.append(Json::Value(toHexStr<int64_t>(*((int64_t*)&d), true, false)));
@@ -213,14 +214,14 @@ namespace qpidit
                 int8_t val = *((int8_t*)body.data());
                 _receivedSubTypeList.append(Json::Value(toHexStr<int8_t>(val)));
             } else if (subType.compare("bytes") == 0) {
-                _receivedSubTypeList.append(Json::Value(std::string(body)));
+                _receivedSubTypeList.append(Json::Value(b64_encode(body)));
             } else if (subType.compare("char") == 0) {
                 if (body.size() != sizeof(uint16_t)) throw IncorrectMessageBodyLengthError("JmsReceiver::receiveJmsBytesMessage, subType=char", sizeof(uint16_t), body.size());
                 // TODO: This is ugly: ignoring first byte - handle UTF-16 correctly
                 char c = body[1];
                 std::ostringstream oss;
                 oss << c;
-                _receivedSubTypeList.append(Json::Value(oss.str()));
+                _receivedSubTypeList.append(Json::Value(b64_encode(proton::binary(oss.str()))));
             } else if (subType.compare("double") == 0) {
                 if (body.size() != sizeof(int64_t)) throw IncorrectMessageBodyLengthError("JmsReceiver::receiveJmsBytesMessage, subType=double", sizeof(int64_t), body.size());
                 int64_t val = be64toh(*((int64_t*)body.data()));
@@ -262,11 +263,11 @@ namespace qpidit
                 } else if (subType.compare("byte") == 0) {
                     _receivedSubTypeList.append(Json::Value(toHexStr<int8_t>(proton::get<int8_t>(*i))));
                 } else if (subType.compare("bytes") == 0) {
-                    _receivedSubTypeList.append(Json::Value(std::string(proton::get<proton::binary>(*i))));
+                    _receivedSubTypeList.append(Json::Value(b64_encode(proton::get<proton::binary>(*i))));
                 } else if (subType.compare("char") == 0) {
                     std::ostringstream oss;
                     oss << (char)proton::get<wchar_t>(*i);
-                    _receivedSubTypeList.append(Json::Value(oss.str()));
+                    _receivedSubTypeList.append(Json::Value(b64_encode(proton::binary(oss.str()))));
                 } else if (subType.compare("double") == 0) {
                     double d = proton::get<double>(*i);
                     _receivedSubTypeList.append(Json::Value(toHexStr<int64_t>(*((int64_t*)&d), true, false)));
@@ -381,7 +382,7 @@ namespace qpidit
         void Receiver::addMessageHeaderByteArray(const std::string& headerName, const proton::binary ba) {
             if (!ba.empty()) { // TODO: Remove this test when PROTON-1288 is fixed as empty binaries are allowed in headers
                 Json::Value valueMap(Json::objectValue);
-                valueMap["bytes"] = std::string(ba);
+                valueMap["bytes"] = b64_encode(ba);
                 _receivedHeadersMap[headerName] = valueMap;
             }
         }
@@ -467,28 +468,34 @@ namespace qpidit
  *       4: JSON Test parameters containing 2 maps: [testValuesMap, flagMap]
  */
 int main(int argc, char** argv) {
-    // TODO: improve arg management a little...
-    if (argc != 5) {
-        throw qpidit::ArgumentError("Incorrect number of arguments");
-    }
-
     try {
+        // TODO: improve arg management a little...
+        if (argc != 5) {
+            throw qpidit::ArgumentError("Incorrect number of arguments");
+        }
+
         Json::Value testParams;
-        Json::Reader jsonReader;
-        if (not jsonReader.parse(argv[4], testParams, false)) {
-            throw qpidit::JsonParserError(jsonReader);
+        Json::CharReaderBuilder rbuilder;
+        Json::CharReader* jsonReader = rbuilder.newCharReader();
+        std::string parseErrors;
+        if (not jsonReader->parse(argv[4], argv[4] + ::strlen(argv[4]), &testParams, &parseErrors)) {
+            throw qpidit::JsonParserError(parseErrors);
         }
 
         qpidit::jms_hdrs_props_test::Receiver receiver(argv[1], argv[2], argv[3], testParams[0], testParams[1]);
         proton::container(receiver).run();
 
-        Json::FastWriter fw;
         std::cout << argv[3] << std::endl;
         Json::Value returnList(Json::arrayValue);
         returnList.append(receiver.getReceivedValueMap());
         returnList.append(receiver.getReceivedHeadersMap());
         returnList.append(receiver.getReceivedPropertiesMap());
-        std::cout << fw.write(returnList);
+        Json::StreamWriterBuilder wbuilder;
+        wbuilder["indentation"] = "";
+        std::unique_ptr<Json::StreamWriter> writer(wbuilder.newStreamWriter());
+        std::ostringstream oss;
+        writer->write(returnList, &oss);
+        std::cout << oss.str() << std::endl;
     } catch (const std::exception& e) {
         std::cout << "JmsReceiver error: " << e.what() << std::endl;
     }

@@ -21,7 +21,6 @@ Module providing xUnit logging functionality
 # under the License.
 #
 
-import os
 import os.path
 import sys
 import time
@@ -32,8 +31,10 @@ from qpid_interop_test.qit_errors import InteropTestError
 
 DEFUALT_XUNIT_LOG_DIR = os.path.join(os.getcwd(), 'xunit_logs')
 
-class Xunit(object):
+#pylint: disable= too-many-instance-attributes
+class Xunit:
     """Class that provides test reporting in xUnit format"""
+    #pylint: disable=too-many-arguments
     def __init__(self, test_name, test_args, test_suite, test_result, test_duration, broker_connection_props):
         self.test_name = test_name
         self.test_args = test_args

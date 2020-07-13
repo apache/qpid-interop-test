@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Module to test JMS message types across different clients
@@ -27,13 +27,14 @@ import signal
 import sys
 import unittest
 
+from base64 import b64encode
 from itertools import product
 from json import dumps
 
 import qpid_interop_test.qit_common
 from qpid_interop_test.qit_errors import InteropTestError, InteropTestTimeout
 
-DEFAULT_TEST_TIMEOUT = 10 # seconds
+DEFAULT_TEST_TIMEOUT = 20 # seconds
 
 
 class JmsMessageTypes(qpid_interop_test.qit_common.QitTestTypeMap):
@@ -109,7 +110,7 @@ class JmsMessageTypes(qpid_interop_test.qit_common.QitTestTypeMap):
         'bytes': [b'',
                   b'12345',
                   b'Hello, world',
-                  b'\\x01\\x02\\x03\\x04\\x05abcde\\x80\\x81\\xfe\\xff',
+                  b'\x01\x02\x03\x04\x05abcde\x80\x81\xfe\xff',
                   b'The quick brown fox jumped over the lazy dog 0123456789.' #* 100],
                  ],
         'char': [b'a',
@@ -144,8 +145,8 @@ class JmsMessageTypes(qpid_interop_test.qit_common.QitTestTypeMap):
         #    'java.lang.Byte': ['-128',
         #                       '0',
         #                       '127'],
-        #    'java.lang.Character': [u'a',
-        #                            u'Z'],
+        #    'java.lang.Character': [a',
+        #                            Z'],
         #    'java.lang.Double': ['0.0',
         #                         '3.141592654',
         #                         '-2.71828182846'],
@@ -176,11 +177,11 @@ class JmsMessageTypes(qpid_interop_test.qit_common.QitTestTypeMap):
         #                        '127',
         #                        '128',
         #                        '32767'],
-        #    'java.lang.String': [u'',
-        #                         u'Hello, world',
-        #                         u'"Hello, world"',
-        #                         u"Charlie's \"peach\"",
-        #                         u'Charlie\'s "peach"']
+        #    'java.lang.String': [',
+        #                         Hello, world',
+        #                         "Hello, world"',
+        #                         "Charlie's \"peach\"",
+        #                         Charlie\'s "peach"']
         #    },
         }
 
@@ -190,10 +191,29 @@ class JmsMessageTypes(qpid_interop_test.qit_common.QitTestTypeMap):
 
     client_skip = {}
 
+    def get_test_values(self, test_type):
+        """
+        Overload the parent method so that binary types can be base64 encoded for use in json.
+        The test_type parameter is the JMS message type in this case
+        """
+        type_map = super(JmsMessageTypes, self).get_test_values(test_type)
+        for key in type_map:
+            if key in ['bytes', 'char']:
+                new_vals = []
+                for val in type_map[key]:
+                    if isinstance(val, bytes):
+                        new_vals.append(b64encode(val).decode('utf-8'))
+                    else:
+                        new_vals.append(val)
+                type_map[key] = new_vals
+        return type_map
+
 
 class JmsMessageTypeTestCase(qpid_interop_test.qit_common.QitTestCase):
     """Abstract base class for JMS message type tests"""
 
+    #pylint: disable=too-many-arguments
+    #pylint: disable=too-many-locals
     def run_test(self, sender_addr, receiver_addr, jms_message_type, test_values, send_shim, receive_shim, timeout):
         """
         Run this test by invoking the shim send method to send the test values, followed by the shim receive method

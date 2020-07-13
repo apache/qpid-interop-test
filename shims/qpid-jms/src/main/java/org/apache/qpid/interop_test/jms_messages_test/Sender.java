@@ -20,7 +20,9 @@ import java.io.Serializable;
 import java.io.StringReader;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import javax.jms.BytesMessage;
@@ -44,8 +46,6 @@ import javax.json.JsonReader;
 import org.apache.qpid.jms.JmsConnectionFactory;
 
 public class Sender {
-    private static final String USER = "guest";
-    private static final String PASSWORD = "guest";
     private static final String[] SUPPORTED_JMS_MESSAGE_TYPES = {"JMS_MESSAGE_TYPE",
                                                                  "JMS_BYTESMESSAGE_TYPE",
                                                                  "JMS_MAPMESSAGE_TYPE",
@@ -174,13 +174,14 @@ public class Sender {
             message.writeByte(Byte.decode(testValue));
             break;
         case "bytes":
-            message.writeBytes(testValue.getBytes());
+            message.writeBytes(Base64.getDecoder().decode(testValue));
             break;
         case "char":
-            if (testValue.length() == 1) { // Char format: "X" or "\xNN"
-                message.writeChar(testValue.charAt(0));
+            byte[] decodedValue = Base64.getDecoder().decode(testValue);
+            if (decodedValue.length == 1) { // Char format: "X" or "\xNN"
+                message.writeChar((char)decodedValue[0]);
             } else {
-                throw new Exception("JmsSenderShim.createJMSBytesMessage() Malformed char string: \"" + testValue + "\" of length " + testValue.length());
+                throw new Exception("JmsSenderShim.createJMSBytesMessage() Malformed char string: \"" + decodedValue + "\" of length " + decodedValue.length);
             }
             break;
         case "double":
@@ -225,15 +226,16 @@ public class Sender {
             message.setByte(name, Byte.decode(testValue));
             break;
         case "bytes":
-            message.setBytes(name, testValue.getBytes());
+            message.setBytes(name, Base64.getDecoder().decode(testValue));
             break;
         case "char":
-            if (testValue.length() == 1) { // Char format: "X"
-                message.setChar(name, testValue.charAt(0));
-            } else if (testValue.length() == 6) { // Char format: "\xNNNN"
-                message.setChar(name, (char)Integer.parseInt(testValue.substring(2), 16));
+            byte[] decodedValue = Base64.getDecoder().decode(testValue);
+            if (decodedValue.length == 1) { // Char format: "X" or "\xNN"
+                message.setChar(name, (char)decodedValue[0]);
+            } else if (decodedValue.length == 6) { // Char format: "\xNNNN"
+                message.setChar(name, ByteBuffer.wrap(decodedValue).getChar());
             } else {
-                throw new Exception("JmsSenderShim.createJMSMapMessage() Malformed char string: \"" + testValue + "\"");
+                throw new Exception("JmsSenderShim.createJMSMapMessage() Malformed char string: \"" + decodedValue + "\"");
             }
             break;
         case "double":
@@ -289,15 +291,16 @@ public class Sender {
             message.writeByte(Byte.decode(testValue));
             break;
         case "bytes":
-            message.writeBytes(testValue.getBytes());
+            message.writeBytes(Base64.getDecoder().decode(testValue.getBytes()));
             break;
         case "char":
-            if (testValue.length() == 1) { // Char format: "X"
-                message.writeChar(testValue.charAt(0));
+            byte[] decodedValue = Base64.getDecoder().decode(testValue);
+            if (decodedValue.length == 1) { // Char format: "X"
+                message.writeChar((char)decodedValue[0]);
             } else if (testValue.length() == 6) { // Char format: "\xNNNN"
-                message.writeChar((char)Integer.parseInt(testValue.substring(2), 16));
+                message.writeChar(ByteBuffer.wrap(decodedValue).getChar());
             } else {
-                throw new Exception("JmsSenderShim.createJMSStreamMessage() Malformed char string: \"" + testValue + "\"");
+                throw new Exception("JmsSenderShim.createJMSStreamMessage() Malformed char string: \"" + decodedValue + "\"");
             }
             break;
         case "double":
@@ -336,7 +339,7 @@ public class Sender {
         try {
             Class<?> c = Class.forName(className);
             if (className.compareTo("java.lang.Character") == 0) {
-                Constructor ctor = c.getConstructor(char.class);
+                Constructor<?> ctor = c.getConstructor(char.class);
                 if (testValue.length() == 1) {
                     // Use first character of string
                     obj = (Serializable)ctor.newInstance(testValue.charAt(0));
@@ -348,7 +351,7 @@ public class Sender {
                 }
             } else {
                 // Use string constructor
-                Constructor ctor = c.getConstructor(String.class);
+                Constructor<?> ctor = c.getConstructor(String.class);
                 obj = (Serializable)ctor.newInstance(testValue);
             }
         }

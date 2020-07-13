@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Module to test JMS headers and properties on messages accross different clients
@@ -27,13 +27,15 @@ import signal
 import sys
 import unittest
 
+from base64 import b64encode
 from itertools import combinations, product
 from json import dumps
 
 import qpid_interop_test.qit_common
 from qpid_interop_test.qit_errors import InteropTestError, InteropTestTimeout
+from encodings.base64_codec import base64_encode
 
-DEFAULT_TEST_TIMEOUT = 10 # seconds
+DEFAULT_TEST_TIMEOUT = 20 # seconds
 
 
 class JmsHdrPropTypes(qpid_interop_test.qit_common.QitTestTypeMap):
@@ -176,8 +178,8 @@ class JmsHdrPropTypes(qpid_interop_test.qit_common.QitTestTypeMap):
         #    'java.lang.Byte': ['-128',
         #                       '0',
         #                       '127'],
-        #    'java.lang.Character': [u'a',
-        #                            u'Z'],
+        #    'java.lang.Character': ['a',
+        #                            'Z'],
         #    'java.lang.Double': ['0.0',
         #                         '3.141592654',
         #                         '-2.71828182846'],
@@ -208,11 +210,11 @@ class JmsHdrPropTypes(qpid_interop_test.qit_common.QitTestTypeMap):
         #                        '127',
         #                        '128',
         #                        '32767'],
-        #    'java.lang.String': [u'',
-        #                         u'Hello, world',
-        #                         u'"Hello, world"',
-        #                         u"Charlie's \"peach\"",
-        #                         u'Charlie\'s "peach"']
+        #    'java.lang.String': ['',
+        #                         'Hello, world',
+        #                         '"Hello, world"',
+        #                         "Charlie's \"peach\"",
+        #                         'Charlie\'s "peach"']
         #    },
         }
 
@@ -222,6 +224,7 @@ class JmsHdrPropTypes(qpid_interop_test.qit_common.QitTestTypeMap):
 
     client_skip = {}
 
+    #pylint: disable=too-many-branches
     def get_types(self, args):
         if 'include_hdr' in args and args.include_hdr is not None:
             new_hdrs_map = {}
@@ -267,10 +270,12 @@ class JmsHdrPropTypes(qpid_interop_test.qit_common.QitTestTypeMap):
 
         return self
 
-
 class JmsMessageHdrsPropsTestCase(qpid_interop_test.qit_common.QitTestCase):
     """Abstract base class for JMS message headers and properties tests"""
 
+    #pylint: disable=too-many-arguments
+    #pylint: disable=too-many-locals
+    #pylint: disable=too-many-branches
     def run_test(self, sender_addr, receiver_addr, queue_name_fragment, jms_message_type, test_values, msg_hdrs,
                  msg_props, send_shim, receive_shim, timeout):
         """
@@ -401,6 +406,7 @@ class JmsHdrsPropsTest(qpid_interop_test.qit_common.QitJmsTest):
         test_case_class_d = self._generate_part_d(timeout)
         self.test_suite.addTest(unittest.makeSuite(test_case_class_d))
 
+    #pylint: disable=too-many-locals
     def _generate_part_a(self, timeout):
         """
         Class factory function which creates new subclasses to JmsMessageTypeTestCase. Creates a test case class for
@@ -411,6 +417,7 @@ class JmsHdrsPropsTest(qpid_interop_test.qit_common.QitJmsTest):
             """Print the class name"""
             return self.__class__.__name__
 
+        #pylint: disable=too-many-arguments
         def add_test_method(cls, queue_name_fragment, hdrs, props, send_shim, receive_shim, timeout):
             """Function which creates a new test method in class cls"""
 
@@ -443,11 +450,13 @@ class JmsHdrsPropsTest(qpid_interop_test.qit_common.QitJmsTest):
         new_class = type(class_name, (JmsMessageHdrsPropsTestCase,), class_dict)
 
         for send_shim, receive_shim in product(self.shim_map.values(), repeat=2):
-            for msg_header in self.types.headers_map.iterkeys():
-                for header_type, header_val_list in self.types.headers_map[msg_header].iteritems():
+            for msg_header in self.types.headers_map.keys():
+                for header_type, header_val_list in iter(self.types.headers_map[msg_header].items()):
                     header_val_cnt = 0
                     for header_val in header_val_list:
                         header_val_cnt += 1
+                        if header_type == 'bytes':
+                            header_val = b64encode(header_val).decode('utf-8')
                         method_subname = '%s.%s-%02d' % (msg_header, header_type, header_val_cnt)
                         add_test_method(new_class,
                                         method_subname,
@@ -469,6 +478,7 @@ class JmsHdrsPropsTest(qpid_interop_test.qit_common.QitJmsTest):
             """Print the class name"""
             return self.__class__.__name__
 
+        #pylint: disable=too-many-arguments
         def add_test_method(cls, queue_name_fragment, hdrs, props, send_shim, receive_shim, timeout):
             """Function which creates a new test method in class cls"""
 
@@ -500,9 +510,10 @@ class JmsHdrsPropsTest(qpid_interop_test.qit_common.QitJmsTest):
                       'test_values': self.types.get_test_values(jms_message_type)}
         new_class = type(class_name, (JmsMessageHdrsPropsTestCase,), class_dict)
 
+        #pylint: disable=too-many-nested-blocks
         for send_shim, receive_shim in product(self.shim_map.values(), repeat=2):
             for jms_hdrs_combo_index in range(0, len(self.types.headers_map.keys())+1):
-                for jms_hdrs_combo in combinations(self.types.headers_map.iterkeys(), jms_hdrs_combo_index):
+                for jms_hdrs_combo in combinations(self.types.headers_map.keys(), jms_hdrs_combo_index):
                     jms_hdr_list = []
                     for jms_header in jms_hdrs_combo:
                         data_type_list = []
@@ -519,6 +530,11 @@ class JmsHdrsPropsTest(qpid_interop_test.qit_common.QitJmsTest):
                                 method_subname += '%s:%s' % combo_item
                                 header_type_map = self.types.headers_map[combo_item[0]]
                                 header_val_list = header_type_map[combo_item[1]]
+                                if combo_item[1] == 'bytes':
+                                    encoded_list = []
+                                    for header_val in header_val_list:
+                                        encoded_list.append(b64encode(header_val).decode('utf-8'))
+                                    header_val_list = encoded_list
                                 header_map[combo_item[0]] = {combo_item[1]: header_val_list[0]}
                             add_test_method(new_class,
                                             method_subname,
@@ -540,6 +556,7 @@ class JmsHdrsPropsTest(qpid_interop_test.qit_common.QitJmsTest):
             """Print the class name"""
             return self.__class__.__name__
 
+        #pylint: disable=too-many-arguments
         def add_test_method(cls, queue_name_fragment, hdrs, props, send_shim, receive_shim, timeout):
             """Function which creates a new test method in class cls"""
 
@@ -572,7 +589,7 @@ class JmsHdrsPropsTest(qpid_interop_test.qit_common.QitJmsTest):
         new_class = type(class_name, (JmsMessageHdrsPropsTestCase,), class_dict)
 
         for send_shim, receive_shim in product(self.shim_map.values(), repeat=2):
-            for prop_type, prop_val_list in self.types.properties_map.iteritems():
+            for prop_type, prop_val_list in iter(self.types.properties_map.items()):
                 prop_val_cnt = 0
                 for prop_val in prop_val_list:
                     prop_val_cnt += 1
@@ -597,6 +614,7 @@ class JmsHdrsPropsTest(qpid_interop_test.qit_common.QitJmsTest):
             """Print the class name"""
             return self.__class__.__name__
 
+        #pylint: disable=too-many-arguments
         def add_test_method(cls, queue_name_fragment, hdrs, props, send_shim, receive_shim, timeout):
             """Function which creates a new test method in class cls"""
 
@@ -629,14 +647,14 @@ class JmsHdrsPropsTest(qpid_interop_test.qit_common.QitJmsTest):
         new_class = type(class_name, (JmsMessageHdrsPropsTestCase,), class_dict)
 
         all_hdrs = {}
-        for msg_header in self.types.headers_map.iterkeys():
+        for msg_header in self.types.headers_map.keys():
             header_type_dict = self.types.headers_map[msg_header]
-            header_type, header_val_list = header_type_dict.iteritems().next()
+            header_type, header_val_list = next(iter(header_type_dict.items()))
             header_val = header_val_list[0]
             all_hdrs[msg_header] = {header_type: header_val}
 
         all_props = {}
-        for prop_type, prop_val_list in self.types.properties_map.iteritems():
+        for prop_type, prop_val_list in iter(self.types.properties_map.items()):
             prop_val_cnt = 0
             for prop_val in prop_val_list:
                 prop_val_cnt += 1

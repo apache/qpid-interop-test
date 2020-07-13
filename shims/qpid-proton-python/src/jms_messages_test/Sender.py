@@ -23,6 +23,7 @@ JMS sender shim for qpid-interop-test
 # under the License.
 #
 
+import base64
 import json
 import signal
 import subprocess
@@ -156,10 +157,10 @@ class JmsMessagesTestSender(proton.handlers.MessagingHandler):
         elif test_value_type == 'byte':
             body_bytes = struct.pack('b', int(test_value, 16))
         elif test_value_type == 'bytes':
-            body_bytes = test_value.encode('utf-8')
+            body_bytes = base64.b64decode(test_value)
         elif test_value_type == 'char':
             # JMS expects two-byte chars, ASCII chars can be prefixed with '\x00'
-            body_bytes = b'\x00' + test_value.encode('utf-8')
+            body_bytes = b'\x00' + base64.b64decode(test_value)
         elif test_value_type == 'double' or test_value_type == 'float':
             body_bytes = _compat.decode_hex(test_value[2:])
         elif test_value_type == 'int':
@@ -189,9 +190,9 @@ class JmsMessagesTestSender(proton.handlers.MessagingHandler):
         elif test_value_type == 'byte':
             value = proton.byte(int(test_value, 16))
         elif test_value_type == 'bytes':
-            value = test_value.encode('utf-8')
+            value = base64.b64decode(test_value)
         elif test_value_type == 'char':
-            value = proton.char(test_value)
+            value = proton.char(base64.b64decode(test_value).decode('utf-8'))
         elif test_value_type == 'double':
             value = struct.unpack('!d', _compat.decode_hex(test_value[2:]))[0]
         elif test_value_type == 'float':
@@ -242,9 +243,9 @@ class JmsMessagesTestSender(proton.handlers.MessagingHandler):
         elif test_value_type == 'byte':
             body_list = [proton.byte(int(test_value, 16))]
         elif test_value_type == 'bytes':
-            body_list = [test_value.encode('utf-8')]
+            body_list = [base64.b64decode(test_value)]
         elif test_value_type == 'char':
-            body_list = [proton.char(test_value)]
+            body_list = [proton.char(base64.b64decode(test_value).decode('utf-8'))]
         elif test_value_type == 'double':
             body_list = [struct.unpack('!d', _compat.decode_hex(test_value[2:]))[0]]
         elif test_value_type == 'float':

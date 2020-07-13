@@ -72,9 +72,9 @@ function Receiver(brokerAddr, brokerPort, queueName, amqpType, numTestValues) {
         case "binary": this.receivedValueList.push(this.decodeBinary(msgBody)); break;
         case "string": this.receivedValueList.push(this.decodeString(msgBody)); break;
         case "symbol": this.receivedValueList.push(this.decodeSymbol(msgBody)); break;
-        case "list": this.receivedValueList.push(this.decodeList(msgBody)); break;
-        case "map": this.receivedValueList.push(this.decodeMap(msgBody)); break;
-        case "array": this.receivedValueList.push(this.decodeArray(msgBody)); break;
+        case "list":
+        case "map":
+        case "array": throw "Unsupported complex AMQP type: \"" + this.amqpType + "\"";
         default: throw "Unknown AMQP type: " + this.amqpType;
         }
     };
@@ -136,7 +136,8 @@ function Receiver(brokerAddr, brokerPort, queueName, amqpType, numTestValues) {
     };
 
     this.decodeBinary = function(msgBody) {
-        return msgBody.toString();
+        var buff = new Buffer(msgBody)
+        return buff.toString('base64');
     };
 
     this.decodeString = function(msgBody) {
@@ -145,18 +146,6 @@ function Receiver(brokerAddr, brokerPort, queueName, amqpType, numTestValues) {
 
     this.decodeSymbol = function(msgBody) {
         return msgBody;
-    };
-
-    this.decodeList = function(msgBody) {
-        return msgBody; // TODO: decode list
-    };
-
-    this.decodeMap = function(msgBody) {
-        return msgBody; // TODO: decode map
-    };
-
-    this.decodeArray = function(msgBody) {
-        return msgBody; // TODO: decode array
     };
 
     this.buffer2HexString = function(buff, pad) {

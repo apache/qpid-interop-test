@@ -23,6 +23,7 @@ JMS receiver shim for qpid-interop-test
 # under the License.
 #
 
+import base64
 import json
 import signal
 import struct
@@ -30,11 +31,12 @@ import subprocess
 import sys
 import traceback
 
+from qpid_interop_test.qit_errors import InteropTestError
+from qpid_interop_test.qit_jms_types import QPID_JMS_TYPE_ANNOTATION_NAME
+
 import proton
 import proton.handlers
 import proton.reactor
-from qpid_interop_test.qit_errors import InteropTestError
-from qpid_interop_test.qit_jms_types import QPID_JMS_TYPE_ANNOTATION_NAME
 import _compat
 
 class JmsMessagesTestReceiver(proton.handlers.MessagingHandler):
@@ -145,12 +147,12 @@ class JmsMessagesTestReceiver(proton.handlers.MessagingHandler):
         if self.current_subtype == 'byte':
             return hex(struct.unpack('b', message.body)[0])
         if self.current_subtype == 'bytes':
-            return message.body.decode('utf-8')
+            return base64.b64encode(message.body).decode('utf-8')
         if self.current_subtype == 'char':
             if len(message.body) == 2: # format 'a' or '\xNN'
                 if _compat.IS_PY3:
-                    return chr(message.body[1]) # strip leading '\x00' char
-                return str(message.body[1]) # strip leading '\x00' char
+                    return base64.b64encode(bytes([message.body[1]])).decode('utf-8') # strip leading '\x00' char
+                return base64.b64encode(bytes(message.body[1])).decode('utf-8') # strip leading '\x00' char
             raise InteropTestError('Unexpected string length for type char: %d' % len(message.body))
         if self.current_subtype == 'double':
             return '0x%016x' % struct.unpack('!Q', message.body)[0]
@@ -171,9 +173,8 @@ class JmsMessagesTestReceiver(proton.handlers.MessagingHandler):
                     raise InteropTestError('String length mismatch: size=%d, but len(\'%s\')=%d' %
                                            (str_len, str_body, len(str_body)))
                 return str_body
-            else:
-                raise InteropTestError('Malformed string binary: len(\'%s\')=%d' %
-                                       (repr(message.body), len(message.body)))
+            raise InteropTestError('Malformed string binary: len(\'%s\')=%d' %
+                                   (repr(message.body), len(message.body)))
         raise InteropTestError('JMS message type %s: Unknown or unsupported subtype \'%s\'' %
                                (self.jms_msg_type, self.current_subtype))
 
@@ -188,9 +189,11 @@ class JmsMessagesTestReceiver(proton.handlers.MessagingHandler):
         if self.current_subtype == 'byte':
             return hex(value)
         if self.current_subtype == 'bytes':
-            return value.decode('utf-8')
+            return base64.b64encode(value).decode('utf-8')
         if self.current_subtype == 'char':
-            return str(value)
+            if _compat.IS_PY3:
+                return base64.b64encode(bytes(value, 'utf-8')).decode('utf-8')
+            return base64.b64encode(bytes(value)).decode('utf-8')
         if self.current_subtype == 'double':
             return '0x%016x' % struct.unpack('!Q', struct.pack('!d', value))[0]
         if self.current_subtype == 'float':
@@ -251,9 +254,11 @@ class JmsMessagesTestReceiver(proton.handlers.MessagingHandler):
         if self.current_subtype == 'byte':
             return hex(value)
         if self.current_subtype == 'bytes':
-            return value.decode('utf-8')
+            return base64.b64encode(value).decode('utf-8')
         if self.current_subtype == 'char':
-            return str(value)
+            if _compat.IS_PY3:
+                return base64.b64encode(bytes(value, 'utf-8')).decode('utf-8')
+            return base64.b64encode(bytes(value)).decode('utf-8')
         if self.current_subtype == 'double':
             return '0x%016x' % struct.unpack('!Q', struct.pack('!d', value))[0]
         if self.current_subtype == 'float':

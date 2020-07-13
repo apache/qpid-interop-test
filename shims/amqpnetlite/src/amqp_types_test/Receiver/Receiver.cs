@@ -216,152 +216,126 @@ namespace Qpidit
             }
 
             liteType = messageValue.GetType().Name;
-            if (liteType == "List")
-            {
-                qpiditType = "list";
-                valueList = new List<MessageValue>();
-                List list = (List)messageValue;
-                foreach (var item in list)
-                {
-                    MessageValue itemValue = new Qpidit.MessageValue(item);
-                    itemValue.Decode();
-                    valueList.Add(itemValue);
-                }
+            if (liteType == "List" || liteType == "Map") {
+                        throw new ApplicationException(String.Format(
+                            "Unsupported complex AMQP type {0}", liteType));
             }
-            else if (liteType == "Map")
+
+            //Console.WriteLine("MessageValue singleton type : {0}", liteType);
+            switch (liteType)
             {
-                qpiditType = "map";
-                valueMapKeys = new List<MessageValue>();
-                valueMapValues = new List<MessageValue>();
-                Map map = (Map)messageValue;
-                foreach (var key in map.Keys)
-                {
-                    MessageValue valueKey = new Qpidit.MessageValue(key);
-                    valueKey.Decode();
-                    MessageValue valueValue = new Qpidit.MessageValue(map[key]);
-                    valueValue.Decode();
-                    valueMapKeys.Add(valueKey);
-                    valueMapValues.Add(valueValue);
-                }
-            }
-            else
-            {
-                //Console.WriteLine("MessageValue singleton type : {0}", liteType);
-                switch (liteType)
-                {
-                    case "Boolean":
-                        qpiditType = "boolean";
-                        valueString = (Boolean)messageValue ? "True" : "False";
-                        break;
-                    case "Byte":
-                        qpiditType = "ubyte";
-                        valueString = String.Format("0x{0:x}", (Byte)messageValue);
-                        break;
-                    case "UInt16":
-                        qpiditType = "ushort";
-                        valueString = String.Format("0x{0:x}", (UInt16)messageValue);
-                        break;
-                    case "UInt32":
-                        qpiditType = "uint";
-                        valueString = String.Format("0x{0:x}", (UInt32)messageValue);
-                        break;
-                    case "UInt64":
-                        qpiditType = "ulong";
-                        valueString = String.Format("0x{0:x}", (UInt64)messageValue);
-                        break;
-                    case "SByte":
-                        qpiditType = "byte";
-                        SByte mySbyte = (SByte)messageValue;
-                        if (mySbyte >= 0)
-                        {
-                            valueString = String.Format("0x{0:x}", mySbyte);
-                        }
-                        else
-                        {
-                            mySbyte = (SByte) (-mySbyte);
-                            valueString = String.Format("-0x{0:x}", mySbyte);
-                        }
-                        break;
-                    case "Int16":
-                        qpiditType = "short";
-                        Int16 myInt16 = (Int16)messageValue;
-                        if (myInt16 >= 0)
-                        {
-                            valueString = String.Format("0x{0:x}", myInt16);
-                        }
-                        else
-                        {
-                            myInt16 = (Int16)(-myInt16);
-                            valueString = String.Format("-0x{0:x}", myInt16);
-                        }
-                        break;
-                    case "Int32":
-                        qpiditType = "int";
-                        Int32 myInt32 = (Int32)messageValue;
-                        if (myInt32 >= 0)
-                        {
-                            valueString = String.Format("0x{0:x}", myInt32);
-                        }
-                        else
-                        {
-                            myInt32 = (Int32)(-myInt32);
-                            valueString = String.Format("-0x{0:x}", myInt32);
-                        }
-                        break;
-                    case "Int64":
-                        qpiditType = "long";
-                        Int64 myInt64 = (Int64)messageValue;
-                        if (myInt64 >= 0)
-                        {
-                            valueString = String.Format("0x{0:x}", myInt64);
-                        }
-                        else
-                        {
-                            myInt64 = (Int64)(-myInt64);
-                            valueString = String.Format("-0x{0:x}", myInt64);
-                        }
-                        break;
-                    case "Single":
-                        byte[] sbytes = BitConverter.GetBytes((Single)messageValue);
-                        qpiditType = "float";
-                        valueString = "0x" + BytesReversedToString(sbytes);
-                        break;
-                    case "Double":
-                        byte[] dbytes = BitConverter.GetBytes((Double)messageValue);
-                        qpiditType = "double";
-                        valueString = "0x" + BytesReversedToString(dbytes);
-                        break;
-                    case "DateTime":
-                        // epochTicks is the number of 100uSec ticks between 01/01/0001
-                        // and 01/01/1970. Used to adjust between DateTime and unix epoch.
-                        const long epochTicks = 621355968000000000;
-                        byte[] dtbytes = BitConverter.GetBytes(
-                            (((DateTime)messageValue).Ticks - epochTicks) / TimeSpan.TicksPerMillisecond);
-                        qpiditType = "timestamp";
-                        valueString = "0x" + BytesReversedToString(dtbytes, true);
-                        break;
-                    case "Guid":
-                        qpiditType = "uuid";
-                        valueString = messageValue.ToString();
-                        break;
-                    case "Byte[]":
-                        qpiditType = "binary";
-                        byte[] binstr = (byte[])messageValue;
-                        valueString = SerializeBytes(binstr);
-                        break;
-                    case "String":
-                        qpiditType = "string";
-                        valueString = SerializeString(messageValue);
-                        break;
-                    case "Symbol":
-                        qpiditType = "symbol";
-                        valueString = SerializeString(messageValue);
-                        break;
-                    default:
-                        qpiditType = "unknown";
-                        valueString = String.Format("Unknown AMQP type: {0}", liteType);
-                        throw new ApplicationException(valueString);
-                }
+                case "Boolean":
+                    qpiditType = "boolean";
+                    valueString = (Boolean)messageValue ? "True" : "False";
+                    break;
+                case "Byte":
+                    qpiditType = "ubyte";
+                    valueString = String.Format("0x{0:x}", (Byte)messageValue);
+                    break;
+                case "UInt16":
+                    qpiditType = "ushort";
+                    valueString = String.Format("0x{0:x}", (UInt16)messageValue);
+                    break;
+                case "UInt32":
+                    qpiditType = "uint";
+                    valueString = String.Format("0x{0:x}", (UInt32)messageValue);
+                    break;
+                case "UInt64":
+                    qpiditType = "ulong";
+                    valueString = String.Format("0x{0:x}", (UInt64)messageValue);
+                    break;
+                case "SByte":
+                    qpiditType = "byte";
+                    SByte mySbyte = (SByte)messageValue;
+                    if (mySbyte >= 0)
+                    {
+                        valueString = String.Format("0x{0:x}", mySbyte);
+                    }
+                    else
+                    {
+                        mySbyte = (SByte) (-mySbyte);
+                        valueString = String.Format("-0x{0:x}", mySbyte);
+                    }
+                    break;
+                case "Int16":
+                    qpiditType = "short";
+                    Int16 myInt16 = (Int16)messageValue;
+                    if (myInt16 >= 0)
+                    {
+                        valueString = String.Format("0x{0:x}", myInt16);
+                    }
+                    else
+                    {
+                        myInt16 = (Int16)(-myInt16);
+                        valueString = String.Format("-0x{0:x}", myInt16);
+                    }
+                    break;
+                case "Int32":
+                    qpiditType = "int";
+                    Int32 myInt32 = (Int32)messageValue;
+                    if (myInt32 >= 0)
+                    {
+                        valueString = String.Format("0x{0:x}", myInt32);
+                    }
+                    else
+                    {
+                        myInt32 = (Int32)(-myInt32);
+                        valueString = String.Format("-0x{0:x}", myInt32);
+                    }
+                    break;
+                case "Int64":
+                    qpiditType = "long";
+                    Int64 myInt64 = (Int64)messageValue;
+                    if (myInt64 >= 0)
+                    {
+                        valueString = String.Format("0x{0:x}", myInt64);
+                    }
+                    else
+                    {
+                        myInt64 = (Int64)(-myInt64);
+                        valueString = String.Format("-0x{0:x}", myInt64);
+                    }
+                    break;
+                case "Single":
+                    byte[] sbytes = BitConverter.GetBytes((Single)messageValue);
+                    qpiditType = "float";
+                    valueString = "0x" + BytesReversedToString(sbytes);
+                    break;
+                case "Double":
+                    byte[] dbytes = BitConverter.GetBytes((Double)messageValue);
+                    qpiditType = "double";
+                    valueString = "0x" + BytesReversedToString(dbytes);
+                    break;
+                case "DateTime":
+                    // epochTicks is the number of 100uSec ticks between 01/01/0001
+                    // and 01/01/1970. Used to adjust between DateTime and unix epoch.
+                    const long epochTicks = 621355968000000000;
+                    byte[] dtbytes = BitConverter.GetBytes(
+                        (((DateTime)messageValue).Ticks - epochTicks) / TimeSpan.TicksPerMillisecond);
+                    qpiditType = "timestamp";
+                    valueString = "0x" + BytesReversedToString(dtbytes, true);
+                    break;
+                case "Guid":
+                    qpiditType = "uuid";
+                    valueString = messageValue.ToString();
+                    break;
+                case "Byte[]":
+                    qpiditType = "binary";
+                    byte[] binstr = (byte[])messageValue;
+                    valueString = Convert.ToBase64String(binstr);
+                    break;
+                case "String":
+                    qpiditType = "string";
+                    valueString = SerializeString(messageValue);
+                    break;
+                case "Symbol":
+                    qpiditType = "symbol";
+                    valueString = SerializeString(messageValue);
+                    break;
+                default:
+                    qpiditType = "unknown";
+                    valueString = String.Format("Unknown AMQP type: {0}", liteType);
+                    throw new ApplicationException(valueString);
             }
         }
     }

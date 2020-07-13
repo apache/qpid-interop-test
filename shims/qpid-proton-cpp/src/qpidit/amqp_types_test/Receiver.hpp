@@ -55,11 +55,8 @@ namespace qpidit
             void on_transport_error(proton::transport &t);
             void on_error(const proton::error_condition &c);
         protected:
-            //static void checkMessageType(const proton::message& msg, const proton::type_id amqpType);
             static void checkMessageType(const proton::value& val, const proton::type_id amqpType);
             static std::string getAmqpType(const proton::value& val);
-            static Json::Value& getMap(Json::Value& jsonMap, const proton::value& val);
-            static Json::Value& getSequence(Json::Value& jsonList, const proton::value& val);
             static Json::Value getValue(const proton::value& val);
             static Json::Value getValue(const std::string& amqpType, const proton::value& val);
 

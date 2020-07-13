@@ -76,7 +76,7 @@ namespace qpidit
             static proton::binary getJavaObjectBinary(const std::string& javaClassName, const std::string& valAsString);
             static uint32_t getTotalNumMessages(const Json::Value& testValueMap);
 
-            template<typename T> static T numToBinary(T n, proton::binary& b) {
+            template<typename T> static void numToBinary(T n, proton::binary& b) {
                 for (int i=0; i<sizeof(n); ++i) {
                     b.push_back(* ((char*)&n + i));
                 }
