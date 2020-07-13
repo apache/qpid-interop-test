@@ -23,6 +23,7 @@
 #include "qpidit/Base64.hpp"
 
 #include <cstdlib>
+#include <cstring>
 #include <iomanip>
 #include <iostream>
 #include <json/json.h>
