@@ -21,6 +21,7 @@
 
 #include "qpidit/amqp_large_content_test/Sender.hpp"
 
+#include <cstring>
 #include <iomanip>
 #include <iostream>
 #include <json/json.h>
