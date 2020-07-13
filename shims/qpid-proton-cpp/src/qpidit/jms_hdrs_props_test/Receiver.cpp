@@ -22,6 +22,7 @@
 #include "qpidit/jms_hdrs_props_test/Receiver.hpp"
 #include "qpidit/Base64.hpp"
 
+#include <cstring>
 #include <ctime>
 #include <iostream>
 #include <json/json.h>

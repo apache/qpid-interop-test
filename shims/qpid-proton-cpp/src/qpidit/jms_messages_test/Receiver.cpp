@@ -22,6 +22,7 @@
 #include "qpidit/jms_messages_test/Receiver.hpp"
 #include "qpidit/Base64.hpp"
 
+#include <cstring>
 #include <iostream>
 #include <json/json.h>
 #include <proton/connection.hpp>
