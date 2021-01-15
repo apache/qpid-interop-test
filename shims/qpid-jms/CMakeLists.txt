@@ -27,9 +27,8 @@ add_custom_target(jms-shims ALL ${Maven} -DskipTests package
 set(JMS_INSTALL_ROOT ${CMAKE_INSTALL_PREFIX}/libexec/qpid_interop_test/shims/qpid-jms)
 
 # Find the version string from the pom.xml file (as this in included in the jar file name)
-execute_process(COMMAND ${CMAKE_SOURCE_DIR}/get-proj-ver ${CMAKE_SOURCE_DIR}/pom.xml
-                OUTPUT_VARIABLE QPID_JMS_SHIM_VERSION
-                OUTPUT_STRIP_TRAILING_WHITESPACE)
+execute_process(COMMAND mvn org.apache.maven.plugins:maven-help-plugin:3.1.0:evaluate -Dexpression=project.version -q -DforceStdout
+                OUTPUT_VARIABLE QPID_JMS_SHIM_VERSION)
 message(STATUS "Qpid JMS shim version: ${QPID_JMS_SHIM_VERSION}")
 
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/target/qpid-interop-test-jms-shim-${QPID_JMS_SHIM_VERSION}-jar-with-dependencies.jar"

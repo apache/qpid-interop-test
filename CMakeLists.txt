@@ -89,16 +89,6 @@ else ()
     message (STATUS "Maven found: ${Maven}")
 endif ()
 
-# Find xpath
-
-find_program(Xpath xpath)
-if (Xpath STREQUAL "Xpath-NOTFOUND")
-    message(STATUS "ERROR: xpath not found, but is required")
-    set (ErrorFlag TRUE)
-else ()
-    message(STATUS "xpath found: ${Xpath}")
-endif ()
-
 # Find Proton components
 
 find_package(Proton 0.30)
