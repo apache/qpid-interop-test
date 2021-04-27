@@ -59,8 +59,8 @@ function Receiver(brokerAddr, brokerPort, queueName, amqpType, numTestValues) {
         case "ulong":
         case "decimal32":
         case "decimal64":
-        case "decimal128":
-        case "timestamp": this.receivedValueList.push(this.decodeUnsigned(msgBody)); break;
+        case "decimal128": this.receivedValueList.push(this.decodeUnsigned(msgBody)); break;
+        case "timestamp": this.receivedValueList.push(this.decodeTimestamp(msgBody)); break;
         case "byte":
         case "short":
         case "int":
@@ -90,6 +90,10 @@ function Receiver(brokerAddr, brokerPort, queueName, amqpType, numTestValues) {
     this.decodeUnsigned = function(msgBody) {
         return "0x" +   msgBody.toString(Buffer.isBuffer(msgBody) ? 'hex' : 16);
     };
+
+    this.decodeTimestamp = function(msgBody) {
+        return "0x" + msgBody.getTime().toString('hex')
+    }
 
     this.decodeSigned = function(msgBody) {
         if (Buffer.isBuffer(msgBody)) {
@@ -175,7 +179,7 @@ function Receiver(brokerAddr, brokerPort, queueName, amqpType, numTestValues) {
             }
         }
     });
-    
+
     this.container.on('disconnected', function(context){
     	console.error('Unable to connet to broker')
     });
