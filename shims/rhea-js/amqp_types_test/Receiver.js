@@ -92,7 +92,7 @@ function Receiver(brokerAddr, brokerPort, queueName, amqpType, numTestValues) {
     };
 
     this.decodeTimestamp = function(msgBody) {
-        return "0x" + msgBody.getTime().toString('hex')
+        return "0x" + msgBody.getTime().toString('hex');
     }
 
     this.decodeSigned = function(msgBody) {
