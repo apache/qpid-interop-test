@@ -68,9 +68,8 @@ if (NOT PYTHON2_FOUND)
 endif ()
 find_python(python3 "PYTHON3_FOUND" "PYTHON3_VER" "PYTHON3_SITE_DIR_NAME")
 
-# Find Java
-
-find_package(Java 1.8 COMPONENTS Development)
+# Find Java 11
+find_package(Java 11 COMPONENTS Development)
 # if (NOT Java_FOUND)
 # RHEL7 bug: Java_FOUND is not being set, so workaround:
 if (NOT DEFINED Java_JAVA_EXECUTABLE OR NOT DEFINED Java_JAVAC_EXECUTABLE OR NOT DEFINED Java_JAR_EXECUTABLE)

@@ -46,24 +46,25 @@
   </scm>
 
   <properties>
-    <maven.compiler.source>1.7</maven.compiler.source>
-    <maven.compiler.target>1.7</maven.compiler.target>
-    <maven-assembly-plugin-version>2.6</maven-assembly-plugin-version>
-    <surefire.version>2.21.0</surefire.version>
+    <maven.compiler.source>11</maven.compiler.source>
+    <maven.compiler.target>11</maven.compiler.target>
+    <maven-assembly-plugin-version>3.3.0</maven-assembly-plugin-version>
+    <surefire.version>3.0.0-M5</surefire.version>
+    <maven-compiler-plugin-version>3.8.0</maven-compiler-plugin-version>
 
     <!-- Dependency versions -->
     <geronimo.jms.2.spec-version>1.0-alpha-2</geronimo.jms.2.spec-version>
-    <json-version>1.1</json-version>
-    <qpid-jms-client-version>0.34.0</qpid-jms-client-version>
-    <slf4j-version>1.7.25</slf4j-version>
-    
+    <json-version>1.1.4</json-version>
+    <qpid-jms-client-version>0.58.0</qpid-jms-client-version>
+    <slf4j-version>1.7.30</slf4j-version>
+
   </properties>
 
   <modules>
     <module>shims/qpid-jms</module>
     <module>utils</module>
   </modules>
-  
+
   <dependencyManagement>
     <dependencies>
 	  <dependency>
@@ -99,7 +100,9 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
+        <version>${maven-compiler-plugin-version}</version>
         <configuration>
+          <release>11</release>
           <optimize>true</optimize>
           <debug>true</debug>
           <showDeprecation>true</showDeprecation>

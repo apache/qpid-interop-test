@@ -18,7 +18,7 @@
 #
 
 # Building AMQP.Net Lite shim requires
-# * DotNet version 2.1
+# * DotNet version 5.0
 #
 # Define -DBUILD_AMQPNETLITE=ON (or OFF) at the cmake command line
 # to force a build or not.
@@ -101,7 +101,7 @@ ENDMACRO (define_lite_test)
 
 
 set(build_amqpnetlite_default ON)  # Set BUILD_AMQPNETLITE control variable based on prerequisites being present
-set(REQUIRED_DOTNET_VERSION 2.1)
+set(REQUIRED_DOTNET_VERSION 5.0)
 set(BUILD_CONFIG Release) # Debug or Release
 
 # --- Check prerequisites ---
