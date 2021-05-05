@@ -50,7 +50,6 @@
     <maven.compiler.target>11</maven.compiler.target>
     <maven-assembly-plugin-version>3.3.0</maven-assembly-plugin-version>
     <surefire.version>3.0.0-M5</surefire.version>
-    <maven-compiler-plugin-version>3.8.0</maven-compiler-plugin-version>
 
     <!-- Dependency versions -->
     <geronimo.jms.2.spec-version>1.0-alpha-2</geronimo.jms.2.spec-version>
@@ -100,9 +99,10 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>${maven-compiler-plugin-version}</version>
+        <version>3.8.0</version>
         <configuration>
-          <release>11</release>
+          <source>11</source>
+          <target>11</target>
           <optimize>true</optimize>
           <debug>true</debug>
           <showDeprecation>true</showDeprecation>
