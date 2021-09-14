@@ -39,11 +39,7 @@ class ShimProcess(subprocess.Popen):
         if python3_flag:
             if 'PYTHON3PATH' in self.env:
                 self.env['PYTHONPATH'] = self.env['PYTHON3PATH']
-        else:
-            if 'PYTHON2PATH' in self.env:
-                self.env['PYTHONPATH'] = self.env['PYTHON2PATH']
-        super(ShimProcess, self).__init__(params, stdout=subprocess.PIPE, stderr=subprocess.PIPE, preexec_fn=os.setsid,
-                                          env=self.env)
+        super().__init__(params, stdout=subprocess.PIPE, stderr=subprocess.PIPE, preexec_fn=os.setsid, env=self.env)
 
     def wait_for_completion(self, timeout):
         """Wait for process to end and return tuple containing (stdout, stderr) from process"""
@@ -90,13 +86,13 @@ class Sender(ShimProcess):
     """Sender shim process"""
     def __init__(self, params, python3_flag, proc_name='Sender'):
         #print('\n>>>SNDR>>> %s python3_flag=%s' % (params, python3_flag))
-        super(Sender, self).__init__(params, python3_flag, proc_name)
+        super().__init__(params, python3_flag, proc_name)
 
 class Receiver(ShimProcess):
     """Receiver shim process"""
     def __init__(self, params, python3_flag, proc_name='Receiver'):
         #print('\n>>>RCVR>>> %s python3_flag=%s' % (params, python3_flag))
-        super(Receiver, self).__init__(params, python3_flag, proc_name)
+        super().__init__(params, python3_flag, proc_name)
 
 class Shim:
     """Abstract shim class, parent of all shims."""
@@ -124,20 +120,11 @@ class Shim:
         return Receiver(args, 'Python3' in self.NAME)
 
 
-class ProtonPython2Shim(Shim):
-    """Shim for qpid-proton Python client"""
-    NAME = 'ProtonPython2'
-    def __init__(self, sender_shim, receiver_shim):
-        super(ProtonPython2Shim, self).__init__(sender_shim, receiver_shim)
-        self.send_params = ['python2', self.sender_shim]
-        self.receive_params = ['python2', self.receiver_shim]
-
-
 class ProtonPython3Shim(Shim):
     """Shim for qpid-proton Python client"""
     NAME = 'ProtonPython3'
     def __init__(self, sender_shim, receiver_shim):
-        super(ProtonPython3Shim, self).__init__(sender_shim, receiver_shim)
+        super().__init__(sender_shim, receiver_shim)
         self.send_params = ['python3', self.sender_shim]
         self.receive_params = ['python3', self.receiver_shim]
 
@@ -146,7 +133,7 @@ class ProtonCppShim(Shim):
     """Shim for qpid-proton C++ client"""
     NAME = 'ProtonCpp'
     def __init__(self, sender_shim, receiver_shim):
-        super(ProtonCppShim, self).__init__(sender_shim, receiver_shim)
+        super().__init__(sender_shim, receiver_shim)
         self.send_params = [self.sender_shim]
         self.receive_params = [self.receiver_shim]
 
@@ -155,7 +142,7 @@ class RheaJsShim(Shim):
     """Shim for Rhea Javascript client"""
     NAME = 'RheaJs'
     def __init__(self, sender_shim, receiver_shim):
-        super(RheaJsShim, self).__init__(sender_shim, receiver_shim)
+        super().__init__(sender_shim, receiver_shim)
         self.send_params = [self.sender_shim]
         self.receive_params = [self.receiver_shim]
 
@@ -169,7 +156,7 @@ class QpidJmsShim(Shim):
     JAVA_EXEC = os.path.join(JAVA_HOME, 'bin', 'java')
 
     def __init__(self, dependency_class_path, sender_shim, receiver_shim):
-        super(QpidJmsShim, self).__init__(sender_shim, receiver_shim)
+        super().__init__(sender_shim, receiver_shim)
         self.dependency_class_path = dependency_class_path
         self.send_params = [self.JAVA_EXEC, '-cp', self.get_java_class_path(), self.sender_shim]
         self.receive_params = [self.JAVA_EXEC, '-cp', self.get_java_class_path(), self.receiver_shim]
@@ -182,6 +169,6 @@ class AmqpNetLiteShim(Shim):
     """Shim for AMQP.Net Lite client"""
     NAME = 'AmqpNetLite'
     def __init__(self, sender_shim, receiver_shim):
-        super(AmqpNetLiteShim, self).__init__(sender_shim, receiver_shim)
+        super().__init__(sender_shim, receiver_shim)
         self.send_params = ['dotnet', self.sender_shim]
         self.receive_params = ['dotnet', self.receiver_shim]

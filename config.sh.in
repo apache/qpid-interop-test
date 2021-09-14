@@ -20,15 +20,7 @@
 
 export QIT_INSTALL_PREFIX=@CMAKE_INSTALL_PREFIX@
 
-# Set PYTHON2PATH and PYTHON3PATH for respective python shims
-
-unset PYTHON2PATH
-py2_found_str="@PYTHON2_FOUND@"
-if [[ "${py2_found_str#*-}" == "NOTFOUND" ]]; then
-    echo "No Python 2.x found, Python 2 shims disabled"
-else
-    export PYTHON2PATH=@CMAKE_INSTALL_PREFIX@/lib64/proton/bindings/python:@CMAKE_INSTALL_PREFIX@/lib/@PYTHON2_SITE_DIR_NAME@/site-packages:@CMAKE_INSTALL_PREFIX@/libexec/qpid_interop_test/shims/qpid-proton-python
-fi
+# Set PYTHON3PATH for respective python shims
 
 unset PYTHON3PATH
 py3_found_str="@PYTHON3_FOUND@"

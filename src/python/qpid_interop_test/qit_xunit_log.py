@@ -71,7 +71,7 @@ class Xunit:
         try:
             return open(os.path.join(path, file_name), 'w')
         except IOError as err:
-            raise InteropTestError('Unable to open xUnit log file: %s' % err)
+            raise InteropTestError('Unable to open xUnit log file: %s' % err) from err
 
     @staticmethod
     def _prettify(element):

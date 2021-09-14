@@ -232,11 +232,11 @@ class AmqpPrimitiveTypes(qpid_interop_test.qit_common.QitTestTypeMap):
         if test_type == 'binary':
             # Convert all binary to base64 strings, as bytes are not JSON serializable
             test_values = []
-            bytes_test_values = super(AmqpPrimitiveTypes, self).get_test_values(test_type)
+            bytes_test_values = super().get_test_values(test_type)
             for bytes_test_value in bytes_test_values:
                 test_values.append(b64encode(bytes_test_value).decode('ascii'))
             return test_values
-        return super(AmqpPrimitiveTypes, self).get_test_values(test_type)
+        return super().get_test_values(test_type)
 
 
 class AmqpTypeTestCase(qpid_interop_test.qit_common.QitTestCase):
@@ -295,7 +295,7 @@ class TestOptions(qpid_interop_test.qit_common.QitCommonTestOptions):
 
     def __init__(self, shim_map, default_timeout=DEFAULT_TEST_TIMEOUT,
                  default_xunit_dir=qpid_interop_test.qit_xunit_log.DEFUALT_XUNIT_LOG_DIR):
-        super(TestOptions, self).__init__('Qpid-interop AMQP client interoparability test suite for AMQP simple types',
+        super().__init__('Qpid-interop AMQP client interoparability test suite for AMQP simple types',
                                           shim_map, default_timeout, default_xunit_dir)
         type_group = self._parser.add_mutually_exclusive_group()
         type_group.add_argument('--include-type', action='append', metavar='AMQP-TYPE',
@@ -311,7 +311,7 @@ class AmqpTypesTest(qpid_interop_test.qit_common.QitTest):
     TEST_NAME = 'amqp_types_test'
 
     def __init__(self):
-        super(AmqpTypesTest, self).__init__(TestOptions, AmqpPrimitiveTypes)
+        super().__init__(TestOptions, AmqpPrimitiveTypes)
 
     def _generate_tests(self):
         """Generate tests dynamically"""

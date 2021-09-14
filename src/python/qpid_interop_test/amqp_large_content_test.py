@@ -141,7 +141,7 @@ class TestOptions(qpid_interop_test.qit_common.QitCommonTestOptions):
 
     def __init__(self, shim_map, default_timeout=DEFAULT_TEST_TIMEOUT,
                  default_xunit_dir=qpid_interop_test.qit_xunit_log.DEFUALT_XUNIT_LOG_DIR):
-        super(TestOptions, self).__init__('Qpid-interop AMQP client interoparability test suite for AMQP' +
+        super().__init__('Qpid-interop AMQP client interoparability test suite for AMQP' +
                                           ' messages with large content', shim_map, default_timeout, default_xunit_dir)
         type_group = self._parser.add_mutually_exclusive_group()
         type_group.add_argument('--include-type', action='append', metavar='AMQP-TYPE',
@@ -157,7 +157,7 @@ class AmqpLargeContentTest(qpid_interop_test.qit_common.QitTest):
     TEST_NAME = 'amqp_large_content_test'
 
     def __init__(self):
-        super(AmqpLargeContentTest, self).__init__(TestOptions, AmqpVariableSizeTypes)
+        super().__init__(TestOptions, AmqpVariableSizeTypes)
 
     def _generate_tests(self):
         """Generate tests dynamically"""

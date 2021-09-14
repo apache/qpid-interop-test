@@ -196,7 +196,7 @@ class JmsMessageTypes(qpid_interop_test.qit_common.QitTestTypeMap):
         Overload the parent method so that binary types can be base64 encoded for use in json.
         The test_type parameter is the JMS message type in this case
         """
-        type_map = super(JmsMessageTypes, self).get_test_values(test_type)
+        type_map = super().get_test_values(test_type)
         for key in type_map:
             if key in ['bytes', 'char']:
                 new_vals = []
@@ -270,7 +270,7 @@ class TestOptions(qpid_interop_test.qit_common.QitCommonTestOptions):
 
     def __init__(self, shim_map, default_timeout=DEFAULT_TEST_TIMEOUT,
                  default_xunit_dir=qpid_interop_test.qit_xunit_log.DEFUALT_XUNIT_LOG_DIR):
-        super(TestOptions, self).__init__('Qpid-interop AMQP client interoparability test suite '
+        super().__init__('Qpid-interop AMQP client interoparability test suite '
                                           'for JMS message types', shim_map, default_timeout, default_xunit_dir)
         type_group = self._parser.add_mutually_exclusive_group()
         type_group.add_argument('--include-type', action='append', metavar='JMS_MESSAGE-TYPE',
@@ -286,7 +286,7 @@ class JmsMessagesTest(qpid_interop_test.qit_common.QitJmsTest):
     TEST_NAME = 'jms_messages_test'
 
     def __init__(self):
-        super(JmsMessagesTest, self).__init__(TestOptions, JmsMessageTypes)
+        super().__init__(TestOptions, JmsMessageTypes)
 
     def _generate_tests(self):
         """Generate tests dynamically"""

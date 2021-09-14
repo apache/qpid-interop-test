@@ -33,7 +33,7 @@ from json import dumps
 
 import qpid_interop_test.qit_common
 from qpid_interop_test.qit_errors import InteropTestError, InteropTestTimeout
-from encodings.base64_codec import base64_encode
+# from encodings.base64_codec import base64_encode
 
 DEFAULT_TEST_TIMEOUT = 20 # seconds
 
@@ -359,8 +359,8 @@ class TestOptions(qpid_interop_test.qit_common.QitCommonTestOptions):
 
     def __init__(self, shim_map, default_timeout=DEFAULT_TEST_TIMEOUT,
                  default_xunit_dir=qpid_interop_test.qit_xunit_log.DEFUALT_XUNIT_LOG_DIR):
-        super(TestOptions, self).__init__('Qpid-interop AMQP client interoparability test suite for JMS headers '
-                                          'and properties', shim_map, default_timeout, default_xunit_dir)
+        super().__init__('Qpid-interop AMQP client interoparability test suite for JMS headers '
+                         'and properties', shim_map, default_timeout, default_xunit_dir)
 
         # Control over JMS message headers
         hdrs_group = self._parser.add_mutually_exclusive_group()
@@ -387,7 +387,7 @@ class JmsHdrsPropsTest(qpid_interop_test.qit_common.QitJmsTest):
     TEST_NAME = 'jms_hdrs_props_test'
 
     def __init__(self):
-        super(JmsHdrsPropsTest, self).__init__(TestOptions, JmsHdrPropTypes)
+        super().__init__(TestOptions, JmsHdrPropTypes)
 
     def _generate_tests(self):
         """Generate tests dynamically"""
@@ -682,4 +682,4 @@ if __name__ == '__main__':
             sys.exit(1) # Errors or failures present
     except InteropTestError as err:
         print(err)
-        exit(1)
+        sys.exit(1)

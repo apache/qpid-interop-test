@@ -420,7 +420,7 @@ namespace qpidit {
 
 
     def __init__(self, target_file_name):
-        super(CppGenerator, self).__init__(target_file_name)
+        super().__init__(target_file_name)
         self.d32_count = 0
         self.d64_count = 0
         self.d128_count = 0

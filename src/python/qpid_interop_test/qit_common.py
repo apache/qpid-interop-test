@@ -37,7 +37,6 @@ QIT_INSTALL_PREFIX = getenv('QIT_INSTALL_PREFIX')
 if QIT_INSTALL_PREFIX is None:
     print('ERROR: Environment variable QIT_INSTALL_PREFIX is not set')
     sys.exit(1)
-QIT_ENABLE_PYTHON2_SHIM = getenv('PYTHON2PATH') is not None
 QIT_ENABLE_PYTHON3_SHIM = getenv('PYTHON3PATH') is not None
 QIT_TEST_SHIM_HOME = path.join(QIT_INSTALL_PREFIX, 'libexec', 'qpid_interop_test', 'shims')
 
@@ -222,7 +221,7 @@ class QitTestCase(unittest.TestCase):
     """
 
     def __init__(self, methodName='runTest'):
-        super(QitTestCase, self).__init__(methodName)
+        super().__init__(methodName)
         self.duration = 0
 
     def name(self):
@@ -324,11 +323,6 @@ class QitTest:
         # Python shims
         proton_python_rcv_shim = path.join(QIT_TEST_SHIM_HOME, 'qpid-proton-python', self.TEST_NAME, 'Receiver.py')
         proton_python_snd_shim = path.join(QIT_TEST_SHIM_HOME, 'qpid-proton-python', self.TEST_NAME, 'Sender.py')
-        if QIT_ENABLE_PYTHON2_SHIM:
-            self.shim_map[qpid_interop_test.qit_shim.ProtonPython2Shim.NAME] = \
-                qpid_interop_test.qit_shim.ProtonPython2Shim(proton_python_snd_shim, proton_python_rcv_shim)
-        else:
-            print('Python 2 shim disabled: no PYTHON2PATH in environment')
         if QIT_ENABLE_PYTHON3_SHIM:
             self.shim_map[qpid_interop_test.qit_shim.ProtonPython3Shim.NAME] = \
                 qpid_interop_test.qit_shim.ProtonPython3Shim(proton_python_snd_shim, proton_python_rcv_shim)
@@ -418,7 +412,7 @@ class QitJmsTest(QitTest):
 
     def _create_shim_map(self):
         """Create a shim map {'shim_name': <shim_instance>}"""
-        super(QitJmsTest, self)._create_shim_map()
+        super()._create_shim_map()
 
         qpid_jms_rcv_shim = 'org.apache.qpid.interop_test.%s.Receiver' % self.TEST_NAME
         qpid_jms_snd_shim = 'org.apache.qpid.interop_test.%s.Sender' % self.TEST_NAME

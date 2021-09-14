@@ -33,7 +33,7 @@ class Client(proton.handlers.MessagingHandler):
     Client to connect to broker and collect connection properties, used to identify the test broker
     """
     def __init__(self, url, max_num_retries):
-        super(Client, self).__init__()
+        super().__init__()
         self.url = url
         self.max_num_retries = max_num_retries
         self.num_retries = 0
