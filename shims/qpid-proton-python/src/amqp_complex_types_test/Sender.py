@@ -42,7 +42,7 @@ class AmqpComplexTypesTestSender(amqp_complex_types_test.Common.AmqpComplexTypes
     AMQP type. There is no returned value.
     """
     def __init__(self, broker_url, queue_name, amqp_type, amqp_subtype):
-        super(AmqpComplexTypesTestSender, self).__init__(broker_url, queue_name, amqp_type, amqp_subtype, 'Sender')
+        super().__init__(broker_url, queue_name, amqp_type, amqp_subtype, 'Sender')
         self.sent = 0
         self.confirmed = 0
         self.total = 1

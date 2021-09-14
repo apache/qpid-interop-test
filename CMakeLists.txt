@@ -60,12 +60,12 @@ MACRO (find_python
     endif ()
 ENDMACRO ()
 
-find_python(python2 "PYTHON2_FOUND" "PYTHON2_VER" "PYTHON2_SITE_DIR_NAME")
+#find_python(python2 "PYTHON2_FOUND" "PYTHON2_VER" "PYTHON2_SITE_DIR_NAME")
 # Python2 is required to run main QIT program
-if (NOT PYTHON2_FOUND)
-    message(STATUS "ERROR: Python 2.x not found, but is required")
-    set (ErrorFlag TRUE)
-endif ()
+#if (NOT PYTHON2_FOUND)
+#    message(STATUS "ERROR: Python 2.x not found, but is required")
+#    set (ErrorFlag TRUE)
+#endif ()
 find_python(python3 "PYTHON3_FOUND" "PYTHON3_VER" "PYTHON3_SITE_DIR_NAME")
 
 # Find Java 11
@@ -154,9 +154,9 @@ endif()
 configure_file(config.sh.in config.sh @ONLY)
 
 # Install files using python setup.py
-install(CODE "MESSAGE(STATUS \"Python 2 install dir: ${CMAKE_INSTALL_PREFIX}/lib/${PYTHON2_SITE_DIR_NAME}/site-packages/qpid_interop_test/\")")
-install(CODE "execute_process(COMMAND python2 setup.py install --prefix ${CMAKE_INSTALL_PREFIX}
-                              WORKING_DIRECTORY ../)")
+#install(CODE "MESSAGE(STATUS \"Python 2 install dir: ${CMAKE_INSTALL_PREFIX}/lib/${PYTHON2_SITE_DIR_NAME}/site-packages/qpid_interop_test/\")")
+#install(CODE "execute_process(COMMAND python2 setup.py install --prefix ${CMAKE_INSTALL_PREFIX}
+#                              WORKING_DIRECTORY ../)")
 install(CODE "MESSAGE(STATUS \"Python 3 install dir: ${CMAKE_INSTALL_PREFIX}/lib/${PYTHON3_SITE_DIR_NAME}/site-packages/qpid_interop_test/\")")
 install(CODE "execute_process(COMMAND python3 setup.py install --prefix ${CMAKE_INSTALL_PREFIX}
                               WORKING_DIRECTORY ../)")

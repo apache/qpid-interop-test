@@ -34,7 +34,6 @@ import uuid
 
 import proton.handlers
 import proton.reactor
-import _compat
 
 class AmqpTypesTestSender(proton.handlers.MessagingHandler):
     """
@@ -43,7 +42,7 @@ class AmqpTypesTestSender(proton.handlers.MessagingHandler):
     AMQP type. There is no returned value.
     """
     def __init__(self, broker_url, queue_name, amqp_type, test_value_list):
-        super(AmqpTypesTestSender, self).__init__()
+        super().__init__()
         self.broker_url = broker_url
         self.queue_name = queue_name
         self.amqp_type = amqp_type
@@ -85,7 +84,7 @@ class AmqpTypesTestSender(proton.handlers.MessagingHandler):
         if amqp_type == 'null':
             return None
         if amqp_type == 'boolean':
-            return True if test_value == 'True' else False
+            return test_value == 'True'
         if amqp_type == 'ubyte':
             return proton.ubyte(int(test_value, 16))
         if amqp_type == 'ushort':
@@ -101,21 +100,21 @@ class AmqpTypesTestSender(proton.handlers.MessagingHandler):
         if amqp_type == 'int':
             return proton.int32(int(test_value, 16))
         if amqp_type == 'long':
-            return _compat.str2long(test_value, 16)
+            return int(test_value, 16)
         if amqp_type == 'float':
-            return proton.float32(struct.unpack('!f', _compat.decode_hex(test_value[2:]))[0])
+            return proton.float32(struct.unpack('!f', bytes.fromhex(test_value[2:]))[0])
         if amqp_type == 'double':
-            return struct.unpack('!d', _compat.decode_hex(test_value[2:]))[0]
+            return struct.unpack('!d', bytes.fromhex(test_value[2:]))[0]
         if amqp_type == 'decimal32':
             return proton.decimal32(int(test_value[2:], 16))
         if amqp_type == 'decimal64':
-            return proton.decimal64(_compat.str2long(test_value[2:], 16))
+            return proton.decimal64(int(test_value[2:], 16))
         if amqp_type == 'decimal128':
-            return proton.decimal128(_compat.decode_hex(test_value[2:]))
+            return proton.decimal128(bytes.fromhex(test_value[2:]))
         if amqp_type == 'char':
             if len(test_value) == 1: # Format 'a'
                 return proton.char(test_value)
-            return proton.char(_compat.unichr(int(test_value, 16)))
+            return proton.char(chr(int(test_value, 16)))
         if amqp_type == 'timestamp':
             return proton.timestamp(int(test_value, 16))
         if amqp_type == 'uuid':
@@ -123,9 +122,9 @@ class AmqpTypesTestSender(proton.handlers.MessagingHandler):
         if amqp_type == 'binary':
             return base64.b64decode(test_value)
         if amqp_type == 'binarystr':
-            return _compat.unicode(test_value)
+            return str(test_value)
         if amqp_type == 'string':
-            return _compat.unicode(test_value)
+            return str(test_value)
         if amqp_type == 'symbol':
             return proton.symbol(test_value)
         if amqp_type in ['array', 'list', 'map']:

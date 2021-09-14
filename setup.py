@@ -7,9 +7,9 @@
 # to you under the Apache License, Version 2.0 (the
 # "License"); you may not use this file except in compliance
 # with the License.  You may obtain a copy of the License at
-# 
+#
 #   http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing,
 # software distributed under the License is distributed on an
 # "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -31,13 +31,9 @@ setup(name='qpid-interop-test',
       url='http://qpid.apache.org/',
       packages=['qpid_interop_test'],
       package_dir={'qpid_interop_test': 'src/python/qpid_interop_test'},
-      
+
       # Shims, installed into {INSTALL_PREFIX}/libexec/qpid_interop_test/shims/
-     data_files=[ ('%s/qpid-proton-python' % SHIM_DIR,
-                      ['shims/qpid-proton-python/src/_compat.py',
-                      ]
-                  ),
-                  ('%s/qpid-proton-python/amqp_types_test' % SHIM_DIR,
+     data_files=[ ('%s/qpid-proton-python/amqp_types_test' % SHIM_DIR,
                      ['shims/qpid-proton-python/src/amqp_types_test/Receiver.py',
                       'shims/qpid-proton-python/src/amqp_types_test/Sender.py',
                      ]

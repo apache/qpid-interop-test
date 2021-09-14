@@ -35,7 +35,6 @@ import uuid
 
 import proton.handlers
 import proton.reactor
-import _compat
 
 class AmqpTypesTestReceiver(proton.handlers.MessagingHandler):
     """
@@ -44,7 +43,7 @@ class AmqpTypesTestReceiver(proton.handlers.MessagingHandler):
     bodies of the exptected AMQP type. The values are then aggregated and returned.
     """
     def __init__(self, broker_url, queue_name, amqp_type, num_expected_messages_str):
-        super(AmqpTypesTestReceiver, self).__init__()
+        super().__init__()
         self.broker_url = broker_url
         self.queue_name = queue_name
         self.received_value_list = []
@@ -116,9 +115,9 @@ class AmqpTypesTestReceiver(proton.handlers.MessagingHandler):
         if amqp_type == 'decimal64':
             return '0x%016x' % amqp_value
         if amqp_type == 'decimal128':
-            return '0x' + ''.join(['%02x' % _compat.byte_char_ord(c) for c in amqp_value]).strip()
+            return '0x' + ''.join(['%02x' % c for c in amqp_value]).strip()
         if amqp_type == 'char':
-            if ord(amqp_value) < 0x80 and amqp_value in string.digits + _compat.letters() + string.punctuation + ' ':
+            if ord(amqp_value) < 0x80 and amqp_value in string.digits + string.ascii_letters + string.punctuation + ' ':
                 return amqp_value
             return hex(ord(amqp_value))
         if amqp_type == 'timestamp':
@@ -177,21 +176,12 @@ class AmqpTypesTestReceiver(proton.handlers.MessagingHandler):
         if isinstance(amqp_value, proton.Array):
             return "array"
         # Native types come last so that parent classes will not be found instead (issue using isinstance()
-        if _compat.IS_PY3:
-            if isinstance(amqp_value, int):
-                return "long"
-            if isinstance(amqp_value, bytes):
-                return "binary"
-            if isinstance(amqp_value, str):
-                return "string"
-        else:
-            import __builtin__
-            if isinstance(amqp_value, __builtin__.long):
-                return "long"
-            if isinstance(amqp_value, str):
-                return "binary"
-            if isinstance(amqp_value, unicode):
-                return "string"
+        if isinstance(amqp_value, int):
+            return "long"
+        if isinstance(amqp_value, bytes):
+            return "binary"
+        if isinstance(amqp_value, str):
+            return "string"
         if isinstance(amqp_value, float):
             return "double"
         if isinstance(amqp_value, list):
@@ -200,6 +190,7 @@ class AmqpTypesTestReceiver(proton.handlers.MessagingHandler):
             return "map"
 
         print('receive: Unmapped AMQP type: %s:%s' % (type(amqp_value), amqp_value))
+        return None
 
     def on_transport_error(self, event):
         print('Receiver: Broker not found at %s' % self.broker_url)

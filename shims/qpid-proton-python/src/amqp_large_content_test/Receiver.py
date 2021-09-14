@@ -32,7 +32,6 @@ import traceback
 import proton
 import proton.handlers
 import proton.reactor
-import _compat
 
 class AmqpLargeContentTestReceiver(proton.handlers.MessagingHandler):
     """
@@ -40,7 +39,7 @@ class AmqpLargeContentTestReceiver(proton.handlers.MessagingHandler):
     ...
     """
     def __init__(self, broker_url, queue_name, amqp_type, num_expected_messages_str):
-        super(AmqpLargeContentTestReceiver, self).__init__()
+        super().__init__()
         self.broker_url = broker_url
         self.queue_name = queue_name
         self.amqp_type = amqp_type
@@ -88,12 +87,8 @@ class AmqpLargeContentTestReceiver(proton.handlers.MessagingHandler):
     @staticmethod
     def get_str_message_size(message):
         """Find the size of a bytes, unicode or symbol message in MB"""
-        if _compat.IS_PY3:
-            if isinstance(message, (bytes, str, proton.symbol)):
-                return int(len(message) / 1024 / 1024) # in MB
-        else:
-            if isinstance(message, (bytes, unicode, proton.symbol)):
-                return len(str(message)) / 1024 / 1024 # in MB
+        if isinstance(message, (bytes, str, proton.symbol)):
+            return int(len(message) / 1024 / 1024) # in MB
         return None
 
     @staticmethod

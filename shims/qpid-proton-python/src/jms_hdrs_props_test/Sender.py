@@ -38,7 +38,6 @@ import proton.reactor
 #from qpid_interop_test.qit_common import QitTestTypeMap
 from qpid_interop_test.qit_errors import InteropTestError
 from qpid_interop_test.qit_jms_types import create_annotation
-import _compat
 
 
 class JmsHdrsPropsTestSender(proton.handlers.MessagingHandler):
@@ -53,7 +52,7 @@ class JmsHdrsPropsTestSender(proton.handlers.MessagingHandler):
     with (or without) JMS headers and properties.
     """
     def __init__(self, broker_url, queue_name, jms_msg_type, test_parameters_list):
-        super(JmsHdrsPropsTestSender, self).__init__()
+        super().__init__()
         self.broker_url = broker_url
         self.queue_name = queue_name
         self.jms_msg_type = jms_msg_type
@@ -180,12 +179,12 @@ class JmsHdrsPropsTestSender(proton.handlers.MessagingHandler):
         elif test_value_type == 'char':
             # JMS expects two-byte chars, ASCII chars can be prefixed with '\x00'
             body_bytes = b'\x00' + base64.b64decode(test_value)
-        elif test_value_type == 'double' or test_value_type == 'float':
+        elif test_value_type in ('double', 'float'):
             body_bytes = test_value[2:].decode('hex')
         elif test_value_type == 'int':
             body_bytes = struct.pack('!i', int(test_value, 16))
         elif test_value_type == 'long':
-            body_bytes = struct.pack('!q', _compat.str2long(test_value, 16))
+            body_bytes = struct.pack('!q', int(test_value, 16))
         elif test_value_type == 'short':
             body_bytes = struct.pack('!h', proton.short(test_value, 16))
         elif test_value_type == 'string':
@@ -220,7 +219,7 @@ class JmsHdrsPropsTestSender(proton.handlers.MessagingHandler):
         elif test_value_type == 'int':
             value = proton.int32(int(test_value, 16))
         elif test_value_type == 'long':
-            value = _compat.str2long(test_value, 16)
+            value = int(test_value, 16)
         elif test_value_type == 'short':
             value = proton.short(int(test_value, 16))
         elif test_value_type == 'string':
@@ -277,7 +276,7 @@ class JmsHdrsPropsTestSender(proton.handlers.MessagingHandler):
         elif test_value_type == 'int':
             body_list = [proton.int32(int(test_value, 16))]
         elif test_value_type == 'long':
-            body_list = [_compat.str2long(test_value, 16)]
+            body_list = [int(test_value, 16)]
         elif test_value_type == 'short':
             body_list = [proton.short(int(test_value, 16))]
         elif test_value_type == 'string':
@@ -295,7 +294,7 @@ class JmsHdrsPropsTestSender(proton.handlers.MessagingHandler):
     def _create_jms_textmessage(self, test_value_text, hdr_kwargs, hdr_annotations):
         """Create a JMS text message"""
         return proton.Message(id=(self.sent+1),
-                              body=_compat.unicode(test_value_text),
+                              body=str(test_value_text),
                               annotations=JmsHdrsPropsTestSender.merge_dicts(create_annotation('JMS_TEXTMESSAGE_TYPE'),
                                                                              hdr_annotations),
                               **hdr_kwargs)
@@ -331,7 +330,7 @@ class JmsHdrsPropsTestSender(proton.handlers.MessagingHandler):
                 elif value_type == 'topic':
                     hdr_kwargs['reply_to'] = value
                     hdr_annotations[proton.symbol(u'x-opt-jms-reply-to')] = proton.byte(1)
-                elif value_type == 'temp_queue' or value_type == 'temp_topic':
+                elif value_type in ('temp_queue', 'temp_topic'):
                     raise InteropTestError('JmsSenderShim._get_jms_message_header_kwargs(): ' +
                                            'JMS_REPLYTO_HEADER type "temp_queue" or "temp_topic" not handled')
                 else:
@@ -356,14 +355,14 @@ class JmsHdrsPropsTestSender(proton.handlers.MessagingHandler):
             elif value_type == 'byte':
                 message.properties[property_name] = proton.byte(int(value, 16))
             elif value_type == 'double':
-                message.properties[property_name] = struct.unpack('!d', _compat.decode_hex(value[2:]))[0]
+                message.properties[property_name] = struct.unpack('!d', bytes.fromhex(value[2:]))[0]
             elif value_type == 'float':
                 message.properties[property_name] = proton.float32(struct.unpack('!f',
-                                                                                 _compat.decode_hex(value[2:]))[0])
+                                                                                 bytes.fromhex(value[2:]))[0])
             elif value_type == 'int':
                 message.properties[property_name] = proton.int32(int(value, 16))
             elif value_type == 'long':
-                message.properties[property_name] = _compat.str2long(value, 16)
+                message.properties[property_name] = int(value, 16)
             elif value_type == 'short':
                 message.properties[property_name] = proton.short(int(value, 16))
             elif value_type == 'string':

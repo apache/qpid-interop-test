@@ -38,7 +38,6 @@ from qpid_interop_test.qit_jms_types import QPID_JMS_TYPE_ANNOTATION_NAME
 import proton
 import proton.handlers
 import proton.reactor
-import _compat
 
 
 class JmsHdrsPropsTestReceiver(proton.handlers.MessagingHandler):
@@ -49,7 +48,7 @@ class JmsHdrsPropsTestReceiver(proton.handlers.MessagingHandler):
     the message are received on the command-line in JSON format when this program is launched.
     """
     def __init__(self, broker_url, queue_name, jms_msg_type, test_parameters_list):
-        super(JmsHdrsPropsTestReceiver, self).__init__()
+        super().__init__()
         self.broker_url = broker_url
         self.queue_name = queue_name
         self.jms_msg_type = jms_msg_type
@@ -89,10 +88,7 @@ class JmsHdrsPropsTestReceiver(proton.handlers.MessagingHandler):
             return # ignore duplicate message
         if self.received < self.expected:
             if self.current_subtype is None:
-                if _compat.IS_PY3:
-                    self.current_subtype = next(self.subtype_itr)
-                else:
-                    self.current_subtype = self.subtype_itr.next()
+                self.current_subtype = next(self.subtype_itr)
                 self.current_subtype_msg_list = []
             self.current_subtype_msg_list.append(self._handle_message(event.message))
             self._process_jms_headers(event.message)
@@ -146,7 +142,6 @@ class JmsHdrsPropsTestReceiver(proton.handlers.MessagingHandler):
         if message.body is not None:
             raise InteropTestError('_receive_jms_message: Invalid body for type JMS_MESSAGE_TYPE: %s' %
                                    str(message.body))
-        return None
 
     def _receive_jms_bytesmessage(self, message):
         """"Receives a JMS bytes message"""
@@ -165,9 +160,7 @@ class JmsHdrsPropsTestReceiver(proton.handlers.MessagingHandler):
             return base64.b64encode(message.body).decode('utf-8')
         if self.current_subtype == 'char':
             if len(message.body) == 2: # format 'a' or '\xNN'
-                if _compat.IS_PY3:
-                    return base64.b64encode(bytes([message.body[1]])).decode('utf-8') # strip leading '\x00' char
-                return base64.b64encode(bytes(message.body[1])).decode('utf-8') # strip leading '\x00' char
+                return base64.b64encode(bytes([message.body[1]])).decode('utf-8') # strip leading '\x00' char
             raise InteropTestError('Unexpected strring length for type char: %d' % len(message.body))
         if self.current_subtype == 'double':
             return '0x%016x' % struct.unpack('!Q', message.body)[0]
@@ -206,9 +199,7 @@ class JmsHdrsPropsTestReceiver(proton.handlers.MessagingHandler):
         if self.current_subtype == 'bytes':
             return base64.b64encode(value).decode('utf-8')
         if self.current_subtype == 'char':
-            if _compat.IS_PY3:
-                return base64.b64encode(bytes(value, 'utf-8')).decode('utf-8')
-            return base64.b64encode(bytes(value)).decode('utf-8')
+            return base64.b64encode(bytes(value, 'utf-8')).decode('utf-8')
         if self.current_subtype == 'double':
             return '0x%016x' % struct.unpack('!Q', struct.pack('!d', value))[0]
         if self.current_subtype == 'float':
@@ -271,9 +262,7 @@ class JmsHdrsPropsTestReceiver(proton.handlers.MessagingHandler):
         if self.current_subtype == 'bytes':
             return base64.b64encode(value).decode('utf-8')
         if self.current_subtype == 'char':
-            if _compat.IS_PY3:
-                return base64.b64encode(bytes(value, 'utf-8')).decode('utf-8')
-            return base64.b64encode(bytes(value)).decode('utf-8')
+            return base64.b64encode(bytes(value, 'utf-8')).decode('utf-8')
         if self.current_subtype == 'double':
             return '0x%016x' % struct.unpack('!Q', struct.pack('!d', value))[0]
         if self.current_subtype == 'float':
@@ -421,4 +410,4 @@ except KeyboardInterrupt:
 except Exception as exc:
     print('jms-receiver-shim EXCEPTION:', exc)
     print(traceback.format_exc())
-    exit(1)
+    sys.exit(1)

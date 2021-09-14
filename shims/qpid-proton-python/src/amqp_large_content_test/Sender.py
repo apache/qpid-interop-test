@@ -32,7 +32,6 @@ import traceback
 import proton
 import proton.handlers
 import proton.reactor
-import _compat
 
 class AmqpLargeContentTestSender(proton.handlers.MessagingHandler):
     """
@@ -40,7 +39,7 @@ class AmqpLargeContentTestSender(proton.handlers.MessagingHandler):
     ...
     """
     def __init__(self, broker_url, queue_name, amqp_type, test_value_list):
-        super(AmqpLargeContentTestSender, self).__init__()
+        super().__init__()
         self.broker_url = broker_url
         self.queue_name = queue_name
         self.amqp_type = amqp_type
@@ -83,7 +82,7 @@ class AmqpLargeContentTestSender(proton.handlers.MessagingHandler):
         if self.amqp_type == 'binary':
             return proton.Message(body=AmqpLargeContentTestSender.create_test_string(tot_size_bytes).encode('utf-8'))
         if self.amqp_type == 'string':
-            return proton.Message(body=_compat.unicode(AmqpLargeContentTestSender.create_test_string(tot_size_bytes)))
+            return proton.Message(body=str(AmqpLargeContentTestSender.create_test_string(tot_size_bytes)))
         if self.amqp_type == 'symbol':
             return proton.Message(body=proton.symbol(AmqpLargeContentTestSender.create_test_string(tot_size_bytes)))
         if self.amqp_type == 'list':
@@ -106,7 +105,7 @@ class AmqpLargeContentTestSender(proton.handlers.MessagingHandler):
         size_per_elt_bytes = int(tot_size_bytes / num_elts)
         test_list = []
         for _ in range(num_elts):
-            test_list.append(_compat.unicode(AmqpLargeContentTestSender.create_test_string(size_per_elt_bytes)))
+            test_list.append(str(AmqpLargeContentTestSender.create_test_string(size_per_elt_bytes)))
         return test_list
 
     @staticmethod
@@ -115,8 +114,8 @@ class AmqpLargeContentTestSender(proton.handlers.MessagingHandler):
         size_per_elt_bytes = int(tot_size_bytes / num_elts)
         test_map = {}
         for elt_no in range(num_elts):
-            test_map[_compat.unicode('elt_%06d' % elt_no)] = \
-                _compat.unicode(AmqpLargeContentTestSender.create_test_string(size_per_elt_bytes))
+            test_map[str('elt_%06d' % elt_no)] = \
+                str(AmqpLargeContentTestSender.create_test_string(size_per_elt_bytes))
         return test_map
 
     def on_accepted(self, event):

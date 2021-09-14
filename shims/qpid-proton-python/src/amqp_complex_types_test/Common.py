@@ -30,7 +30,6 @@ import sys
 import uuid
 
 import proton
-import _compat
 
 class AmqpComplexTypesTestShim(proton.handlers.MessagingHandler):
     """
@@ -76,7 +75,7 @@ class AmqpComplexTypesTestShim(proton.handlers.MessagingHandler):
                     if isinstance(this_list[0], type(None)):
                         return this_list
                 elif self.amqp_subtype == '*':
-                    if isinstance(this_list[0], _compat.unicode_type()) and this_list[0] == u'*':
+                    if isinstance(this_list[0], str) and this_list[0] == u'*':
                         return this_list
                 else:
                     if self.amqp_subtype != '*':
@@ -103,7 +102,7 @@ class AmqpComplexTypesTestShim(proton.handlers.MessagingHandler):
                         return this_map
                 elif self.amqp_subtype == '*':
                     for this_key in list(this_map.keys()): # can't use if u'*' in list(this_map.keys()) - unicode errors
-                        if isinstance(this_key, _compat.unicode_type()) and this_key == u'*':
+                        if isinstance(this_key, str) and this_key == u'*':
                             return this_map
                 else:
                     key0 = list(this_map.keys())[0]
@@ -123,7 +122,7 @@ class AmqpComplexTypesTestShim(proton.handlers.MessagingHandler):
                         'int': proton.int32,
                         'char': proton.char,
                         'ulong': proton.ulong,
-                        'long': _compat.long_type(),
+                        'long': int,
                         'timestamp': proton.timestamp,
                         'float': proton.float32,
                         'double': float,
@@ -131,8 +130,8 @@ class AmqpComplexTypesTestShim(proton.handlers.MessagingHandler):
                         'decimal64': proton.decimal64,
                         'decimal128': proton.decimal128,
                         'uuid': uuid.UUID,
-                        'binary': _compat.bytes_type(),
-                        'string': _compat.unicode_type(),
+                        'binary': bytes,
+                        'string': str,
                         'symbol': proton.symbol,
                         'array': proton.Array,
                         'list': list,

@@ -44,7 +44,7 @@ class AmqpComplexTypesTestReceiver(amqp_complex_types_test.Common.AmqpComplexTyp
     bodies of the exptected AMQP type. The values are then aggregated and returned.
     """
     def __init__(self, broker_url, queue_name, amqp_type, amqp_subtype):
-        super(AmqpComplexTypesTestReceiver, self).__init__(broker_url, queue_name, amqp_type, amqp_subtype, 'Receiver')
+        super().__init__(broker_url, queue_name, amqp_type, amqp_subtype, 'Receiver')
         self.expected = 0
         self.received = 0
 
@@ -137,7 +137,7 @@ class AmqpComplexTypesTestReceiver(amqp_complex_types_test.Common.AmqpComplexTyp
             #pylint: disable=unidiomatic-typecheck
             if type(elt1) != type(elt2):
                 return False
-            elif isinstance(elt1, proton.Array):
+            if isinstance(elt1, proton.Array):
                 if not AmqpComplexTypesTestReceiver.check_arrays_equal(elt1, elt2):
                     return False
             elif isinstance(elt1, list):
