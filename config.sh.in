@@ -35,7 +35,7 @@ py3_found_str="@PYTHON3_FOUND@"
 if [[ "${py3_found_str#*-}" == "NOTFOUND" ]]; then
     echo "No Python 3.x found, Python 3 shims disabled"
 else
-    export PYTHON3PATH=@CMAKE_INSTALL_PREFIX@/lib64/proton/bindings/python3:@CMAKE_INSTALL_PREFIX@/lib/@PYTHON3_SITE_DIR_NAME@/site-packages:@CMAKE_INSTALL_PREFIX@/libexec/qpid_interop_test/shims/qpid-proton-python
+    export PYTHON3PATH=@CMAKE_INSTALL_PREFIX@/lib64/proton/bindings/python:@CMAKE_INSTALL_PREFIX@/lib/@PYTHON3_SITE_DIR_NAME@/site-packages:@CMAKE_INSTALL_PREFIX@/libexec/qpid_interop_test/shims/qpid-proton-python
 fi
 # To run the main program use python 3
 export PYTHONPATH=$PYTHON3PATH

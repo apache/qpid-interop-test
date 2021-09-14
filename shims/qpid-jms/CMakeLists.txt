@@ -18,7 +18,7 @@
 #
 project (qpid-interop-test-qpid-jms-shims)
 
-cmake_minimum_required(VERSION 2.8.7 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.16.3 FATAL_ERROR)
 
 add_custom_target(jms-shims ALL ${Maven} -DskipTests package
                   WORKING_DIRECTORY ../../../)

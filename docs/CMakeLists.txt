@@ -19,6 +19,6 @@
 
 project (qpid-interop-test-doc)
 
-cmake_minimum_required(VERSION 2.8.7 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.16.3 FATAL_ERROR)
 
 execute_process(COMMAND asciidoc -d book ${CMAKE_CURRENT_SOURCE_DIR}/users-guide.txt)

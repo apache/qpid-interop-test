@@ -25,7 +25,7 @@
 
 project (qpid-interop-test-amqpnetlite-shims)
 
-cmake_minimum_required(VERSION 2.8.7 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.16.3 FATAL_ERROR)
 
 
 # Check for presence of dotnet assembly
