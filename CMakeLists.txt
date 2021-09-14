@@ -19,7 +19,7 @@
 
 project(qpid-interop-test)
 
-cmake_minimum_required(VERSION 2.8.7 FATAL_ERROR)
+cmake_minimum_required(VERSION 2.8.12 FATAL_ERROR)
 
 set (ErrorFlag FALSE)
 
