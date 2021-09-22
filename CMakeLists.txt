@@ -24,56 +24,17 @@ cmake_minimum_required(VERSION 3.16.3 FATAL_ERROR)
 set (ErrorFlag FALSE)
 
 # Find Python
-# Older cmakes (2.8.x used on RHEL/CentOS 7) don't do Python2
-# vs Python3 cleanly. So we must improvise...
-MACRO (find_python
-       py_exec            # Python executable (eg python, python3)
-       found_var_name     # Variable name indicating python executable found
-       version_var_name   # Variable name containing python version
-       site_dir_var_name) # Variable name containing site_packages dir name
-    execute_process (COMMAND ${py_exec} --version
-                     RESULT_VARIABLE res
-                     OUTPUT_VARIABLE ov
-                     OUTPUT_STRIP_TRAILING_WHITESPACE
-                     ERROR_VARIABLE ev
-                     ERROR_STRIP_TRAILING_WHITESPACE)
-    if (res STREQUAL "0")
-        set (${found_var_name} ON)
-        # Some versions of Python print version info to stdout, others to stderr
-        if (ov STREQUAL "")
-            if (ev STREQUAL "")
-              message (WARNING "Unable to obtain python version string")
-            else ()
-              set(ov ${ev})
-            endif ()
-        endif ()
-        message (STATUS "${ov} found")
-        string (REGEX MATCH "[0-9]+(\\.[0-9]+)" ver_str "${ov}")
-        set (${version_var_name} ${ver_str})
-        string (REGEX MATCH "[0-9]+" maj_ver_str ${ver_str})
-        execute_process (COMMAND ${CMAKE_SOURCE_DIR}/get-python-dir-name ${maj_ver_str}
-                         OUTPUT_VARIABLE dir_name)
-        set (${site_dir_var_name} ${dir_name})
-    else ()
-        message (STATUS "${py_exec} not found")
-        set (${found_var_name} ${py_exec}-NOTFOUND)
-    endif ()
-ENDMACRO ()
-
-#find_python(python2 "PYTHON2_FOUND" "PYTHON2_VER" "PYTHON2_SITE_DIR_NAME")
-# Python2 is required to run main QIT program
-#if (NOT PYTHON2_FOUND)
-#    message(STATUS "ERROR: Python 2.x not found, but is required")
-#    set (ErrorFlag TRUE)
-#endif ()
-find_python(python3 "PYTHON3_FOUND" "PYTHON3_VER" "PYTHON3_SITE_DIR_NAME")
+find_package (Python 3 COMPONENTS Interpreter Development)
+if (NOT Python_FOUND)
+    message (STATUS "ERROR: Python 3 not found, but is required")
+    set (ErrorFlag TRUE)
+endif ()
 
 # Find Java 11
 find_package(Java 11 COMPONENTS Development)
-# if (NOT Java_FOUND)
-# RHEL7 bug: Java_FOUND is not being set, so workaround:
-if (NOT DEFINED Java_JAVA_EXECUTABLE OR NOT DEFINED Java_JAVAC_EXECUTABLE OR NOT DEFINED Java_JAR_EXECUTABLE)
-    message(STATUS "ERROR: Java compiler not found, but is required")
+if (NOT Java_FOUND)
+#if (NOT DEFINED Java_JAVA_EXECUTABLE OR NOT DEFINED Java_JAVAC_EXECUTABLE OR NOT DEFINED Java_JAR_EXECUTABLE)
+    message(STATUS "ERROR: Java 11 compiler not found, but is required")
     set (ErrorFlag TRUE)
 endif ()
 
@@ -90,7 +51,7 @@ endif ()
 
 # Find Proton components
 
-find_package(Proton 0.30)
+find_package(Proton 0.35)
 if (Proton_FOUND)
     get_filename_component(PROTON_INSTALL_DIR ${Proton_INCLUDE_DIRS} PATH CACHE PATH "Proton install directory")
     message(STATUS "Qpid proton found. Version ${Proton_VERSION} at ${Proton_INCLUDE_DIRS}")
@@ -99,7 +60,7 @@ else ()
     set (ErrorFlag TRUE)
 endif ()
 
-find_package(ProtonCpp 0.30)
+find_package(ProtonCpp 0.35)
 if (ProtonCpp_FOUND)
     get_filename_component(PROTON_CPP_INSTALL_DIR ${ProtonCpp_INCLUDE_DIRS} PATH CACHE PATH "ProtonCpp install directory")
     message(STATUS "Qpid proton c++ binding found. Version ${ProtonCpp_VERSION} at ${ProtonCpp_INCLUDE_DIRS}")
@@ -112,6 +73,7 @@ if (ErrorFlag)
     message(FATAL_ERROR "Required component(s) missing, aborting configuration. See above for errors.")
 endif ()
 
+add_subdirectory(shims/qpid-proton-python)
 add_subdirectory(shims/qpid-proton-cpp/src)
 add_subdirectory(shims/qpid-jms)
 add_subdirectory(shims/amqpnetlite/src)
@@ -153,12 +115,12 @@ endif()
 
 configure_file(config.sh.in config.sh @ONLY)
 
-# Install files using python setup.py
-#install(CODE "MESSAGE(STATUS \"Python 2 install dir: ${CMAKE_INSTALL_PREFIX}/lib/${PYTHON2_SITE_DIR_NAME}/site-packages/qpid_interop_test/\")")
-#install(CODE "execute_process(COMMAND python2 setup.py install --prefix ${CMAKE_INSTALL_PREFIX}
-#                              WORKING_DIRECTORY ../)")
-install(CODE "MESSAGE(STATUS \"Python 3 install dir: ${CMAKE_INSTALL_PREFIX}/lib/${PYTHON3_SITE_DIR_NAME}/site-packages/qpid_interop_test/\")")
-install(CODE "execute_process(COMMAND python3 setup.py install --prefix ${CMAKE_INSTALL_PREFIX}
-                              WORKING_DIRECTORY ../)")
+install (DIRECTORY src/python/qpid_interop_test
+         DESTINATION ${CMAKE_INSTALL_PREFIX}
+         PATTERN ".gitignore" EXCLUDE)
+install (DIRECTORY bin
+         DESTINATION ${CMAKE_INSTALL_PREFIX}
+         FILE_PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ
+         PATTERN ".gitignore" EXCLUDE)
 install(FILES build/config.sh
         DESTINATION ${CMAKE_INSTALL_PREFIX}/libexec/qpid_interop_test/)

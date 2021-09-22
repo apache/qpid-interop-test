@@ -1,0 +1,3 @@
+#!/usr/bin/bash
+
+python3 -m qpid_interop_test.amqp_complex_types_test $@

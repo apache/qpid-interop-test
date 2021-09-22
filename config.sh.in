@@ -18,19 +18,8 @@
 
 # Source this file to set up environment variables for the Qpid interop tests.
 
-export QIT_INSTALL_PREFIX=@CMAKE_INSTALL_PREFIX@
+export PYTHON3PATH=@PROTON_INSTALL_DIR@/lib64/proton/bindings/python:@CMAKE_INSTALL_PREFIX@:@CMAKE_INSTALL_PREFIX@/libexec/qpid_interop_test/shims/qpid-proton-python
+export PYTHONPATH=${PYTHON3PATH}
 
-# Set PYTHON3PATH for respective python shims
-
-unset PYTHON3PATH
-py3_found_str="@PYTHON3_FOUND@"
-if [[ "${py3_found_str#*-}" == "NOTFOUND" ]]; then
-    echo "No Python 3.x found, Python 3 shims disabled"
-else
-    export PYTHON3PATH=@CMAKE_INSTALL_PREFIX@/lib64/proton/bindings/python:@CMAKE_INSTALL_PREFIX@/lib/@PYTHON3_SITE_DIR_NAME@/site-packages:@CMAKE_INSTALL_PREFIX@/libexec/qpid_interop_test/shims/qpid-proton-python
-fi
-# To run the main program use python 3
-export PYTHONPATH=$PYTHON3PATH
-
-export LD_LIBRARY_PATH=@CMAKE_INSTALL_PREFIX@/lib64:$LD_LIBRARY_PATH
-export PATH=@CMAKE_INSTALL_PREFIX@/lib/@PYTHON_DIR_NAME@/site-packages/qpid_interop_test:$PATH
+export LD_LIBRARY_PATH=@PROTON_INSTALL_DIR@/lib64:${LD_LIBRARY_PATH}
+export PATH=@PROTON_INSTALL_DIR@/bin:@CMAKE_INSTALL_PREFIX@/bin:${PATH}

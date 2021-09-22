@@ -22,7 +22,7 @@ Module containing common classes
 #
 
 import argparse
-from os import getenv, path
+import os
 import sys
 import time
 import unittest
@@ -32,16 +32,19 @@ import qpid_interop_test.qit_broker_props
 import qpid_interop_test.qit_shim
 import qpid_interop_test.qit_xunit_log
 
-# TODO: propose a sensible default when installation details are worked out
-QIT_INSTALL_PREFIX = getenv('QIT_INSTALL_PREFIX')
-if QIT_INSTALL_PREFIX is None:
-    print('ERROR: Environment variable QIT_INSTALL_PREFIX is not set')
-    sys.exit(1)
-QIT_ENABLE_PYTHON3_SHIM = getenv('PYTHON3PATH') is not None
-QIT_TEST_SHIM_HOME = path.join(QIT_INSTALL_PREFIX, 'libexec', 'qpid_interop_test', 'shims')
-
 QPID_JMS_SHIM_VER = '0.3.0-SNAPSHOT'
 
+# Find shim directory
+PREFIX_LIST = [os.path.join(os.sep, 'usr', 'local')]
+if 'PYTHONPATH' in os.environ:
+    PREFIX_LIST.extend(os.getenv('PYTHONPATH').split(':'))
+for prefix in PREFIX_LIST:
+    if os.path.exists(os.path.join(prefix, 'libexec', 'qpid_interop_test')):
+        QIT_SHIM_HOME = os.path.join(prefix, 'libexec', 'qpid_interop_test', 'shims')
+        break
+if QIT_SHIM_HOME is None:
+    print(f'Unable to locate shims in {PREFIX_LIST}.')
+    sys.exit(1)
 
 class QitTestTypeMap:
     """
@@ -314,35 +317,32 @@ class QitTest:
     def _create_shim_map(self):
         """Create a shim map {'shim_name': <shim_instance>}"""
         # Proton C++ shim
-        proton_cpp_rcv_shim = path.join(QIT_TEST_SHIM_HOME, 'qpid-proton-cpp', self.TEST_NAME, 'Receiver')
-        proton_cpp_snd_shim = path.join(QIT_TEST_SHIM_HOME, 'qpid-proton-cpp', self.TEST_NAME, 'Sender')
+        proton_cpp_rcv_shim = os.path.join(QIT_SHIM_HOME, 'qpid-proton-cpp', self.TEST_NAME, 'Receiver')
+        proton_cpp_snd_shim = os.path.join(QIT_SHIM_HOME, 'qpid-proton-cpp', self.TEST_NAME, 'Sender')
         self.shim_map = {qpid_interop_test.qit_shim.ProtonCppShim.NAME: \
                          qpid_interop_test.qit_shim.ProtonCppShim(proton_cpp_snd_shim, proton_cpp_rcv_shim),
                         }
 
         # Python shims
-        proton_python_rcv_shim = path.join(QIT_TEST_SHIM_HOME, 'qpid-proton-python', self.TEST_NAME, 'Receiver.py')
-        proton_python_snd_shim = path.join(QIT_TEST_SHIM_HOME, 'qpid-proton-python', self.TEST_NAME, 'Sender.py')
-        if QIT_ENABLE_PYTHON3_SHIM:
-            self.shim_map[qpid_interop_test.qit_shim.ProtonPython3Shim.NAME] = \
-                qpid_interop_test.qit_shim.ProtonPython3Shim(proton_python_snd_shim, proton_python_rcv_shim)
-        else:
-            print('Python 3 shim disabled: no PYTHON3PATH in environment')
+        proton_python_rcv_shim = os.path.join(QIT_SHIM_HOME, 'qpid-proton-python', self.TEST_NAME, 'Receiver.py')
+        proton_python_snd_shim = os.path.join(QIT_SHIM_HOME, 'qpid-proton-python', self.TEST_NAME, 'Sender.py')
+        self.shim_map[qpid_interop_test.qit_shim.ProtonPython3Shim.NAME] = \
+                      qpid_interop_test.qit_shim.ProtonPython3Shim(proton_python_snd_shim, proton_python_rcv_shim)
 
         # Add shims that need detection during installation only if the necessary bits are present
         # Rhea Javascript client
-        rhea_rcv_shim = path.join(QIT_TEST_SHIM_HOME, 'rhea-js', self.TEST_NAME, 'Receiver.js')
-        rhea_snd_shim = path.join(QIT_TEST_SHIM_HOME, 'rhea-js', self.TEST_NAME, 'Sender.js')
-        if path.isfile(rhea_rcv_shim) and path.isfile(rhea_snd_shim):
+        rhea_rcv_shim = os.path.join(QIT_SHIM_HOME, 'rhea-js', self.TEST_NAME, 'Receiver.js')
+        rhea_snd_shim = os.path.join(QIT_SHIM_HOME, 'rhea-js', self.TEST_NAME, 'Sender.js')
+        if os.path.isfile(rhea_rcv_shim) and os.path.isfile(rhea_snd_shim):
             self.shim_map[qpid_interop_test.qit_shim.RheaJsShim.NAME] = \
                 qpid_interop_test.qit_shim.RheaJsShim(rhea_snd_shim, rhea_rcv_shim)
         else:
             print('WARNING: Rhea Javascript shims not found')
 
         # AMQP DotNetLite client
-        amqpnetlite_rcv_shim = path.join(QIT_TEST_SHIM_HOME, 'amqpnetlite', self.TEST_NAME, 'Receiver', 'Receiver.dll')
-        amqpnetlite_snd_shim = path.join(QIT_TEST_SHIM_HOME, 'amqpnetlite', self.TEST_NAME, 'Sender', 'Sender.dll')
-        if path.isfile(amqpnetlite_rcv_shim) and path.isfile(amqpnetlite_snd_shim):
+        amqpnetlite_rcv_shim = os.path.join(QIT_SHIM_HOME, 'amqpnetlite', self.TEST_NAME, 'Receiver', 'Receiver.dll')
+        amqpnetlite_snd_shim = os.path.join(QIT_SHIM_HOME, 'amqpnetlite', self.TEST_NAME, 'Sender', 'Sender.dll')
+        if os.path.isfile(amqpnetlite_rcv_shim) and os.path.isfile(amqpnetlite_snd_shim):
             self.shim_map[qpid_interop_test.qit_shim.AmqpNetLiteShim.NAME] = \
                 qpid_interop_test.qit_shim.AmqpNetLiteShim(amqpnetlite_snd_shim, amqpnetlite_rcv_shim)
         else:
@@ -416,14 +416,14 @@ class QitJmsTest(QitTest):
 
         qpid_jms_rcv_shim = 'org.apache.qpid.interop_test.%s.Receiver' % self.TEST_NAME
         qpid_jms_snd_shim = 'org.apache.qpid.interop_test.%s.Sender' % self.TEST_NAME
-        classpath_file_name = path.join(QIT_TEST_SHIM_HOME, 'qpid-jms', 'cp.txt')
-        if path.isfile(classpath_file_name):
+        classpath_file_name = os.path.join(QIT_SHIM_HOME, 'qpid-jms', 'cp.txt')
+        if os.path.isfile(classpath_file_name):
             with open(classpath_file_name, 'r') as classpath_file:
                 classpath = classpath_file.read()
         else:
-            classpath = path.join(QIT_TEST_SHIM_HOME, 'qpid-jms',
+            classpath = os.path.join(QIT_SHIM_HOME, 'qpid-jms',
                                   'qpid-interop-test-jms-shim-%s-jar-with-dependencies.jar' % QPID_JMS_SHIM_VER)
-            if not path.isfile(classpath):
+            if not os.path.isfile(classpath):
                 print('WARNING: Jar not found: %s' % classpath)
 
         self.shim_map[qpid_interop_test.qit_shim.QpidJmsShim.NAME] = \
