@@ -32,13 +32,10 @@ from qpid_interop_test.qit_errors import InteropTestTimeout
 
 class ShimProcess(subprocess.Popen):
     """Abstract parent class for Sender and Receiver shim process"""
-    def __init__(self, params, python3_flag, proc_name):
+    def __init__(self, params, proc_name):
         self.proc_name = proc_name
         self.killed_flag = False
         self.env = copy.deepcopy(os.environ)
-        if python3_flag:
-            if 'PYTHON3PATH' in self.env:
-                self.env['PYTHONPATH'] = self.env['PYTHON3PATH']
         super().__init__(params, stdout=subprocess.PIPE, stderr=subprocess.PIPE, preexec_fn=os.setsid, env=self.env)
 
     def wait_for_completion(self, timeout):
@@ -84,15 +81,15 @@ class ShimProcess(subprocess.Popen):
 
 class Sender(ShimProcess):
     """Sender shim process"""
-    def __init__(self, params, python3_flag, proc_name='Sender'):
-        #print('\n>>>SNDR>>> %s python3_flag=%s' % (params, python3_flag))
-        super().__init__(params, python3_flag, proc_name)
+    def __init__(self, params, proc_name='Sender'):
+        #print('\n>>>SNDR>>> %s' % params)
+        super().__init__(params, proc_name)
 
 class Receiver(ShimProcess):
     """Receiver shim process"""
-    def __init__(self, params, python3_flag, proc_name='Receiver'):
-        #print('\n>>>RCVR>>> %s python3_flag=%s' % (params, python3_flag))
-        super().__init__(params, python3_flag, proc_name)
+    def __init__(self, params, proc_name='Receiver'):
+        #print('\n>>>RCVR>>> %s' % params)
+        super().__init__(params, proc_name)
 
 class Shim:
     """Abstract shim class, parent of all shims."""
@@ -110,14 +107,14 @@ class Shim:
         args = []
         args.extend(self.send_params)
         args.extend([broker_addr, queue_name, test_key, json_test_str])
-        return Sender(args, 'Python3' in self.NAME)
+        return Sender(args)
 
     def create_receiver(self, broker_addr, queue_name, test_key, json_test_str):
         """Create a new receiver instance"""
         args = []
         args.extend(self.receive_params)
         args.extend([broker_addr, queue_name, test_key, json_test_str])
-        return Receiver(args, 'Python3' in self.NAME)
+        return Receiver(args)
 
 
 class ProtonPython3Shim(Shim):

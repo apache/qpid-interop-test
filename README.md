@@ -51,16 +51,16 @@ directory. The very short version of this is as follows:
 1. Write a pair of client programs using the client API under test. The first
 is a sender which reads the following from the command-line:
 
-    `<broker address> <amqp type> <JSON string: test values> ...`
-    
+    `sender <broker address> <amqp type> <JSON string: test values> ...`
+
     and is responsible for sending messages containing the test values each in a
     single message in the appropriate AMQP type format.
-    
+
     The second client program is a receiver, and must read the following from the
     command-line
-    
-    `<broker address> <amqp type> <JSON string: num messages>`
-    
+
+    `receiver <broker address> <amqp type> <JSON string: num messages>`
+
     and is responsible for receiving <num messages> messages from the broker and
     printing the bodies of the received messages appropriately decoded for type
     <amqp type>. The printed output will be a JSON string containing the identical
@@ -75,4 +75,3 @@ in step 1 above.
 3. Add an instance of your new shim class to `SHIM_MAP` keyed against its name.
 
 That's it!
-

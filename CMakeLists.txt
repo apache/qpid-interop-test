@@ -113,14 +113,11 @@ if(NOT "${retcode}" STREQUAL "0")
     message(FATAL_ERROR "Data code file generation for .Net failed: ${retcode}")
 endif()
 
-configure_file(config.sh.in config.sh @ONLY)
+configure_file(bin/qpid-interop-test.in bin/qpid-interop-test @ONLY)
 
 install (DIRECTORY src/python/qpid_interop_test
-         DESTINATION ${CMAKE_INSTALL_PREFIX}
+         DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
          PATTERN ".gitignore" EXCLUDE)
-install (DIRECTORY bin
-         DESTINATION ${CMAKE_INSTALL_PREFIX}
-         FILE_PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ
-         PATTERN ".gitignore" EXCLUDE)
-install(FILES build/config.sh
-        DESTINATION ${CMAKE_INSTALL_PREFIX}/libexec/qpid_interop_test/)
+install(FILES build/bin/qpid-interop-test
+        DESTINATION ${CMAKE_INSTALL_PREFIX}/bin/
+        PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ WORLD_READ WORLD_EXECUTE)

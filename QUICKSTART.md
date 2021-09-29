@@ -34,78 +34,79 @@ The following tools are needed to build qpid-interop-test:
 
  * git
  * gcc-c++
- * Python 2.7.x
- * Python 3.x
+ * python3-devel
+ * make
  * cmake
- * Java JDK
- * Maven
- * JSON cpp
+ * java-11-openjdk-devel
+ * maven
+ * jsoncpp-devel
+
+These may be found on relatively recent distributions such as:
+
+ * Fedora
+ * Ubuntu
+ * RHEL 8+
 
 The following Qpid components must be installed *before* you build and install
 qpid-interop-test:
 
- * Qpid Proton C++ development
- * Qpid Python
- * Python2 Qpid Proton
- * Python3 Qpid Proton
+ * qpid-proton-cpp-devel
+ * python3-qpid-proton
 
 The following are not required, but if installed and present, will be tested:
 
- * Rhea (a JavaScript client, also requires npm and nodejs)
- * AMQP.Net Lite (requires mono)
- 
+ * Rhea https://github.com/amqp/rhea.git (a JavaScript AMQP client, also requires nodejs-devel)
+ * dotnet-sdk-5.0
+
 In addition, if you wish to run the tests against a broker on the build machine,
 it will be necessary to have a running broker. One of the following may be
 installed and started against which to run the interop tests as a local broker:
- 
+
  * Artemis Java broker
- * ActiveMQ Java broker
- * Qpid C++ broker
  * Qpid Dispatch router (which may be used as a single node, or as part of a
- routed configuration)
+ routed configuration) qpid-dispatch-router
 
 Any AMQP 1.0 broker should work. Tests can also be run against a
 remote broker provided the broker IP address is known.
 
 These pre-requisites can be installed using the standard system package manager
-(yum, dnf, apt-get etc.) OR built from source and installed.
+(dnf, apt-get etc.) OR built from source and installed.
 
 These are the install steps:
 
 1. Install prerequisites, from packages or source
-2. Install or download / build AMQP brokers to test against
-3. Build qpid-interop-test
-4. Run the tests
+2. Build qpid-interop-test
+3. Run the tests
 
 ## 2. Install prerequisites
 
 If installing prerequisites from packages, the following are some suggestions
 
-### 2.1 RHEL7
+### 2.1 RHEL8
 
 From a clean install:
 
 ````
-yum install cmake maven java-1.8.0-openjdk-devel perl-XML-XPath
+dnf install cmake maven java-1.11.0-openjdk-devel
 ````
 
 Some packages will need to be downloaded from [EPEL](https://fedoraproject.org/wiki/EPEL).
 To set up the EPEL repo in yum:
 
 ````
-wget https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
-yum install epel-release-latest-7.noarch.rpm
+wget https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+yum install epel-release-latest-8.noarch.rpm
 ````
 
 then install the following packages:
 
 ````
-yum -y install jsoncpp-devel nodejs-rhea qpid-proton-cpp-devel python-qpid-proton qpid-proton-cpp-devel python2-qpid-proton
+dnf -y install jsoncpp-devel nodejs-rhea qpid-proton-cpp-devel python-qpid-proton qpid-proton-cpp-devel python2-qpid-proton
 ````
 
-Note that RHEL6 is not supported because it uses Python 2.6.x, and the test code uses features of Python 2.7.x.
+Note that RHEL6 and 7 are not supported because they standardize Python 2.7.x.
 
-### 2.2 Fedora 28
+### 2.2 Fedora 34
 
 All packages are available directly from the Fedora repositories:
 
@@ -113,7 +114,7 @@ All packages are available directly from the Fedora repositories:
 dnf -y install gcc-c++ cmake maven java-1.8.0-openjdk-devel perl-XML-XPath jsoncpp-devel nodejs-rhea qpid-proton-cpp-devel python-qpid-proton qpid-proton-cpp-devel python2-qpid-proton python3-qpid-proton
 ````
 
-### 2.3 CentOS7 Docker image
+### 2.3 CentOS8 Docker image
 
 Docker images come with only the bare essentials, so there is more to install than a standard bare-metal install:
 
@@ -138,82 +139,13 @@ yum -y install mono-devel python34-devel jsoncpp-devel nodejs-rhea qpid-proton-c
 Note that at the time of release, there is no python3-qpid-proton package available for CentOS7, but this should be available soon. Tests should be run with
 the --exclude-shim ProtonPython3 flag to avoid errors.
 
-### 2.4 Fedora 28 Docker image
+### 2.4 Fedora 34 Docker image
 
 ````
 dnf -y install vim unzip wget procps-ng git gcc-c++ make cmake maven swig java-1.8.0-openjdk-devel perl-XML-XPath python-devel mono-devel python3-devel jsoncpp-devel nodejs-rhea python-qpid-proton qpid-proton-cpp-devel python2-qpid-proton python3-qpid-proton
 ````
 
-## 3. Obtaining a broker
-
-Qpid-interop-test requires a running broker to be available. This
-may be on localhost as a local install or build, or on another machine, in which case its
-IP addresss must be known. Some local broker install options are:
-
-### 3.1 ActiveMQ 5
-
-Download from [Apache](http://activemq.apache.org/download.html).
-
-Make the following changes to the `activemq.xml` config file: For XML element
-`broker.transportConnectors.transportConnector@name="amqp"` add the attribute
-`wireFormat.allowNonSaslConnections=true`. ie:
-
-````
-<transportConnector name="amqp" uri="amqp://0.0.0.0:5672?maximumConnections=1000&amp;wireFormat.maxFrameSize=1048576000&amp;wireFormat.allowNonSaslConnections=true"/>
-````
-
-### 3.2 Artemis
-
-Download from [Apache](https://activemq.apache.org/artemis/download.html).
-
-### 3.3 Qpid cpp broker
-
-    yum -y install qpid-cpp-server # CentOS7/RHEL
-
-or
-
-    dnf -y install qpid-cpp-server # Fedora 28
-
-and set the configuration file in /etc/qpid/qpidd.conf as follows:
-
-````
-auth=no
-queue-patterns=qit
-````
-
-The broker may be started via service, but if running in a Docker container, this may not work. In this case, start the broker directly:
-
-    /sbin/qpidd -d
-
-and can be stopped with
-
-    /sbin/qpidd -q
-
-### 3.4 Qpid Dispatch Router
-
-    yum install qpid-dispatch-router
-
-and add the following to the config file in /etc/qpid-dispatch/qdrouterd.conf:
-
-````
-listener {
-    host: ::1
-    port: amqp
-    authenticatePeer: no
-    saslMechanisms: ANONYMOUS
-}
-
-````
-
-The broker may be started via service, but if running in a Docker container, this may not work. In this case, start the broker directly:
-
-    /sbin/qdrouterd -d
-
-and can be stopped with
-
-    pkill qdrouterd # Needs procps-ng package installed in Docker containers
-
-## 4. Install qpid-interop-test
+## 3. Build and install qpid-interop-test
 
 Qpid-interop-test may be installed locally (preferred for local builds) or to the system
 (which requires root privileges). For a local install, use the `-DCMAKE_INSTALL_PREFIX`
@@ -249,9 +181,9 @@ If you are a developer working on changes to qpid-interop-test itself, the
 source repository can be cloned from git as follows:
 
     git clone https://gitbox.apache.org/repos/asf/qpid-interop-test.git
-    
+
 or
-    
+
     git clone https://github.com/apache/qpid-interop-test.git
 
 
@@ -259,7 +191,7 @@ or
 
 ### 5.1 Set the environment
 
-The config.sh script is in the qpid-interop-test build directory: 
+The config.sh script is in the qpid-interop-test build directory:
 
 ````
 source build/config.sh
@@ -360,7 +292,7 @@ not defined or `Amqp.Net.dll` was not found in the path.
 ### 6.2 Rhea JavaScript Client
 
 The following packages need to be installed:
- 
+
  * nodejs
  * npm
 

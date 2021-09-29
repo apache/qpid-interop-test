@@ -36,8 +36,9 @@ QPID_JMS_SHIM_VER = '0.3.0-SNAPSHOT'
 
 # Find shim directory
 PREFIX_LIST = [os.path.join(os.sep, 'usr', 'local')]
-if 'PYTHONPATH' in os.environ:
-    PREFIX_LIST.extend(os.getenv('PYTHONPATH').split(':'))
+if 'CMAKE_INSTALL_PREFIX' in os.environ:
+    PREFIX_LIST.append(os.getenv('CMAKE_INSTALL_PREFIX'))
+QIT_SHIM_HOME = None
 for prefix in PREFIX_LIST:
     if os.path.exists(os.path.join(prefix, 'libexec', 'qpid_interop_test')):
         QIT_SHIM_HOME = os.path.join(prefix, 'libexec', 'qpid_interop_test', 'shims')
