@@ -28,33 +28,6 @@ project (qpid-interop-test-amqpnetlite-shims)
 cmake_minimum_required(VERSION 3.16.3 FATAL_ERROR)
 
 
-# Check for presence of dotnet assembly
-MACRO (check_dotnet_assembly
-       env_var               # Environment variable name to be checked containing path to directory
-       file_name             # Name of file in directory to be checked
-       found_flag)           # Variable which will contain ON or OFF if successfully found
-  if ("${${env_var}}" STREQUAL "")
-    message(STATUS "AMQP.Net Lite shim requires '${file_name}' to be in folder located in '${env_var}' environment variable, but '${env_var}' is not defined.")
-    set(${found_flag} OFF)
-  else()
-    if (NOT EXISTS ${${env_var}})
-      # Env var "env_var" is set, check if its value is a directory
-      message(STATUS "AMQP.Net Lite shim requires '${file_name}' to be in folder located in '${env_var}' environment variable")
-      message(STATUS "AMQP.Net Lite library directory '${${env_var}}' does not exist.")
-      set(${found_flag} OFF)
-    else()
-      # Check file "file_name" exists in directory contained in env var "env_var"
-      if (EXISTS ${${env_var}}/${file_name})
-        message(STATUS "Required dll found: ${${env_var}}/${file_name}")
-      else()
-        message(STATUS "AMQP.Net Lite shim requires '${file_name}' to be in folder located in '${env_var}' environment variable, but was not found")
-        set(${found_flag} OFF)
-      endif()
-    endif()
-  endif()
-ENDMACRO(check_dotnet_assembly)
-
-
 # Configure/build/install a single test
 MACRO (define_lite_test
        testname)             # Name of test
@@ -74,7 +47,7 @@ MACRO (define_lite_test
     COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/${testname}/Sender/Sender.cs ${CMAKE_BINARY_DIR}/shims/amqpnetlite/src/${testname}/Sender/
     COMMAND dotnet add package AMQPNetLite
     COMMAND dotnet add package Newtonsoft.Json
-    COMMAND dotnet publish --output ${LITE_INSTALL_ROOT}/${testname}/Sender/ --verbosity minimal
+    #COMMAND dotnet publish --output ${LITE_INSTALL_ROOT}/${testname}/Sender/ --verbosity minimal
     DEPENDS
       ${CMAKE_CURRENT_BINARY_DIR}/${testname}/Sender/Sender.csproj
       ${CMAKE_CURRENT_SOURCE_DIR}/${testname}/Sender/Sender.cs
@@ -87,7 +60,7 @@ MACRO (define_lite_test
     ALL
     COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/${testname}/Receiver/Receiver.cs ${CMAKE_BINARY_DIR}/shims/amqpnetlite/src/${testname}/Receiver/
     COMMAND dotnet add package AMQPNetLite
-    COMMAND dotnet publish --output ${LITE_INSTALL_ROOT}/${testname}/Receiver/ --verbosity minimal
+    #COMMAND dotnet publish --output ${LITE_INSTALL_ROOT}/${testname}/Receiver/ --verbosity minimal
     DEPENDS
       ${CMAKE_CURRENT_BINARY_DIR}/${testname}/Receiver/Receiver.csproj
       ${CMAKE_CURRENT_SOURCE_DIR}/${testname}/Receiver/Receiver.cs
@@ -95,10 +68,20 @@ MACRO (define_lite_test
     COMMENT Cross compiling amqpnetlite ${testname}/Receiver
   )
 
+  install(
+    CODE "EXECUTE_PROCESS (
+          COMMAND dotnet publish --output ${LITE_INSTALL_ROOT}/${testname}/Sender/ --verbosity minimal
+          WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${testname}/Sender
+          )"
+  )
+  install(
+    CODE "EXECUTE_PROCESS (
+          COMMAND dotnet publish --output ${LITE_INSTALL_ROOT}/${testname}/Receiver/ --verbosity minimal
+          WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${testname}/Receiver
+          )"
+  )
+
 ENDMACRO (define_lite_test)
-
-
-
 
 set(build_amqpnetlite_default ON)  # Set BUILD_AMQPNETLITE control variable based on prerequisites being present
 set(REQUIRED_DOTNET_VERSION 5.0)
