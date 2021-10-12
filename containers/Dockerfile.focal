@@ -1,0 +1,25 @@
+FROM public.ecr.aws/lts/ubuntu:focal
+
+RUN apt-get update
+RUN apt-get install -y wget apt-transport-https software-properties-common
+RUN add-apt-repository ppa:qpid/testing
+RUN wget https://packages.microsoft.com/config/ubuntu/21.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
+RUN dpkg -i packages-microsoft-prod.deb
+RUN apt-get update
+RUN export DEBIAN_FRONTEND=noninteractive; apt-get install -y sudo git cmake build-essential libjsoncpp-dev python3-dev maven openjdk-11-jdk libnode-dev aspnetcore-runtime-5.0
+RUN export DEBIAN_FRONTEND=noninteractive; apt-get install -y libqpid-proton-cpp12-dev python3-qpid-proton qdrouterd
+
+ARG USER_ID=qit
+RUN useradd --create-home ${USER_ID}
+RUN echo "${USER_ID} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+USER ${USER_ID}
+WORKDIR /home/${USER_ID}
+
+RUN git clone https://github.com/amqp/rhea.git
+RUN git clone https://gitbox.apache.org/repos/asf/qpid-interop-test.git && \
+    cd qpid-interop-test && \
+    mkdir build && \
+    cd build && \
+    cmake .. && \
+    make && \
+    sudo make install

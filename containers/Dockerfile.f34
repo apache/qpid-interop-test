@@ -1,0 +1,20 @@
+FROM registry.fedoraproject.org/fedora:34
+
+RUN dnf -q -y update && dnf -q clean all
+RUN dnf -y install git make cmake gcc-c++ jsoncpp-devel python3-devel maven java-11-openjdk-devel nodejs-devel dotnet-sdk-5.0
+RUN dnf -y install qpid-proton-cpp-devel python3-qpid-proton qpid-dispatch-router
+
+ARG USER_ID=qit
+RUN useradd --create-home ${USER_ID}
+RUN echo "${USER_ID} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+USER ${USER_ID}
+WORKDIR /home/${USER_ID}
+
+RUN git clone https://github.com/amqp/rhea.git
+RUN git clone https://gitbox.apache.org/repos/asf/qpid-interop-test.git && \
+    cd qpid-interop-test && \
+    mkdir build && \
+    cd build && \
+    cmake .. && \
+    make && \
+    sudo make install

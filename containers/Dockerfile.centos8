@@ -1,0 +1,27 @@
+FROM quay.io/centos/centos:8
+
+RUN dnf -q -y update && dnf -q clean all
+RUN dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+RUN dnf -y install sudo git make cmake gcc-c++ jsoncpp-devel python3-devel maven java-11-openjdk-devel nodejs-devel dotnet-sdk-5.0
+RUN dnf -y install qpid-proton-cpp-devel python3-qpid-proton qpid-dispatch-router
+
+RUN JAVA_11=$(alternatives --display java | grep 'family java-11-openjdk' | cut -d' ' -f1) && \
+    alternatives --set java ${JAVA_11} && \
+    JAVAC_11=$(alternatives --display javac | grep 'family java-11-openjdk' | cut -d' ' -f1) && \
+    alternatives --set javac ${JAVAC_11}
+
+ARG USER_ID=qit
+RUN useradd --create-home ${USER_ID}
+RUN echo "${USER_ID} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+USER ${USER_ID}
+WORKDIR /home/${USER_ID}
+
+RUN git clone https://github.com/amqp/rhea.git
+RUN export JAVA_HOME=$(dirname $(dirname $(alternatives --display javac | grep 'javac' | grep 'link' | awk '{print $NF}'))) && \
+    git clone https://gitbox.apache.org/repos/asf/qpid-interop-test.git && \
+    cd qpid-interop-test && \
+    mkdir build && \
+    cd build && \
+    cmake .. && \
+    make && \
+    sudo make install
