@@ -15,6 +15,9 @@ limitations under the License.
 
 Issues addressed by release:
 
+Version 0.3.0
+-------------
+
 Version 0.2.0
 -------------
 Bug

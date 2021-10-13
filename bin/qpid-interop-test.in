@@ -23,11 +23,11 @@ import os
 import subprocess
 import sys
 
-TEST_NAME_LIST = ['amqp_types_test',
-                  'amqp_complex_types_test',
-                  'amqp_large_content_test',
-                  'jms_messages_test',
-                  'jms_hdrs_props_test']
+TEST_NAME_LIST = ['amqp-types-test',
+                  'amqp-complex-types-test',
+                  'amqp-large-content-test',
+                  'jms-messages-test',
+                  'jms-hdrs-props-test']
 
 class TestOptions:
     """ Test options for QIT entry point """
@@ -38,7 +38,7 @@ class TestOptions:
             sys.exit(1)
         test_name = sys.argv[1]
         if test_name in ['-h', '--help', 'help']:
-            self._usage(sys.argv[0])
+            self._usage(sys.argv[0], True)
             sys.exit()
         if test_name not in TEST_NAME_LIST and test_name != 'all':
             print('ERROR: Invalid test name.\n')
@@ -48,14 +48,16 @@ class TestOptions:
         self.test_opts = sys.argv[2:] if len(sys.argv) > 2 else None
 
     @staticmethod
-    def _usage(argv0):
+    def _usage(argv0, help_flag=False):
         prog_name = argv0.split('/')[-1]
-        print(f'{prog_name} --help:  Print help')
-        print(f'{prog_name} test-name [test-options]')
-        print(f'    test-name:             One of {TEST_NAME_LIST},')
-        print( '                           or "all" to run all tests sequentially.')
-        print( '    test-options:          Optional arguments for test.')
-        print(f'{prog_name} test-name --help: Help for test-name')
+        if help_flag:
+            print('A test suite which sends AMQP messages between different clients to test interoperability.')
+        print('Usage:')
+        print(f'  {prog_name} --help:  Print help and exit')
+        print(f'  {prog_name} test-name [test-options...]:  Run test <test-name>')
+        print(f'      test-name:             Required, one of {TEST_NAME_LIST},')
+        print( '                             or "all" to run all tests sequentially')
+        print( '      test-options:          Optional arguments for test, or --help to see test-specific options')
 
 if __name__ == "__main__":
     # Set the environment so proton and QIT can be found
@@ -72,7 +74,8 @@ if __name__ == "__main__":
     for this_test_name in TEST_OPTIONS.test_list:
         if len(TEST_OPTIONS.test_list) > 1:
             print(f'=== {this_test_name} ===')
-        subprocess_args = ['python3', '-m', f'qpid_interop_test.{this_test_name}']
+        py_module_name = this_test_name.replace('-', '_')
+        subprocess_args = ['python3', '-m', f'qpid_interop_test.{py_module_name}']
         if TEST_OPTIONS.test_opts is not None:
             subprocess_args.extend(TEST_OPTIONS.test_opts)
         try:
