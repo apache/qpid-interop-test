@@ -41,7 +41,7 @@ available, and can handle the necessary data structure.
 
 1. Test name and location
 =========================
-Each Test is a single stand-alone Python program located in the 
+Each Test is a single stand-alone Python program located in the
 src/python/qpid_interop_test directory. The test is named
 <test-name>_test.py
 
@@ -57,20 +57,37 @@ The following modules are available to Tests:
   uses of this is to conditionally skip certain tests which fail based
   on the broker against which they are running.
 
-2.2 qit_errors.py
+2.2 qit_common.py
+-----------------
+  Code and classes common to most tests.
+
+  This module includes class QitTestTypeMap which contains empty maps
+  useful for storing test data vs data type for some tests. The class
+  containing this map is subclasses and populated with test data for
+  each test. This implies that the test data is saved as literals
+  within the Test itself (which is current practice). However, using
+  this technique is optional, and test data can be obtained by any
+  useful means, so long as it is easy to access and maintain.
+
+  NOTE: All tests except amqp_complex_types_test use this technique.
+
+  NOTE: Test amqp_complex_types_test stores its test data in JSON
+  files, then uses a code generator to emit test code for each client.
+
+2.3 qit_errors.py
 -----------------
   Defines error classes for use with tests. Currently this only
   defines a single error class (InteropTestError) which accepts
   a text error message, but more complex error classes may
   be added if needed.
 
-2.3 qit_jms_types.py
+2.4 qit_jms_types.py
 --------------------
   Used by JMS tests, this module defines common QpidJms values and
   operations.
 
-2.4 shims.py
-------------
+2.5 qit_shim.py
+---------------
   This module defines the interface for calling, sending parameters
   to and receiving data from Shims.
 
@@ -121,33 +138,26 @@ The following modules are available to Tests:
   the shim independently from the test using these parameters. This is
   especially useful if you need to use a debugger on the shim.
 
-2.5 test_type_map.py
+2.5 qit_xunit_log.py
 --------------------
-  This module contains a map useful for storing test data vs data type
-  for some tests. This implies that the test data is saved as literals
-  within the Test itself (which is current practice). However, using
-  this technique is optional, and test data can be obtained by any
-  useful means, so long as it is easy to access and maintain.
-
-  NOTE: There is some thought going into changing this so that test data
-  is stored in some test data file rather than as literals in the Test
-  itself. Some changes to the current tests to support this may be proposed
-  soon.
-
-NOTE: There is ongoing work to condense common code into modules which
-may be shared between Tests without the need to duplicate.
+  This module allows test results to be stored in xunit format.
 
 3. Command-line options
 =======================
-The Test should accept the following command-line options:
-parameter name | action     | default        | metavar      | help
----------------+------------+----------------+--------------+------ 
---sender       | store      | localhost:5672 | IP-ADDR:PORT | Node to which test suite will send messages
---receiver     | store      | localhost:5672 | IP-ADDR:PORT | Node from which test suite will receive messages
---no-skip      | store_true |                |              | Do not skip tests that are excluded by default for reasons of a known bug [1]
---broker-type  | store      |                | BROKER_NAME  | Disable test of broker type (using connection properties) by specifying the broker name, or "None" [2]
---include-shim | append     |                | SHIM-NAME    | Name of shim to include [3][4]
---exclude-shim | append     |                | SHIM-NAME    | Name of shim to exclude [3][5]
+The Tests should accept the following command-line options:
+parameter         | action     | default          | metavar      | help
+------------------+------------+------------------+--------------+------
+--sender          | store      | localhost:5672   | IP-ADDR:PORT | Node to which test suite will send messages
+--receiver        | store      | localhost:5672   | IP-ADDR:PORT | Node from which test suite will receive messages
+--no-skip         | store_true |                  |              | Do not skip tests that are excluded by default for reasons of a known bug [1]
+--broker-type     | store      |                  | BROKER_NAME  | Disable test of broker type (using connection properties) by specifying the broker name, or "None" [2]
+--timeout         | store      |  varies per test | SEC          | Timeout for test in seconds (%d sec). If test is not complete in this time, it will be terminated
+--include-shim    | append     |                  | SHIM-NAME    | Name of shim to include [3][4]
+--exclude-shim    | append     |                  | SHIM-NAME    | Name of shim to exclude [3][5]
+--xunit-log       | store_true |                  |              | Enable xUnit logging of test results
+--xunit-log-dir   | store      | cwd()/xunit_logs | LOG-DIR-PATH | Default xUnit log directory where xUnit logs are written [xunit_logs dir in current directory (%s)]
+--description     | store      |                  | DESCR        | Detailed description of test, used in xUnit logs
+--broker-topology | store      |                  | DESCR        | Detailed description of broker topology used in test, used in xUnit logs
 
 Notes:
 [1] --no-skip: Only applies if you are using the broke name (through
@@ -177,9 +187,9 @@ Tests perform the following tasks:
 
 4.1 Define test cases (and data)
 --------------------------------
-This is generally done by subclassing TestTypeMap (see 2.5 above). However,
-any method to obtain a map containing test cases as the index and the test
-data for that case as the value is appropriate.
+This is generally done by subclassing class QitTestTypeMap (see 2.2
+above). However, any method to obtain a map containing test cases as
+the index and the test data for that case as the value is appropriate.
 
 If known test failures exist for certain brokers, then define a
 BROKER_SKIP map in which the affected test cases are the index,
@@ -198,20 +208,21 @@ reporting of issues.
 
 4.2 Define your test class
 --------------------------
-Derive your test class from unittest.TestCase. Make sure it has a run_test()
-method should receive as parameters the send and receive shim objects being
-used for this test case. This method should perform the following tasks:
+Derive your test class from class QitTestCase. Make sure it has a run_test()
+method, and which should receive as parameters the send and receive shim
+objects being used for this test case. This method should perform the
+following tasks:
 * Create a unique queue name for this test;
 * Create a Sender object by calling the shim create_sender() method;
 * Create a Receiver object by calling the shim create_receiver() method;
 * Run the Sender and Receiver by calling the start() method on each object.
-  This will cause the Shims to be called through the OS.
+  This will cause the Shims to be called on separate threads through the OS.
 * Wait for the Sender and Receiver shims to finish executing by calling
   join().
-* Process any returned errors by failing the test
+* Process any returned errors by failing the test.
 * If no errors are present, process the returned data and make a decision
-  to pass or fail the test. Methods from unittest.TestCase (such as
-  assertEqual() or fail() will be needed.
+  to pass or fail the test based on the received data values. Usually these
+  are compared with the sent values to determine correctness.
 
 4.3 Create your test cases
 --------------------------
@@ -221,8 +232,8 @@ different and specific, then using the static method will work better
 
 4.3.1 Static tests methods
 --------------------------
-Create one method per test labeled test<test_name> to the test class. See
-https://docs.python.org/2.7/library/unittest.html for details. Each test should
+Create one method per test labeled test<test_name> in the test class. See
+https://docs.python.org/3.8/library/unittest.html for details. Each test should
 accomplish a single objective using a single or limited set of similar
 messages.
 
@@ -231,12 +242,14 @@ messages.
 Were tests consist of the permutations and combinations of a number of test
 shims and test values, it is possible to create the test methods dynamically
 which saves a lot of error and repetition. An example may be found in
-amqp_types-test, where the method is create_testcase_class(amqp_type, shim_product).
+amqp_types-test, where the method which creates the test is
+create_testcase_class(amqp_type, shim_product, timeout).
 
 4.4 Add test options
 --------------------
 Use argparse.ArgumentParser to add test arguments. See section 3 above for
-recommended options.
+recommended options. Individual tests may also define additional test-specific
+options as needed to control/modify that test.
 
 4.5 Create a shim map
 ---------------------

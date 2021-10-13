@@ -33,7 +33,6 @@ under test. For example, the amqp_types test has shims for the following
 clients:
 * AmqpNetLite
 * ProtonCpp
-* ProtonPython2
 * ProtonPython3
 * RheaJS
 
@@ -116,7 +115,7 @@ environment settings need be made.
  $ make
  $ sudo make install
 ----
-   
+
 *Local install:*
 ----
  $ cd qpid-interop-test
@@ -220,7 +219,7 @@ an issue open to address this limitation.
                `--exclude-type`. May be used multiple times to include more than one type.
 |`--exclude-type` |Name of JMS message type to exclude. Cannot be used together with
                `--include-type`. May be used multiple times to exclude more than one type.
-|===               
+|===
 
 .jms-hdrs-props-test
 [cols="20%,80%"]
@@ -250,7 +249,7 @@ as follows (first set up the brokers and routers):
 +----------+          +----------+         |        |
                                            | broker |
 +----------+     9002 +----------+    5672 |        |
-| receiver |<---------| dispatch |<--------|        |         
+| receiver |<---------| dispatch |<--------|        |
 |  shim    |          | router 2 |         |        |
 +----------+          +----------+         +--------+
 ----
@@ -279,4 +278,3 @@ will be generated at the conclusion of the test in the `xunit_logs` directory. T
 using the `--xunit-log-dir` command-line option. Log file management is the responsibility of the user, and if
 xunit logging is used regularly, these files will accumulate, possibly exhausting the available disk space. NOTE
 that if a test is interrupted (by using ctl+c, for example), then the log files will not be generated.)
-

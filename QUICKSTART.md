@@ -67,29 +67,28 @@ Qpid Python 3 bindings  | `python3-qpid-proton`   | `python3-qpid-proton`[^1]   
 The following are not required, but if installed and present, will be tested:
 
  * Rhea, a JavaScript AMQP client (https://github.com/amqp/rhea.git)
- * dotnet-sdk-5.0
+ * .NET SDK 5.0 (https://docs.microsoft.com/en-us/dotnet/core/install/linux)
 
 Tool                | Fedora 34 & CentOS 8    | Ubuntu Focal                 |
 --------------------|-------------------------|------------------------------|
 node-js (devel)[^2] | `nodejs-devel`          | `libnode-dev`                |
-dotnet SDK 5.0[^3]  | `dotnet-sdk-5.0`        | `aspnetcore-runtime-5.0`[^4] |
+.NET SDK 5.0[^3]    | `dotnet-sdk-5.0`        | `aspnetcore-runtime-5.0`[^4] |
 
 [^2]: Required to run Rhea Javascript client.
 [^3]: Required to run Amqp DotNet Lite client.
 [^4]: Must have `packages-microsoft-prod.deb` installed from Microsoft to install this package.
 
-In addition, if you wish to run the tests against a broker on the build machine,
-it will be necessary to have a running broker. One of the following may be
-installed and started against which to run the tests as a local broker:
+In addition, if you wish to run the tests against a local broker on the build machine,
+it will be necessary to install one. One of the following may be installed and started:
 
  * Artemis Java broker (https://activemq.apache.org/components/artemis/download/)
  * Qpid Dispatch router, which may be used as a single node, or as part of a
  routed configuration. This is available in many distributions as a package.
  (https://qpid.apache.org/components/dispatch-router/index.html)
 
-Tool                 | Fedora 34 & CentOS 8    | Ubuntu Focal   |
----------------------|-------------------------|----------------|
-Qpid Dispatch Router | `qpid-dispatch-router ` | `qdrouterd`    |
+Tool                 | Fedora 34 & CentOS 8    | Ubuntu Focal    |
+---------------------|-------------------------|-----------------|
+Qpid Dispatch Router | `qpid-dispatch-router ` | `qdrouterd`[^1] |
 
 Any AMQP 1.0 broker should work.
 
