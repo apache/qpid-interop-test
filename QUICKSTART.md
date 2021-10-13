@@ -27,10 +27,15 @@ You must build *and install* qpid-interop-test before you can run the tests.
 The process follows the traditional steps:
 
 * Install prerequisites
-* Cmake build
-* Cmake install (may require root privileges)
+* Install source
+* Cmake / make / sudo make install
 * Start a test broker against which to run the tests
 * Run the tests
+
+or to use containers:
+
+* podman build
+* podman run
 
 ## 2. Prerequisites
 
@@ -38,183 +43,186 @@ Qpid Interop Test should build and run on any reasonably recent distribution
 of Linux for which the prerequisite packages listed below are available.
 
 By default, qpid-interop-test will install to `/usr/local` (and will thus also
-require root privileges), but you can set any non-privileged directory as the
+require root privileges), but you can use any non-privileged directory as the
 install prefix using the `CMAKE_INSTALL_PREFIX` environment variable, for
-example `${HOME}/install`.
+example `${HOME}/install` or `/tmp/qit`.
 
 The following tools are needed to build qpid-interop-test:
 
-Tool                    | Fedora 34 & CentOS 8  | Ubuntu Focal                |
-------------------------|-----------------------|-----------------------------|
-git                     | git                   | git                         |
-make                    | make                  | make                        |
-cmake                   | cmake                 | cmake                       |
-GNU C++ compiler        | gcc-c++               | build-essential             |
-JSON C++ (devel)        | jsoncpp-devel         | libjsoncpp-dev              |
-Python 3 (devel)        | python3-devel         | python3-dev                 |
-Maven                   | maven                 | maven                       |
-Java 11 (devel)         | java-11-openjdk-devel | openjdk-11-jdk              |
-Qpid Proton C++ (devel) | qpid-proton-cpp-devel | libqpid-proton-cpp12-dev[1] |
-Qpid Python 3 bindings  |python3-qpid-proton    | python3-qpid-proton[1]      |
+Tool                    | Fedora 34 & CentOS 8    | Ubuntu Focal                   |
+------------------------|-------------------------|--------------------------------|
+git                     | `git`                   | `git`                          |
+make                    | `make`                  | `make`                         |
+cmake                   | `cmake`                 | `cmake`                        |
+GNU C++ compiler        | `gcc-c++`               | `build-essential`              |
+JSON C++ (devel)        | `jsoncpp-devel`         | `libjsoncpp-dev`               |
+Python 3 (devel)        | `python3-devel`         | `python3-dev`                  |
+Maven                   | `maven`                 | `maven`                        |
+Java 11 (devel)         | `java-11-openjdk-devel` | `openjdk-11-jdk`               |
+Qpid Proton C++ (devel) | `qpid-proton-cpp-devel` | `libqpid-proton-cpp12-dev`[^1] |
+Qpid Python 3 bindings  | `python3-qpid-proton`   | `python3-qpid-proton`[^1]      |
 
-[1] Must have ppa:qpid/testing installed to install these packages.
+[^1] Must have `ppa:qpid/testing` added to install these packages.
 
 The following are not required, but if installed and present, will be tested:
 
- * Rhea https://github.com/amqp/rhea.git (a JavaScript AMQP client, also requires nodejs-devel)
+ * Rhea, a JavaScript AMQP client (https://github.com/amqp/rhea.git)
  * dotnet-sdk-5.0
 
-Tool               | Fedora 34 & CentOS 8  | Ubuntu Focal              |
--------------------|-----------------------|---------------------------|
-node-js (devel)[2] | nodejs-devel          | libnode-dev               |
-dotnet SDK 5.0[3]  | dotnet-sdk-5.0        | aspnetcore-runtime-5.0[4] |
+Tool                | Fedora 34 & CentOS 8    | Ubuntu Focal                 |
+--------------------|-------------------------|------------------------------|
+node-js (devel)[^2] | `nodejs-devel`          | `libnode-dev`                |
+dotnet SDK 5.0[^3]  | `dotnet-sdk-5.0`        | `aspnetcore-runtime-5.0`[^4] |
 
-[2] Required to run Rhea Javascript client.
-[3] Required to run Amqp DotNet Lite client.
-[4] Must have packages-microsoft-prod.deb installed from Microsoft to install this package.
+[^2] Required to run Rhea Javascript client.
+[^3] Required to run Amqp DotNet Lite client.
+[^4] Must have packages-microsoft-prod.deb installed from Microsoft to install this package.
 
 In addition, if you wish to run the tests against a broker on the build machine,
 it will be necessary to have a running broker. One of the following may be
-installed and started against which to run the interop tests as a local broker:
+installed and started against which to run the tests as a local broker:
 
  * Artemis Java broker (https://activemq.apache.org/components/artemis/download/)
  * Qpid Dispatch router, which may be used as a single node, or as part of a
  routed configuration. This is available in many distributions as a package.
  (https://qpid.apache.org/components/dispatch-router/index.html)
 
-Tool                 | Fedora 34 & CentOS 8  | Ubuntu Focal |
----------------------|-----------------------|--------------|
-Qpid Dispatch Router | qpid-dispatch-router  | qdrouterd    |
+Tool                 | Fedora 34 & CentOS 8    | Ubuntu Focal   |
+---------------------|-------------------------|----------------|
+Qpid Dispatch Router | `qpid-dispatch-router ` | `qdrouterd`    |
 
-Any AMQP 1.0 broker should work. Tests can also be run against a
-remote broker provided the broker IP address is known.
+Any AMQP 1.0 broker should work.
+
+Tests can also be run against a remote broker provided the broker IP address is
+known. This is achieved by using the `--sender <addr[:port]>` and
+`--receiver <addr[:port]>` options with each test.
 
 
 ### 2.1 Fedora 34
 
 Make sure the following packages are installed:
 ```bash
-$ sudo dnf install -y git make cmake gcc-c++ jsoncpp-devel python3-devel maven java-11-openjdk-devel qpid-proton-cpp-devel python3-qpid-proton
+sudo dnf install -y git make cmake gcc-c++ jsoncpp-devel python3-devel maven java-11-openjdk-devel qpid-proton-cpp-devel python3-qpid-proton
 ```
 
 To use the optional javascript shims:
 ```bash
-$ sudo dnf install -y nodejs-devel
+sudo dnf install -y nodejs-devel
 ```
 
 To use the optional dotnet shims:
 ```bash
-$ sudo dnf install -y dotnet-sdk-5.0
+sudo dnf install -y dotnet-sdk-5.0
 ```
 
 To install Qpid Dispatch Router as a broker:
 ```bash
-$ sudo dnf install -y qpid-dispatch-router
+sudo dnf install -y qpid-dispatch-router
 ```
 
 ### 2.2 CentOS 8
 
 Install EPEL repository:
 ```bash
-$ sudo dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+sudo dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
 ```
 
 Make sure the following packages are installed:
 ```bash
-$ sudo dnf install -y git make cmake gcc-c++ jsoncpp-devel python3-devel maven java-11-openjdk-devel qpid-proton-cpp-devel python3-qpid-proton
+sudo dnf install -y git make cmake gcc-c++ jsoncpp-devel python3-devel maven java-11-openjdk-devel qpid-proton-cpp-devel python3-qpid-proton
 ```
 
 To use the optional javascript shims:
 ```bash
-$ sudo dnf install -y nodejs-devel
+sudo dnf install -y nodejs-devel
 ```
 
 To use the optional dotnet shims:
 ```bash
-$ sudo dnf install -y dotnet-sdk-5.0
+sudo dnf install -y dotnet-sdk-5.0
 ```
 
 To install Qpid Dispatch Router as a broker:
 ```bash
-$ sudo dnf install -y qpid-dispatch-router
+sudo dnf install -y qpid-dispatch-router
 ```
 
 CentOS 8 installs Java 8 with maven, and makes it the default. To switch the default to Java 11:
 ```bash
-$ JAVA_11=$(alternatives --display java | grep 'family java-11-openjdk' | cut -d' ' -f1) && sudo alternatives --set java ${JAVA_11}
-$ JAVAC_11=$(alternatives --display javac | grep 'family java-11-openjdk' | cut -d' ' -f1) && sudo alternatives --set javac ${JAVAC_11}
-$ export JAVA_HOME=$(dirname $(dirname $(alternatives --display javac | grep 'javac' | grep 'link' | awk '{print $NF}')))
+JAVA_11=$(alternatives --display java | grep 'family java-11-openjdk' | cut -d' ' -f1) && sudo alternatives --set java ${JAVA_11}
+JAVAC_11=$(alternatives --display javac | grep 'family java-11-openjdk' | cut -d' ' -f1) && sudo alternatives --set javac ${JAVAC_11}
+export JAVA_HOME=$(dirname $(dirname $(alternatives --display javac | grep 'javac' | grep 'link' | awk '{print $NF}')))
 ```
 
 Verify the java version:
 ```bash
-$ java -version
-$ javac -version
+java -version
+javac -version
 ```
 
 To install Qpid Dispatch Router as a broker:
 ```bash
-$ sudo dnf install -y qpid-dispatch-router
+sudo dnf install -y qpid-dispatch-router
 ```
 
 ### 2.3 Ubuntu Focal
 
 Make sure the following packages are installed:
 ```bash
-$ sudo apt-get install -y git make cmake build-essential libjsoncpp-dev python3-dev maven openjdk-11-jdk software-properties-common
+sudo apt-get install -y git make cmake build-essential libjsoncpp-dev python3-dev maven openjdk-11-jdk software-properties-common
 ```
 
 Add the Qpid PPA to allow installation of latest Qpid packages:
 ```bash
-$ sudo add-apt-repository ppa:qpid/testing
-$ sudo apt-get update
-$ sudo apt-get install -y libqpid-proton-cpp12-dev python3-qpid-proton
+sudo add-apt-repository ppa:qpid/testing
+sudo apt-get update
+sudo apt-get install -y libqpid-proton-cpp12-dev python3-qpid-proton
 ```
 
 To use the optional javascript shims:
 ```bash
-$ sudo apt-get install -y libnode-dev
+sudo apt-get install -y libnode-dev
 ```
 
 To use the optional dotnet shims (not an Ubuntu package, must download from Microsoft):
 ```bash
-$ sudo apt-get install -y wget apt-transport-https
-$ wget https://packages.microsoft.com/config/ubuntu/21.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
-$ sudo dpkg -i packages-microsoft-prod.deb
-$ sudo apt-get update
-$ sudo apt-get install -y aspnetcore-runtime-5.0
+sudo apt-get install -y wget apt-transport-https
+wget https://packages.microsoft.com/config/ubuntu/21.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
+sudo dpkg -i packages-microsoft-prod.deb
+sudo apt-get update
+sudo apt-get install -y aspnetcore-runtime-5.0
 ```
 
 To install Qpid Dispatch Router as a broker:
 ```bash
-$ sudo apt-get install -y qdrouterd
+sudo apt-get install -y qdrouterd
 ```
 
 ## 3. Install Source and Build
 
 To use the optional javascript shims, install Rhea source:
 ```bash
-$ git clone https://github.com/amqp/rhea.git
+git clone https://github.com/amqp/rhea.git
 ```
 
 Install Qpid Interop Test source:
 ```bash
-$ git clone https://gitbox.apache.org/repos/asf/qpid-interop-test.git
+git clone https://gitbox.apache.org/repos/asf/qpid-interop-test.git
 ```
 
 Build and install Qpid Interop Test:
 ```bash
-$ cd qpid-interop-test && mkdir build && cd build
-$ cmake ..
-$ make
-$ sudo make install
+cd qpid-interop-test && mkdir build && cd build
+cmake ..
+make
+sudo make install
 ```
 
 NOTE: Qpid Interop Test will install into `/usr/local` by default. If you wish to
 change to another non-privileged location, use `--CMAKE_INSTALL_PREFIX` with
 cmake in the above sequence as follows:
 ```bash
-$ cmake --CMAKE_INSTALL_PREFIX=<abs-path-to-location> ..
+cmake --CMAKE_INSTALL_PREFIX=<abs-path-to-location> ..
 ```
 
 ## 4. Run the Tests
@@ -231,14 +239,14 @@ it may also be remote, provided it is accessible on the network.
 
 If you are using the dispatch router as a local broker, start it as follows:
 ```bash
-$ sudo /sbin/qdrouterd --daemon
+sudo /sbin/qdrouterd --daemon
 ```
 
 ### 4.2 Run the tests
 
 Run the tests by using the entry point binary:
 ```bash
-$ qpid-interop-test <test-name>
+qpid-interop-test <test-name>
 ```
 
 At this time, the following tests are available:
@@ -251,17 +259,17 @@ At this time, the following tests are available:
 
 For help on tests that can be run and options, run:
 ```bash
-$ qpid-interop-test --help
+qpid-interop-test --help
 ```
 
 For help on an individual test, run:
 ```bash
-$ qpid-interop-test <test-name> --help
+qpid-interop-test <test-name> --help
 ```
 
 For help on all tests: run:
 ```bash
-$ qpid-interop-test all --help
+qpid-interop-test all --help
 ```
 
 ## 5. Docker / Podman Containers
@@ -274,30 +282,30 @@ Qpid Interop Test. These containers may be used as follows:
 ### 5.1 Build the image
 
 ```bash
-$ podman build -f <dockerfile> -t <image-name>
+podman build -f <dockerfile> -t <image-name>
 ```
 
 For example, to build the Fedora 34 image and see it in the podmam image list:
 ```bash
-$ podman build -f Dockerfile.f34 -t fedora34.qit
-$ podman images
+podman build -f Dockerfile.f34 -t fedora34.qit
+podman images
 ```
 
 ### 5.2 Run QIT from a Container
 
 Once the image is built, it may be run as follows:
 ```bash
-$ podman run -it <image-name> /bin/bash
+podman run -it <image-name> /bin/bash
 ```
 
 For exampe, to run the Fedora 34 image built above:
 ```bash
-$ podman run -it fedora34.qit /bin/bash
+podman run -it fedora34.qit /bin/bash
 ```
 This will create a container, and present you with a command prompt as user
 `qit`. To run Qpid Interop Test form the container, first start the Qpid
 Dispatch Router as a broker, then run the tests:
 ```bash
-$ sudo /sbin/qdrouterd --daemon
-$ qpid-interop-test <test-name>
+sudo /sbin/qdrouterd --daemon
+qpid-interop-test <test-name>
 ```
