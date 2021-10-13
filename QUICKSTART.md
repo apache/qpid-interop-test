@@ -62,7 +62,7 @@ Java 11 (devel)         | `java-11-openjdk-devel` | `openjdk-11-jdk`            
 Qpid Proton C++ (devel) | `qpid-proton-cpp-devel` | `libqpid-proton-cpp12-dev`[^1] |
 Qpid Python 3 bindings  | `python3-qpid-proton`   | `python3-qpid-proton`[^1]      |
 
-[^1] Must have `ppa:qpid/testing` added to install these packages.
+[^1]: Must have `ppa:qpid/testing` added to install these packages.
 
 The following are not required, but if installed and present, will be tested:
 
@@ -74,9 +74,9 @@ Tool                | Fedora 34 & CentOS 8    | Ubuntu Focal                 |
 node-js (devel)[^2] | `nodejs-devel`          | `libnode-dev`                |
 dotnet SDK 5.0[^3]  | `dotnet-sdk-5.0`        | `aspnetcore-runtime-5.0`[^4] |
 
-[^2] Required to run Rhea Javascript client.
-[^3] Required to run Amqp DotNet Lite client.
-[^4] Must have packages-microsoft-prod.deb installed from Microsoft to install this package.
+[^2]: Required to run Rhea Javascript client.
+[^3]: Required to run Amqp DotNet Lite client.
+[^4]: Must have packages-microsoft-prod.deb installed from Microsoft to install this package.
 
 In addition, if you wish to run the tests against a broker on the build machine,
 it will be necessary to have a running broker. One of the following may be
