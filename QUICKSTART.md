@@ -23,7 +23,7 @@ under the License.
 
 ## 1. Overview
 
-You must build *and install* qpid-interop-test before you can run the tests.
+You must build ***and install*** qpid-interop-test before you can run the tests.
 The process follows the traditional steps:
 
 * Install prerequisites
@@ -44,10 +44,10 @@ of Linux for which the prerequisite packages listed below are available.
 
 By default, qpid-interop-test will install to `/usr/local` (and will thus also
 require root privileges), but you can use any non-privileged directory as the
-install prefix using the `CMAKE_INSTALL_PREFIX` environment variable, for
+install prefix using the cmake `--CMAKE_INSTALL_PREFIX` option, for
 example `${HOME}/install` or `/tmp/qit`.
 
-The following tools are needed to build qpid-interop-test:
+The following tools are needed to build qpid-interop-test (and the packages names):
 
 Tool                    | Fedora 34 & CentOS 8    | Ubuntu Focal                   |
 ------------------------|-------------------------|--------------------------------|
@@ -76,7 +76,7 @@ dotnet SDK 5.0[^3]  | `dotnet-sdk-5.0`        | `aspnetcore-runtime-5.0`[^4] |
 
 [^2]: Required to run Rhea Javascript client.
 [^3]: Required to run Amqp DotNet Lite client.
-[^4]: Must have packages-microsoft-prod.deb installed from Microsoft to install this package.
+[^4]: Must have `packages-microsoft-prod.deb` installed from Microsoft to install this package.
 
 In addition, if you wish to run the tests against a broker on the build machine,
 it will be necessary to have a running broker. One of the following may be
@@ -93,7 +93,7 @@ Qpid Dispatch Router | `qpid-dispatch-router ` | `qdrouterd`    |
 
 Any AMQP 1.0 broker should work.
 
-Tests can also be run against a remote broker provided the broker IP address is
+**NOTE:** Tests can also be run against a remote broker provided the broker IP address is
 known. This is achieved by using the `--sender <addr[:port]>` and
 `--receiver <addr[:port]>` options with each test.
 
@@ -122,13 +122,9 @@ sudo dnf install -y qpid-dispatch-router
 
 ### 2.2 CentOS 8
 
-Install EPEL repository:
+Install EPEL repository, then make sure the following packages are installed:
 ```bash
 sudo dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
-```
-
-Make sure the following packages are installed:
-```bash
 sudo dnf install -y git make cmake gcc-c++ jsoncpp-devel python3-devel maven java-11-openjdk-devel qpid-proton-cpp-devel python3-qpid-proton
 ```
 
@@ -200,7 +196,9 @@ sudo apt-get install -y qdrouterd
 
 ## 3. Install Source and Build
 
-To use the optional javascript shims, install Rhea source:
+This section describes building from source. To use containers, see [5. Containers] below.
+To use the optional javascript shims, install Rhea source. This should be done before cmake
+is run so that the souce can be discovered and installed:
 ```bash
 git clone https://github.com/amqp/rhea.git
 ```
@@ -242,20 +240,22 @@ If you are using the dispatch router as a local broker, start it as follows:
 sudo /sbin/qdrouterd --daemon
 ```
 
-### 4.2 Run the tests
+### 4.2 Run the tests (local broker)
 
-Run the tests by using the entry point binary:
+Run the tests by executing `qpid-interop-test test-name [test-options...]`.
+
+For example, to run all tests:
 ```bash
-qpid-interop-test <test-name>
+qpid-interop-test all
 ```
 
 At this time, the following tests are available:
-* amqp-types-test - a test of AMQP simple types
-* amqp-complex-types-test - a test of AMQP complex types (arrays, lists, maps)
-* amqp-large-content-test - a test of variable-size types using large content (up to 10MB)
-* jms-messages-test - a test of JMS message types as implemented by qpid-jms
-* jms-hdrs-props-test - a test of user-definable message headers and properties as implemented by qpid-jms.
-* all - run all the above tests sequentially
+* `amqp-types-test` - a test of AMQP simple types
+* `amqp-complex-types-test` - a test of AMQP complex types (arrays, lists, maps)
+* `amqp-large-content-test` - a test of variable-size types using large content (up to 10MB)
+* `jms-messages-test` - a test of JMS message types as implemented by qpid-jms
+* `jms-hdrs-props-test` - a test of user-definable message headers and properties as implemented by qpid-jms.
+* `all` - run all the above tests sequentially. NOTE: when using this, any test options will be passed to all tests, so only those common to all tests may be used.
 
 For help on tests that can be run and options, run:
 ```bash
@@ -271,13 +271,30 @@ For help on all tests: run:
 ```bash
 qpid-interop-test all --help
 ```
+### 4.3 Using a remote broker
 
-## 5. Docker / Podman Containers
+The test shims will by default connect to `localhost:5672`. However, arbitrary
+IP addresses and ports may be specified by using the `--sender <addr[:port]>` and
+`--receiver <addr[:port]>` test options. Note that some brokers (for example, the
+Qpid Dispatch Router) may be configured to route the test messages to a different
+endpoint to the one that received it, so the address of the sender and receiver
+may be different in this case. For most regular single-endpoint brokers, the
+sender and receiver addresses will be the same.
+
+Both IP4 and IP6 addresses are valid.
+
+For example, to run a test against a remote broker at address `192.168.25.65` and
+listining on port 35672:
+```bash
+qpid-interop-test jms-messages-test --sender 192.168.25.65:35672 --receiver 192.168.25.65:35672
+```
+
+## 5. Containers
 
 The Qpid Interop Test root directory contains a `containers` directory which
-contains Dockerfiles for Fedora 34, CentOS 8 and Ubuntu Focal. The Dockerfile
-will install all prerequisites, install the source and build/install
-Qpid Interop Test. These containers may be used as follows:
+contains Dockerfiles for Fedora 34, CentOS 8 and Ubuntu Focal. Building the
+Dockerfile will install all prerequisites, install the source and build/install
+Qpid Interop Test. The Qpid Dispatch Router is also installed, but is not running.
 
 ### 5.1 Build the image
 
@@ -285,9 +302,10 @@ Qpid Interop Test. These containers may be used as follows:
 podman build -f <dockerfile> -t <image-name>
 ```
 
-For example, to build the Fedora 34 image and see it in the podmam image list:
+For example, to build the Fedora 34 image from the qpid-interop-test root directory
+and see it in the podmam image list:
 ```bash
-podman build -f Dockerfile.f34 -t fedora34.qit
+podman build -f containers/Dockerfile.f34 -t fedora34.qit
 podman images
 ```
 
