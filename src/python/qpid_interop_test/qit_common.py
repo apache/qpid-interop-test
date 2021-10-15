@@ -176,9 +176,9 @@ class QitCommonTestOptions:
                  default_xunit_dir=qpid_interop_test.qit_xunit_log.DEFUALT_XUNIT_LOG_DIR):
         self._parser = argparse.ArgumentParser(description=test_description)
         self._parser.add_argument('--sender', action='store', default='localhost:5672', metavar='IP-ADDR:PORT',
-                                  help='Node to which test suite will send messages.')
+                                  help='IP address of node to which test suite will send messages.')
         self._parser.add_argument('--receiver', action='store', default='localhost:5672', metavar='IP-ADDR:PORT',
-                                  help='Node from which test suite will receive messages.')
+                                  help='IP address of node from which test suite will receive messages.')
         self._parser.add_argument('--no-skip', action='store_true',
                                   help='Do not skip tests that are excluded by default for reasons of a known bug')
         self._parser.add_argument('--broker-type', action='store', metavar='BROKER_NAME',
@@ -186,25 +186,25 @@ class QitCommonTestOptions:
                                   ' the broker name, or "None".')
         self._parser.add_argument('--timeout', action='store', default=default_timeout, metavar='SEC',
                                   help='Timeout for test in seconds (%d sec). If test is not ' % default_timeout +
-                                  'complete in this time, it will be terminated')
+                                  'complete in this time, it will be terminated.')
 
         shim_group = self._parser.add_mutually_exclusive_group()
         shim_group.add_argument('--include-shim', action='append', metavar='SHIM-NAME',
                                 help='Name of shim to include. Supported shims:\n%s' % sorted(shim_map.keys()))
         shim_group.add_argument('--exclude-shim', action='append', metavar='SHIM-NAME',
-                                help='Name of shim to exclude. Supported shims: see "include-shim" above')
+                                help='Name of shim to exclude. Supported shims: see "include-shim" above.')
 
         xunit_group = self._parser.add_argument_group('xUnit options')
         xunit_group.add_argument('--xunit-log', action='store_true',
-                                 help='Enable xUnit logging of test results')
+                                 help='Enable xUnit logging of test results.')
         xunit_group.add_argument('--xunit-log-dir', action='store', default=default_xunit_dir,
                                  metavar='LOG-DIR-PATH',
                                  help='Default xUnit log directory where xUnit logs are written [xunit_logs dir' +
-                                 ' in current directory (%s)]' % default_xunit_dir)
+                                 ' in current directory (%s)].' % default_xunit_dir)
         xunit_group.add_argument('--description', action='store', metavar='DESCR',
-                                 help='Detailed description of test, used in xUnit logs')
+                                 help='Detailed description of test, used in xUnit logs.')
         xunit_group.add_argument('--broker-topology', action='store', metavar='DESCR',
-                                 help='Detailed description of broker topology used in test, used in xUnit logs')
+                                 help='Detailed description of broker topology used in test, used in xUnit logs.')
 
     def args(self):
         """Return the parsed args"""
