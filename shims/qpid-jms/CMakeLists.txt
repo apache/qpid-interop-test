@@ -16,6 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 #
+
 project (qpid-interop-test-qpid-jms-shims)
 
 cmake_minimum_required(VERSION 3.16.3 FATAL_ERROR)

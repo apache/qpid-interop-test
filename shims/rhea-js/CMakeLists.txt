@@ -17,7 +17,7 @@
 # under the License.
 #
 
-# Building Rhea requires that node.js is installed.
+# Building Rhea requires that node devel package is installed.
 
 project(qpid-interop-test-rhea-shims)
 set(RHEA_DIR "$ENV{HOME}/rhea" CACHE PATH "Path to local Rhea installation")
@@ -67,4 +67,3 @@ if (${BUILD_RHEA})
   install(CODE "execute_process(COMMAND npm install rhea ${LOCAL_RHEA_PATH}
                                 WORKING_DIRECTORY ${SHIM_INSTALL_PATH})")
 endif()
-                              
