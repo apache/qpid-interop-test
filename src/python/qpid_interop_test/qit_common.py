@@ -32,7 +32,7 @@ import qpid_interop_test.qit_broker_props
 import qpid_interop_test.qit_shim
 import qpid_interop_test.qit_xunit_log
 
-QPID_JMS_SHIM_VER = '0.3.0-SNAPSHOT'
+QPID_JMS_SHIM_VER = '0.4.0-SNAPSHOT'
 
 # Find shim directory
 PREFIX_LIST = [os.path.join(os.sep, 'usr', 'local')]

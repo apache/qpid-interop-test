@@ -17,6 +17,13 @@ Issues addressed by release:
 
 Version 0.3.0
 -------------
+Bug
+  [QPIDIT-131] - module versions on master dont match and are incorrect
+  [QPIDIT-141] - Incorrect handling of binary types
+Improvement
+  [QPIDIT-142] - Remove complex types from amqp_types_test, rename to amqp_simple_types_test
+Task
+  [QPIDIT-143] - Remove Python 2 shims
 
 Version 0.2.0
 -------------
