@@ -19,7 +19,7 @@ under the License.
 
 -->
 
-# USER GUIDE
+# QUICK START
 
 ## 1. Overview
 

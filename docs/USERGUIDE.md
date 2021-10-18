@@ -55,7 +55,18 @@ or using containers:
 * podman run
 * Run test in container
 
-## 3. Build Prerequisites
+## 3. Obtaining
+
+Qpid Interop Test is an Apache Qpid project.
+
+Web page: https://qpid.apache.org/components/interop-test/index.html
+
+Download soruce: https://qpid.apache.org/download.html
+
+Git: https://github.com/apache/qpid-interop-test.git
+
+
+## 4. Build Prerequisites
 
 Qpid Interop Test should build and run on any reasonably recent distribution
 of Linux for which the prerequisite packages listed below are available.
@@ -115,7 +126,7 @@ known. This is achieved by using the `--sender <addr[:port]>` and
 `--receiver <addr[:port]>` options with each test.
 
 
-### 3.1 Fedora 34
+### 4.1 Fedora 34
 
 Make sure the following packages are installed:
 ```bash
@@ -137,7 +148,7 @@ To install Qpid Dispatch Router as a broker:
 sudo dnf install -y qpid-dispatch-router
 ```
 
-### 3.2 CentOS 8
+### 4.2 CentOS 8
 
 Install EPEL repository, then make sure the following packages are installed:
 ```bash
@@ -178,7 +189,7 @@ To install Qpid Dispatch Router as a broker:
 sudo dnf install -y qpid-dispatch-router
 ```
 
-### 3.3 Ubuntu Focal
+### 4.3 Ubuntu Focal
 
 Make sure the following packages are installed:
 ```bash
@@ -211,7 +222,7 @@ To install Qpid Dispatch Router as a broker:
 sudo apt-get install -y qdrouterd
 ```
 
-## 4. Install Source and Build
+## 5. Install Source and Build
 
 This section describes building from source. To use containers, see [5. Containers] below.
 To use the optional javascript shims, install Rhea source. This should be done before cmake
@@ -240,14 +251,14 @@ cmake in the above sequence as follows:
 cmake --CMAKE_INSTALL_PREFIX=<abs-path-to-location> ..
 ```
 
-## 5. Run the Tests
+## 6. Run the Tests
 
 The Qpid Interop Test entry point is `/usr/local/bin/qpid-interop-test`
 by default, or if an alternate location was specified,
 `<CMAKE_INSTALL_PREFIX>/usr/local/bin/qpid-interop-test`. If an alternate location
 was used, make sure that this directory is in the path.
 
-### 5.1 Start a Broker
+### 6.1 Start a Broker
 
 Make sure an AMQP broker is running. Typically, the broker is run locally, but
 it may also be remote, provided it is accessible on the network.
@@ -257,7 +268,7 @@ If you are using the dispatch router as a local broker, start it as follows:
 sudo /sbin/qdrouterd --daemon
 ```
 
-### 5.2 Run the tests (local broker)
+### 6.2 Run the tests (local broker)
 
 Run the tests by executing `qpid-interop-test test-name [test-options...]`.
 
@@ -289,7 +300,7 @@ For help on all tests: run:
 qpid-interop-test all --help
 ```
 
-### 5.3 Output
+### 6.3 Output
 
 Tests will show each test case, followed by `ok` if the test passes or `FAIL` if it fails.
 When all tests have completed, all failed tests will be listed with a failure message and
@@ -304,11 +315,23 @@ test_list_decimal32_ProtonCpp->ProtonCpp (__main__.ListTestCase) ... skipped 'BR
 Each skipped tests references a JIRA issue number and which will usually refer to the
 [Apache Qpid JIRA](https://issues.apache.org/jira).
 
-### 5.4 Available Tests and their Options
-The following tests are available:
+### 6.4 Available Tests and their Options
+The following tests and shims are available:
 
-#### 5.4.1 Common Options
+Test | Qpid Proton Python 3 | Qpid C++ | AmqpNetLite (.NET) | Rhea (Javascript) | Qpid JMS |
+-----|----------------------|----------|--------------------|-------------------|----------|
+`amqp-types-test` | Y | Y | Y | Y | |
+`amqp-complex-types-test` | Y | Y | | | |
+`amqp-large-content-test` | Y | Y | Y | | |
+`jms-messages-test` | Y | Y | | | Y |
+`jms-hdrs-props-test` | Y | Y | | | Y |
+
+1. Missing shims will be added in future releases.
+2. The Qpid JMS client is incompattible with the AMQP types tests. However, the other clients can format messages that will be accepted by the JMS client.
+
+#### 6.4.1 Common Options
 The following test options are common to all tests:
+
 Option | Default | Description |
 -------|---------|-------------|
 --sender | 'localhost:5672' | IP address of node to which test suite will send messages. |
@@ -326,6 +349,7 @@ Option | Default | Description |
 [^5]: Mutually exclusive
 
 Currently, the following shims are supported:
+
 Name | Description |
 -----|-------------|
 `AmqpNetLite` | .NET AmqpNetLite client |
@@ -336,20 +360,22 @@ Name | Description |
 
 These options may be used when specifying `all` as the test name, as all the individual tests will accept them.
 
-#### 5.4.2 amqp-types-test
+#### 6.4.2 amqp-types-test
 This test sends the simple AMQP types (ie types that are not container-like and do not include other AMQP types)
 as an AMQP value payload (section 3.2.7 of the
 [AMQP 1.0 specification](http://docs.oasis-open.org/amqp/core/v1.0/os/amqp-core-overview-v1.0-os.html). )
 
 In addition to the common options described above, the following options are availbe to this test:
-Option | Default | Description |
--------|---------|-------------|
---include-type[^6] | | Name of AMQP type to include. See table of AMQP simple types below. May be used multiple times. |
---exclude-type[^6] | | Name of AMQP type to exclude. See table of AMQP simple types below. May be used multiple times. |
+
+Option | Description |
+-------|-------------|
+--include-type[^6] | Name of AMQP type to include. See table of AMQP simple types below. May be used multiple times. |
+--exclude-type[^6] | Name of AMQP type to exclude. See table of AMQP simple types below. May be used multiple times. |
 
 [^6]: Mutually exclusive
 
 Supported AMQP simple types are:
+
 Type | AMQP Type Description |
 -----|-----------------------|
 `null` | Indicates an empty value. |
@@ -374,16 +400,17 @@ Type | AMQP Type Description |
 `string` | A sequence of Unicode characters as defined by the Unicode V6.0.0 standard. |
 `symbol` | Symbolic values from an application-defined constrained domain. |
 
-#### 5.4.3 amqp-complex-types-test
+#### 6.4.3 amqp-complex-types-test
 This test sends the complex AMQP types (ie types that contain other AMQP types)
 as an AMQP value payload (section 3.2.7 of the
 [AMQP 1.0 specification](http://docs.oasis-open.org/amqp/core/v1.0/os/amqp-core-overview-v1.0-os.html). )
 
 In addition to the common options described above, the following options are availbe to this test:
-Option | Default | Description |
--------|---------|-------------|
---include-type[^7] | | Name of AMQP type to include. See table of AMQP complex types below. May be used multiple times. |
---exclude-type[^7] | | Name of AMQP type to exclude. See table of AMQP complex types below. May be used multiple times. |
+
+Option | Description |
+-------|-------------|
+--include-type[^7] | Name of AMQP type to include. See table of AMQP complex types below. May be used multiple times. |
+--exclude-type[^7] | Name of AMQP type to exclude. See table of AMQP complex types below. May be used multiple times. |
 --include-subtype[^8] | Name of AMQP subtype to include. See table of AMQP simple types above. May be used multiple times. |
 --exclude-subtype[^8] | Name of AMQP subtype to exclude. See table of AMQP simple types above. May be used multiple times. |
 
@@ -391,13 +418,14 @@ Option | Default | Description |
 [^8]: Mutually exclusive
 
 Supported AMQP complex types are:
+
 Type | AMQP Type Description |
 -----|-----------------------|
 `array` | A sequence of values of a single AMQP type. |
 `list` | A sequence of polymorphic AMQP values. |
 `map` | A polymorphic mapping from distinct keys to AMQP values. |
 
-#### 5.4.4 amqp-large-content-test
+#### 6.4.4 amqp-large-content-test
 This test is designed to stress clients and brokers with large messages
 as an AMQP value payload (section 3.2.7 of the
 [AMQP 1.0 specification](http://docs.oasis-open.org/amqp/core/v1.0/os/amqp-core-overview-v1.0-os.html).
@@ -409,10 +437,11 @@ seconds per test. If this needs to be changed, use the `--timeout`
 option.
 
 In addition to the common options described above, the following options are availbe to this test:
-Option | Default | Description |
--------|---------|-------------|
---include-type[^9] | | Name of AMQP type to include. See list of AMQP extensible types below. May be used multiple times. |
---exclude-type[^9] | | Name of AMQP type to exclude. See list of AMQP extensible types below. May be used multiple times. |
+
+Option | Description |
+-------|-------------|
+--include-type[^9] | Name of AMQP type to include. See list of AMQP extensible types below. May be used multiple times. |
+--exclude-type[^9] | Name of AMQP type to exclude. See list of AMQP extensible types below. May be used multiple times. |
 
 [^9]: Mutually exclusive
 
@@ -421,21 +450,23 @@ and `map` (see above for descriptions). Currently, type `array` is not
 supported, but will be added in a future release.
 
 The message payload sizes are fixed at 1MB and 10MB. Currently there is no
-way to select payload size from the command-line. This will be added in a
-future release.
+way to select or set payload size from the command-line. This will be added
+in a future release.
 
-#### 5.4.5 jms-messages-test
+#### 6.4.5 jms-messages-test
 This test sends each of the JMS-defined message types.
 
 In addition to the common options described above, the following options are availbe to this test:
-Option | Default | Description |
--------|---------|-------------|
---include-type[^10] | | Name of JMS message type to include. See list of JMS message types below. May be used multiple times. |
---exclude-type[^10] | | Name of JMS message type to exclude. See list of JMS message types below. May be used multiple times. |
+
+Option | Description |
+-------|-------------|
+--include-type[^10] | Name of JMS message type to include. See list of JMS message types below. May be used multiple times. |
+--exclude-type[^10] | Name of JMS message type to exclude. See list of JMS message types below. May be used multiple times. |
 
 [^10]: Mutually exclusive
 
 The supported JMS message types are:
+
 Type | JMS Message Type Description |
 -----|------------------------------|
 `JMS_MESSAGE_TYPE` | Base message type, usually without a message payload, but may contain headers and properties. |
@@ -448,22 +479,24 @@ The JMS Object message type is not currently supported for interoperability
 testing as it is depenedent on Java to serialize objects, and which non-Java
 clients cannot easily support.
 
-#### 5.4.6 jms-hdrs-props-test
+#### 6.4.6 jms-hdrs-props-test
 This test sends combinations of the JMS-defined user-settable message headers and
 user-defined message properties to a JMS message.
 
 In addition to the common options described above, the following options are availbe to this test:
-Option | Default | Description |
--------|---------|-------------|
-`--include-hdr`[^11] | | Name of JMS header to include. See table of supported JMS headers below. |
-`--exclude-hdr`[^11] | | Name of JMS header to exclude or `ALL` to exclude all header tests. See table of supported JMS headers below. |
-`--include-prop`[^12] | | Name of JMS property type to include. See list of JMS property types below. |
-`--exclude-prop`[^12] | | Name of JMS property type to exclude or `ALL` to exclude all property types. |
+
+Option | Description |
+-------|-------------|
+`--include-hdr`[^11] | Name of JMS header to include. See table of supported JMS headers below. |
+`--exclude-hdr`[^11] | Name of JMS header to exclude or `ALL` to exclude all header tests. See table of supported JMS headers below. |
+`--include-prop`[^12] | Name of JMS property type to include. See list of JMS property types below. |
+`--exclude-prop`[^12] | Name of JMS property type to exclude or `ALL` to exclude all property types. |
 
 [^11]: Mutually exclusive
 [^12]: Mutually exclusive
 
 Supported JMS headers are:
+
 Type | JMS Header Description |
 -----|------------------------------|
 `JMS_CORRELATIONID_HEADER` | A string used for correlating or grouping messages. Defined and used by applications. |
@@ -476,7 +509,7 @@ be set through the client API.
 Supported JMS property types are Java types `boolean`, `byte`, `double`, `float`,
 `int`, `long`, `short` and `string`.
 
-### 5.5 Using a remote broker
+### 6.5 Using a remote broker
 
 The test shims will by default connect to `localhost:5672`. However, arbitrary
 IP addresses and ports may be specified by using the `--sender <addr[:port]>` and
@@ -494,14 +527,14 @@ listining on port 35672:
 qpid-interop-test jms-messages-test --sender 192.168.25.65:35672 --receiver 192.168.25.65:35672
 ```
 
-## 6. Containers
+## 7. Containers
 
 The Qpid Interop Test root directory contains a `containers` directory which
 contains Dockerfiles for Fedora 34, CentOS 8 and Ubuntu Focal. Building the
 Dockerfile will install all prerequisites, install the source and build/install
 Qpid Interop Test. The Qpid Dispatch Router is also installed, but is not running.
 
-### 6.1 Build the image
+### 7.1 Build the image
 
 ```bash
 podman build -f <dockerfile> -t <image-name>
@@ -514,7 +547,7 @@ podman build -f containers/Dockerfile.f34 -t fedora34.qit
 podman images
 ```
 
-### 6.2 Run QIT from a Container
+### 7.2 Run QIT from a Container
 
 Once the image is built, it may be run as follows:
 ```bash

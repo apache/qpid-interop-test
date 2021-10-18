@@ -21,4 +21,13 @@ project (qpid-interop-test-doc)
 
 cmake_minimum_required(VERSION 3.16.3 FATAL_ERROR)
 
-execute_process(COMMAND asciidoc -d book ${CMAKE_CURRENT_SOURCE_DIR}/users-guide.txt)
+# Now using GitHub-flavored markdown file USERGUIDE.md
+# execute_process(COMMAND asciidoc -d book ${CMAKE_CURRENT_SOURCE_DIR}/users-guide.txt)
+
+install (FILES qpid-interop-test-devel-overview.txt
+               RELEASE.txt
+               Shim_HOWTO.txt
+               Test_HOWTO.txt
+               USERGUIDE.md
+         DESTINATION ${CMAKE_INSTALL_PREFIX}/share/qpid-interop-test/docs
+         PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ)
