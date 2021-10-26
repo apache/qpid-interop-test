@@ -59,11 +59,11 @@ or using containers:
 
 Qpid Interop Test is an Apache Qpid project.
 
-Web page: https://qpid.apache.org/components/interop-test/index.html
+Web page: [https://qpid.apache.org/components/interop-test/index.html](https://qpid.apache.org/components/interop-test/index.html)
 
-Download soruce: https://qpid.apache.org/download.html
+Download soruce: [https://qpid.apache.org/download.html](https://qpid.apache.org/download.html)
 
-Git: https://github.com/apache/qpid-interop-test.git
+Git: [https://github.com/apache/qpid-interop-test.git](https://github.com/apache/qpid-interop-test.git)
 
 
 ## 4. Build Prerequisites
@@ -182,6 +182,7 @@ Verify the java version:
 ```bash
 java -version
 javac -version
+echo ${JAVA_HOME}
 ```
 
 To install Qpid Dispatch Router as a broker:
@@ -226,7 +227,7 @@ sudo apt-get install -y qdrouterd
 
 This section describes building from source. To use containers, see [5. Containers] below.
 To use the optional javascript shims, install Rhea source. This should be done before cmake
-is run so that the souce can be discovered and installed:
+is run so that the source can be discovered and installed:
 ```bash
 git clone https://github.com/amqp/rhea.git
 ```
@@ -256,7 +257,7 @@ cmake --CMAKE_INSTALL_PREFIX=<abs-path-to-location> ..
 The Qpid Interop Test entry point is `/usr/local/bin/qpid-interop-test`
 by default, or if an alternate location was specified,
 `<CMAKE_INSTALL_PREFIX>/usr/local/bin/qpid-interop-test`. If an alternate location
-was used, make sure that this directory is in the path.
+was used, you will need to make sure that this directory is in the path.
 
 ### 6.1 Start a Broker
 
@@ -329,26 +330,25 @@ Test | Qpid Proton Python 3 | Qpid C++ | AmqpNetLite (.NET) | Rhea (Javascript) 
 1. Missing shims will be added in future releases.
 2. The Qpid JMS client is incompattible with the AMQP types tests. However, the other clients can format messages that will be accepted by the JMS client.
 
-#### 6.4.1 Common Options
-The following test options are common to all tests:
+#### 6.4.1 Options Common to All Tests
 
 Option | Default | Description |
 -------|---------|-------------|
---sender | 'localhost:5672' | IP address of node to which test suite will send messages. |
---receiver | 'localhost:5672' | IP address of node from which test suite will receive messages. |
---no-skip | False | Do not skip tests that are excluded by default for reasons of a known bug. |
---broker-type | | Disable test of broker type (using connection properties) by specifying the broker name. |
---timeout | 20 for all tests except amqp-large-content-test which is 300 | Timeout for test in seconds. If test is not complete in this time, it will be terminated. |
---include-shim[^5] | All available shims | Name of shim to include. See table of shim names below. |
---exclude-shim[^5] |  | Name of shim to exclude from available shims. See table of shim names below. |
---xunit-log | False | Enable xUnit logging of test results. |
---xunit-log-dir | `xunit_logs` | Default xUnit log directory where xUnit logs are written relative to current directory. |
---description | | Detailed description of test, used in xUnit logs. |
---broker-topology | | Detailed description of broker topology used in test, used in xUnit logs. |
+`--sender` | 'localhost:5672' | IP address of node to which test suite will send messages. |
+`--receiver` | 'localhost:5672' | IP address of node from which test suite will receive messages. |
+`--no-skip` | False | Do not skip tests that are excluded by default for reasons of a known bug. |
+`--broker-type` | | Disable test of broker type (using connection properties) by specifying the broker name. |
+`--timeout` | 20 (amqp-large-content-test 300) | Timeout for test in seconds. If test is not complete in this time, it will be terminated. |
+`--include-shim`[^5] | All available shims | Name of shim to include. See table of shim names below. |
+`--exclude-shim`[^5] |  | Name of shim to exclude from available shims. See table of shim names below. |
+`--xunit-log` | False | Enable xUnit logging of test results. |
+`--xunit-log-dir` | `xunit_logs` | Default xUnit log directory where xUnit logs are written relative to current directory. |
+`--description` | | Detailed description of test, used in xUnit logs. |
+`--broker-topology` | | Detailed description of broker topology used in test, used in xUnit logs. |
 
 [^5]: Mutually exclusive
 
-Currently, the following shims are supported:
+The following shims are supported:
 
 Name | Description |
 -----|-------------|
@@ -365,12 +365,12 @@ This test sends the simple AMQP types (ie types that are not container-like and 
 as an AMQP value payload (section 3.2.7 of the
 [AMQP 1.0 specification](http://docs.oasis-open.org/amqp/core/v1.0/os/amqp-core-overview-v1.0-os.html). )
 
-In addition to the common options described above, the following options are availbe to this test:
+In addition to the common options described above, the following options are available to this test:
 
 Option | Description |
 -------|-------------|
---include-type[^6] | Name of AMQP type to include. See table of AMQP simple types below. May be used multiple times. |
---exclude-type[^6] | Name of AMQP type to exclude. See table of AMQP simple types below. May be used multiple times. |
+`--include-type`[^6] | Name of AMQP type to include. See table of AMQP simple types below. May be used multiple times. |
+`--exclude-type`[^6] | Name of AMQP type to exclude. See table of AMQP simple types below. May be used multiple times. |
 
 [^6]: Mutually exclusive
 
@@ -405,14 +405,14 @@ This test sends the complex AMQP types (ie types that contain other AMQP types)
 as an AMQP value payload (section 3.2.7 of the
 [AMQP 1.0 specification](http://docs.oasis-open.org/amqp/core/v1.0/os/amqp-core-overview-v1.0-os.html). )
 
-In addition to the common options described above, the following options are availbe to this test:
+In addition to the common options described above, the following options are available to this test:
 
 Option | Description |
 -------|-------------|
---include-type[^7] | Name of AMQP type to include. See table of AMQP complex types below. May be used multiple times. |
---exclude-type[^7] | Name of AMQP type to exclude. See table of AMQP complex types below. May be used multiple times. |
---include-subtype[^8] | Name of AMQP subtype to include. See table of AMQP simple types above. May be used multiple times. |
---exclude-subtype[^8] | Name of AMQP subtype to exclude. See table of AMQP simple types above. May be used multiple times. |
+`--include-type`[^7] | Name of AMQP type to include. See table of AMQP complex types below. May be used multiple times. |
+`--exclude-type`[^7] | Name of AMQP type to exclude. See table of AMQP complex types below. May be used multiple times. |
+`--include-subtype`[^8] | Name of AMQP subtype to include. See table of AMQP simple types above. May be used multiple times. |
+`--exclude-subtype`[^8] | Name of AMQP subtype to exclude. See table of AMQP simple types above. May be used multiple times. |
 
 [^7]: Mutually exclusive
 [^8]: Mutually exclusive
@@ -429,19 +429,19 @@ Type | AMQP Type Description |
 This test is designed to stress clients and brokers with large messages
 as an AMQP value payload (section 3.2.7 of the
 [AMQP 1.0 specification](http://docs.oasis-open.org/amqp/core/v1.0/os/amqp-core-overview-v1.0-os.html).
-AMQP exntensible types are used to create larege messages which are sent,
+AMQP extensible types are used to create large messages which are sent,
 received and compared.
 
 Owing to the large message size, this test has a default timeout of 300
 seconds per test. If this needs to be changed, use the `--timeout`
 option.
 
-In addition to the common options described above, the following options are availbe to this test:
+In addition to the common options described above, the following options are available to this test:
 
 Option | Description |
 -------|-------------|
---include-type[^9] | Name of AMQP type to include. See list of AMQP extensible types below. May be used multiple times. |
---exclude-type[^9] | Name of AMQP type to exclude. See list of AMQP extensible types below. May be used multiple times. |
+`--include-type`[^9] | Name of AMQP type to include. See list of AMQP extensible types below. May be used multiple times. |
+`--exclude-type`[^9] | Name of AMQP type to exclude. See list of AMQP extensible types below. May be used multiple times. |
 
 [^9]: Mutually exclusive
 
@@ -456,12 +456,12 @@ in a future release.
 #### 6.4.5 jms-messages-test
 This test sends each of the JMS-defined message types.
 
-In addition to the common options described above, the following options are availbe to this test:
+In addition to the common options described above, the following options are available to this test:
 
 Option | Description |
 -------|-------------|
---include-type[^10] | Name of JMS message type to include. See list of JMS message types below. May be used multiple times. |
---exclude-type[^10] | Name of JMS message type to exclude. See list of JMS message types below. May be used multiple times. |
+`--include-type`[^10] | Name of JMS message type to include. See list of JMS message types below. May be used multiple times. |
+`--exclude-type`[^10] | Name of JMS message type to exclude. See list of JMS message types below. May be used multiple times. |
 
 [^10]: Mutually exclusive
 
@@ -476,14 +476,14 @@ Type | JMS Message Type Description |
 `JMS_TEXTMESSAGE_TYPE` | Payload is a string. |
 
 The JMS Object message type is not currently supported for interoperability
-testing as it is depenedent on Java to serialize objects, and which non-Java
+testing as it is dependent on Java to serialize objects, and which non-Java
 clients cannot easily support.
 
 #### 6.4.6 jms-hdrs-props-test
 This test sends combinations of the JMS-defined user-settable message headers and
 user-defined message properties to a JMS message.
 
-In addition to the common options described above, the following options are availbe to this test:
+In addition to the common options described above, the following options are available to this test:
 
 Option | Description |
 -------|-------------|
@@ -522,7 +522,7 @@ sender and receiver addresses will be the same.
 Both IP4 and IP6 addresses are valid.
 
 For example, to run a test against a remote broker at address `192.168.25.65` and
-listining on port 35672:
+listening on port 35672:
 ```bash
 qpid-interop-test jms-messages-test --sender 192.168.25.65:35672 --receiver 192.168.25.65:35672
 ```
@@ -554,7 +554,7 @@ Once the image is built, it may be run as follows:
 podman run -it <image-name> /bin/bash
 ```
 
-For exampe, to run the Fedora 34 image built above:
+For example, to run the Fedora 34 image built above:
 ```bash
 podman run -it fedora34.qit /bin/bash
 ```
