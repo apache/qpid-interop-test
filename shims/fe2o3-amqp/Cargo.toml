@@ -1,0 +1,4 @@
+[workspace]
+members = [
+    "amqp_types_test"
+]

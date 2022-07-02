@@ -78,6 +78,7 @@ add_subdirectory(shims/qpid-proton-cpp/src)
 add_subdirectory(shims/qpid-jms)
 add_subdirectory(shims/amqpnetlite/src)
 add_subdirectory(shims/rhea-js)
+add_subdirectory(shims/fe2o3-amqp)
 add_subdirectory(docs)
 
 # Generate data code files for amqp_complex_types_test
