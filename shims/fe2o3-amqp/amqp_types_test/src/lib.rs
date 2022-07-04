@@ -2,8 +2,8 @@ use std::str::FromStr;
 
 use anyhow::{anyhow, Ok, Result};
 use fe2o3_amqp::types::primitives::{
-    Binary, Byte, Dec128, Dec32, Dec64, Int, Long, Short, Timestamp, UByte, UInt, ULong, UShort,
-    Uuid, Value, Symbol,
+    Binary, Byte, Dec128, Dec32, Dec64, Int, Long, Short, Symbol, Timestamp, UByte, UInt, ULong,
+    UShort, Uuid, Value,
 };
 use hex::ToHex;
 use ordered_float::OrderedFloat;
@@ -231,7 +231,7 @@ pub fn parse_test_json(amqp_type: AmqpType, input: String) -> Result<Vec<Value>>
         AmqpType::Symbol => Ok(jsons
             .into_iter()
             .map(|s| Value::Symbol(Symbol(s)))
-            .collect::<Vec<Value>>())
+            .collect::<Vec<Value>>()),
     }
 }
 
@@ -243,66 +243,63 @@ macro_rules! format_signed {
     ($val:ident, $val_ty:ty) => {
         if $val < 0 {
             if $val == <$val_ty>::MIN {
-                format!("\"-{:#x}\"", $val)
+                format!("-{:#x}", $val)
             } else {
-                format!("\"-{:#x}\"", -$val)
+                format!("-{:#x}", -$val)
             }
         } else {
-            format!("\"{:#x}\"", $val)
+            format!("{:#x}", $val)
         }
     };
 }
 
 impl IntoTestJson for Value {
     fn into_test_json(self) -> String {
-        match self {
-            Value::Null => String::from("\"None\""),
+        let s = match self {
+            Value::Null => String::from("None"),
             Value::Bool(value) => match value {
-                true => "\"True\"".to_string(),
-                false => "\"False\"".to_string(),
+                true => "True".to_string(),
+                false => "False".to_string(),
             },
-            Value::UByte(value) => format!("\"{:#x}\"", value),
-            Value::UShort(value) => format!("\"{:#x}\"", value),
-            Value::UInt(value) => format!("\"{:#x}\"", value),
-            Value::ULong(value) => format!("\"{:#x}\"", value),
+            Value::UByte(value) => format!("{:#x}", value),
+            Value::UShort(value) => format!("{:#x}", value),
+            Value::UInt(value) => format!("{:#x}", value),
+            Value::ULong(value) => format!("{:#x}", value),
             Value::Byte(value) => format_signed!(value, Byte),
             Value::Short(value) => format_signed!(value, Short),
             Value::Int(value) => format_signed!(value, Int),
             Value::Long(value) => format_signed!(value, Long),
-            Value::Float(value) => format!("\"{:#010x}\"", value.0.to_bits()),
-            Value::Double(value) => format!("\"{:#018x}\"", value.0.to_bits()),
-            Value::Decimal32(value) => {format!(
-                "\"0x{}\"",
-                value.into_inner().encode_hex::<String>()
-            )},
-            Value::Decimal64(value) => {format!(
-                "\"0x{}\"",
-                value.into_inner().encode_hex::<String>()
-            )},
-            Value::Decimal128(value) => {format!(
-                "\"0x{}\"",
-                value.into_inner().encode_hex::<String>()
-            )},
+            Value::Float(value) => format!("{:#010x}", value.0.to_bits()),
+            Value::Double(value) => format!("{:#018x}", value.0.to_bits()),
+            Value::Decimal32(value) => {
+                format!("0x{}", value.into_inner().encode_hex::<String>())
+            }
+            Value::Decimal64(value) => {
+                format!("0x{}", value.into_inner().encode_hex::<String>())
+            }
+            Value::Decimal128(value) => {
+                format!("0x{}", value.into_inner().encode_hex::<String>())
+            }
             Value::Char(value) => todo!(),
-            Value::Timestamp(value) => format!("\"{:#x}\"", value.into_inner()),
+            Value::Timestamp(value) => format!("{:#x}", value.into_inner()),
             Value::Uuid(value) => {
                 let s = uuid::Uuid::from_bytes(value.into_inner())
                     .hyphenated()
                     .to_string();
-                format!("\"{}\"", s)
+                format!("{}", s)
             }
             Value::Binary(value) => {
-                format!("\"{}\"", base64::encode(value.into_vec()))
-            },
-            Value::String(value) => {
-                format!("{:?}", value)
-            },
-            Value::Symbol(value) => format!("\"{}\"", value.0),
+                format!("{}", base64::encode(value.into_vec()))
+            }
+            Value::String(value) => value,
+            Value::Symbol(value) => format!("{}", value.0),
             Value::Described(_) => todo!(),
             Value::List(_) => todo!(),
             Value::Map(_) => todo!(),
             Value::Array(_) => todo!(),
-        }
+        };
+        // Only Debug format is recognized
+        format!("{:?}", s)
     }
 }
 
@@ -315,7 +312,7 @@ impl IntoTestJson for Vec<Value> {
                 s.push(',');
                 s.push(' ');
             }
-            s.push_str(&mut item.into_test_json())
+            s.push_str(&item.into_test_json())
         }
         s.push(']');
         s
@@ -324,7 +321,7 @@ impl IntoTestJson for Vec<Value> {
 
 #[cfg(test)]
 mod tests {
-    use fe2o3_amqp::types::primitives::{Byte, Int, Long, Short, Value};
+    use fe2o3_amqp::types::primitives::{Long, Value};
 
     use crate::parse_boolean;
 
@@ -358,14 +355,14 @@ mod tests {
     #[test]
     fn test_encode_f32() {
         let value: f32 = 0.0;
-        let s = format!("\"{:#010x}\"", value.to_bits());
+        let s = format!("{:#010x}", value.to_bits());
         println!("{}", s);
     }
 
     #[test]
     fn test_encode_f64() {
         let value: f64 = 0.0;
-        let s = format!("\"{:#018x}\"", value.to_bits());
+        let s = format!("{:#018x}", value.to_bits());
         println!("{}", s);
     }
 }
