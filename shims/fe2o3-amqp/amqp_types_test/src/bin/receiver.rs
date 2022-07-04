@@ -2,7 +2,7 @@ use std::env;
 
 use anyhow::{anyhow, Result};
 
-use amqp_types_test::AmqpType;
+use amqp_types_test::{AmqpType, IntoTestJson};
 use fe2o3_amqp::{types::primitives::Value, Connection, Receiver, Session};
 
 struct TestReceiver {
@@ -73,6 +73,6 @@ async fn main() -> Result<()> {
     let values = test_receiver.run().await?;
 
     println!("{}", typename);
-    println!("{:?}", values);
+    println!("{}", values.into_test_json()?);
     Ok(())
 }

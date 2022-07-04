@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use anyhow::{anyhow, Result};
 use fe2o3_amqp::types::primitives::{Byte, Int, Long, Short, UByte, UInt, ULong, UShort, Value, Dec32, Dec64, Dec128, Timestamp, Uuid};
+use hex::ToHex;
 use ordered_float::OrderedFloat;
 use serde_json::from_str;
 
@@ -209,5 +210,79 @@ pub fn parse_test_json(amqp_type: AmqpType, input: String) -> Result<Vec<Value>>
                 .collect::<Result<Vec<Value>, _>>()
                 .map_err(Into::into)
         },
+    }
+}
+
+pub trait  IntoTestJson {
+    fn into_test_json(self) -> Result<String>;
+}
+
+impl IntoTestJson for Value {
+    fn into_test_json(self) -> Result<String> {
+        match self {
+            Value::Null => Ok(String::from("\"None\"")),
+            Value::Bool(value) => match value {
+                true => Ok("\"True\"".to_string()),
+                false => Ok("\"False\"".to_string()),
+            },
+            Value::UByte(value) => Ok(format!("\"{:#x}\"", value)),
+            Value::UShort(value) => Ok(format!("\"{:#x}\"", value)),
+            Value::UInt(value) => Ok(format!("\"{:#x}\"", value)),
+            Value::ULong(value) => Ok(format!("\"{:#x}\"", value)),
+            Value::Byte(value) => if value < 0 {
+                Ok(format!("\"-{:#x}\"", value))
+            } else {
+                Ok(format!("\"{:#x}\"", value))
+            },
+            Value::Short(value) => if value < 0 {
+                Ok(format!("\"-{:#x}\"", value))
+            } else {
+                Ok(format!("\"{:#x}\"", value))
+            },
+            Value::Int(value) => if value < 0 {
+                Ok(format!("\"-{:#x}\"", value))
+            } else {
+                Ok(format!("\"{:#x}\"", value))
+            },
+            Value::Long(value) => if value < 0 {
+                Ok(format!("\"-{:#x}\"", value))
+            } else {
+                Ok(format!("\"{:#x}\"", value))
+            },
+            Value::Float(value) => {
+                Ok(format!("\"{:#x}\"", value.0.to_bits()))
+            },
+            Value::Double(value) => {
+                Ok(format!("\"{:#x}\"", value.0.to_bits()))
+            },
+            Value::Decimal32(value) => Ok(format!("\"0x{}\"", value.into_inner().encode_hex::<String>())),
+            Value::Decimal64(value) => Ok(format!("\"0x{}\"", value.into_inner().encode_hex::<String>())),
+            Value::Decimal128(value) => Ok(format!("\"0x{}\"", value.into_inner().encode_hex::<String>())),
+            Value::Char(value) => todo!(),
+            Value::Timestamp(value) => Ok(format!("\"{:#x}\"", value.into_inner())),
+            Value::Uuid(value) => Ok(uuid::Uuid::from_bytes(value.into_inner()).hyphenated().to_string()),
+            Value::Binary(value) => serde_json::to_string(&value).map_err(Into::into),
+            Value::String(value) => Ok(value),
+            Value::Symbol(value) => Ok(value.0),
+            Value::Described(_) => todo!(),
+            Value::List(_) => todo!(),
+            Value::Map(_) => todo!(),
+            Value::Array(_) => todo!(),
+        }
+    }
+}
+
+impl IntoTestJson for Vec<Value> {
+    fn into_test_json(self) -> Result<String> {
+        let mut s = String::new();
+        s.push('[');
+        for (i, item) in self.into_iter().enumerate() {
+            if i > 0 {
+                s.push_str(", ")
+            }
+            s.push_str(item.into_test_json()?.as_str())
+        }
+        s.push(']');
+        Ok(s)
     }
 }
