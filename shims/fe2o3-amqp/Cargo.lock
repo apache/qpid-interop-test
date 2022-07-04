@@ -10,7 +10,9 @@ dependencies = [
  "fe2o3-amqp",
  "hex",
  "ordered-float",
+ "serde",
  "serde_json",
+ "tokio",
  "uuid",
 ]
 
@@ -57,9 +59,9 @@ checksum = "fb4a24b1aaf0fd0ce8b45161144d6f42cd91677fd5940fd431183eb023b3a2b8"
 
 [[package]]
 name = "darling"
-version = "0.13.4"
+version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a01d95850c592940db9b8194bc39f4bc0e89dee5c4265e4b1807c34a9aba453c"
+checksum = "4529658bdda7fd6769b8614be250cdcfc3aeb0ee72fe66f9e41e5e5eb73eac02"
 dependencies = [
  "darling_core",
  "darling_macro",
@@ -67,9 +69,9 @@ dependencies = [
 
 [[package]]
 name = "darling_core"
-version = "0.13.4"
+version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "859d65a907b6852c9361e3185c862aae7fafd2887876799fa55f5f99dc40d610"
+checksum = "649c91bc01e8b1eac09fb91e8dbc7d517684ca6be8ebc75bb9cafc894f9fdb6f"
 dependencies = [
  "fnv",
  "ident_case",
@@ -81,9 +83,9 @@ dependencies = [
 
 [[package]]
 name = "darling_macro"
-version = "0.13.4"
+version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c972679f83bdf9c42bd905396b6c3588a843a17f0f16dfcfa3e2c5d57441835"
+checksum = "ddfc69c5bfcbd2fc09a0f38451d2daf0e372e367986a83906d1b0dbc88134fb5"
 dependencies = [
  "darling_core",
  "quote",
@@ -91,23 +93,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "erased-serde"
-version = "0.3.21"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81d013529d5574a60caeda29e179e695125448e5de52e3874f7b4c1d7360e18e"
-dependencies = [
- "serde",
-]
-
-[[package]]
 name = "fe2o3-amqp"
-version = "0.0.17"
+version = "0.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c2fc9d6af620a09f21bde619b3143d3439d998c15066edbe3c93c391f44d498"
+checksum = "5150ec8f28b71a381e9883589af3a61b15698c68e2c1ea6b960540a00a783812"
 dependencies = [
  "async-trait",
  "bytes",
- "erased-serde",
  "fe2o3-amqp-types",
  "futures-util",
  "pin-project-lite",
@@ -125,9 +117,9 @@ dependencies = [
 
 [[package]]
 name = "fe2o3-amqp-types"
-version = "0.0.21"
+version = "0.0.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26c3db7e384b5901cb7ad958d6ba70351e70ff082332694214c96fd2e0e1c2a9"
+checksum = "7054288b873c96c7ece2e057b1706d14a3dc137738163d2c7855d0e59b5cfd49"
 dependencies = [
  "ordered-float",
  "serde",
@@ -194,6 +186,15 @@ dependencies = [
  "pin-project-lite",
  "pin-utils",
  "slab",
+]
+
+[[package]]
+name = "hermit-abi"
+version = "0.1.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "62b467343b94ba476dcb2500d242dadbb39557df889310ac77c5d99100aaac33"
+dependencies = [
+ "libc",
 ]
 
 [[package]]
@@ -274,6 +275,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "num_cpus"
+version = "1.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "19e64526ebdee182341572e50e9ad03965aa510cd94427a4549448f285e957a1"
+dependencies = [
+ "hermit-abi",
+ "libc",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -342,9 +353,9 @@ dependencies = [
 
 [[package]]
 name = "serde_amqp"
-version = "0.0.8"
+version = "0.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f5b7e32807a398e9de8bb69a01ec4c10ad611182cb68fbd4eacffa7c33441cb"
+checksum = "b5841245ff8585a654dc737fbf3465d2c8b611a100eb2c08489a286c0b8689fa"
 dependencies = [
  "bytes",
  "ordered-float",
@@ -356,9 +367,9 @@ dependencies = [
 
 [[package]]
 name = "serde_amqp_derive"
-version = "0.0.2"
+version = "0.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ed0aa1d11bc3b40010bb3128aab856dd9289f978ad1369f04d49f6aa88dce07"
+checksum = "210cb77c1dd33b164779b622daff741bc52959bff188edfccc419854057d49ca"
 dependencies = [
  "convert_case",
  "darling",
@@ -487,6 +498,7 @@ dependencies = [
  "libc",
  "memchr",
  "mio",
+ "num_cpus",
  "once_cell",
  "pin-project-lite",
  "socket2",

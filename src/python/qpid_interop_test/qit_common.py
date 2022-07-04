@@ -349,8 +349,10 @@ class QitTest:
         else:
             print('WARNING: AMQP DotNetLite shims not found')
 
-        fe2o3_amqp_rcv_shim = os.path.join(QIT_SHIM_HOME, 'fe2o3-amqp', self.TEST_NAME, 'bin', 'Receiver')
-        fe2o3_amqp_snd_shim = os.path.join(QIT_SHIM_HOME, 'fe2o3-amqp', self.TEST_NAME, 'bin', 'Sender')
+        fe2o3_amqp_rcv_shim = os.path.join(QIT_SHIM_HOME, 'fe2o3-amqp',
+                self.TEST_NAME, 'bin', 'receiver')
+        fe2o3_amqp_snd_shim = os.path.join(QIT_SHIM_HOME, 'fe2o3-amqp',
+                self.TEST_NAME, 'bin', 'sender')
         if os.path.isfile(fe2o3_amqp_rcv_shim) and os.path.isfile(fe2o3_amqp_snd_shim):
             self.shim_map[qpid_interop_test.qit_shim.Fe2o3AmqpShim.NAME] = \
                 qpid_interop_test.qit_shim.Fe2o3AmqpShim(fe2o3_amqp_snd_shim, fe2o3_amqp_rcv_shim)
