@@ -1,4 +1,4 @@
-use std::env;
+use std::{env, io::{stdout, Write}};
 
 use anyhow::{anyhow, Result};
 
@@ -8,7 +8,7 @@ use fe2o3_amqp::{types::primitives::Value, Connection, Receiver, Session};
 struct TestReceiver {
     ip_addr: String,
     source_addr: String,
-    amqp_type: AmqpType,
+    _amqp_type: AmqpType,
     n: usize,
 }
 
@@ -59,7 +59,7 @@ impl TryFrom<Vec<String>> for TestReceiver {
         Ok(Self {
             ip_addr,
             source_addr,
-            amqp_type,
+            _amqp_type: amqp_type,
             n,
         })
     }
@@ -73,6 +73,9 @@ async fn main() -> Result<()> {
     let values = test_receiver.run().await?;
 
     println!("{}", typename);
-    println!("{}", values.into_test_json()?);
+    // println!("{:?}", values.into_test_json());
+    stdout().write_all(values.into_test_json().as_bytes())?;
+    stdout().write_all(b"\n")?;
+    // writeln!(stdout(), values.into_test_json()?);
     Ok(())
 }

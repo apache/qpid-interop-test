@@ -63,12 +63,8 @@ impl TryFrom<Vec<String>> for TestSender {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    println!("hello sender");
-
     let args: Vec<String> = env::args().collect();
-    println!("{:?}", args);
     let test_sender = TestSender::try_from(args)?;
-    println!("{:?}", test_sender);
 
     test_sender.run().await?;
     Ok(())
