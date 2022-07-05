@@ -3,18 +3,17 @@
 version = 3
 
 [[package]]
+name = "amqp_large_content_test"
+version = "0.1.0"
+
+[[package]]
 name = "amqp_types_test"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "base64",
  "fe2o3-amqp",
- "hex",
- "ordered-float",
- "serde",
- "serde_json",
+ "interop_test_common",
  "tokio",
- "uuid",
 ]
 
 [[package]]
@@ -225,6 +224,20 @@ dependencies = [
  "matches",
  "unicode-bidi",
  "unicode-normalization",
+]
+
+[[package]]
+name = "interop_test_common"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64",
+ "fe2o3-amqp-types",
+ "hex",
+ "ordered-float",
+ "serde",
+ "serde_json",
+ "uuid",
 ]
 
 [[package]]

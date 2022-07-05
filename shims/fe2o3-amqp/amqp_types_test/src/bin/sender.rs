@@ -3,7 +3,7 @@ use std::env;
 use anyhow::{anyhow, Result};
 use fe2o3_amqp::{types::primitives::Value, Connection, Sender, Session};
 
-use amqp_types_test::{parse_test_json, AmqpType};
+use interop_test_common::{parse_test_json, AmqpType};
 
 #[derive(Debug)]
 struct TestSender {

@@ -2,7 +2,7 @@ use std::{env, io::{stdout, Write}};
 
 use anyhow::{anyhow, Result};
 
-use amqp_types_test::{AmqpType, IntoTestJson};
+use interop_test_common::{AmqpType, IntoTestJson};
 use fe2o3_amqp::{types::primitives::Value, Connection, Receiver, Session};
 
 struct TestReceiver {
