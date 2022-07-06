@@ -1,4 +1,4 @@
-use std::{env, io::{stdout, Write}};
+use std::{env};
 
 use anyhow::{anyhow, Result};
 
@@ -73,9 +73,6 @@ async fn main() -> Result<()> {
     let values = test_receiver.run().await?;
 
     println!("{}", typename);
-    // println!("{:?}", values.into_test_json());
-    stdout().write_all(values.into_test_json().as_bytes())?;
-    stdout().write_all(b"\n")?;
-    // writeln!(stdout(), values.into_test_json()?);
+    println!("{}", values.into_test_json());
     Ok(())
 }

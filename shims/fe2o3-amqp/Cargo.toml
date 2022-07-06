@@ -2,5 +2,6 @@
 members = [
     "amqp_types_test",
     "amqp_large_content_test",
+    "amqp_complex_types_test",
     "interop_test_common",
 ]

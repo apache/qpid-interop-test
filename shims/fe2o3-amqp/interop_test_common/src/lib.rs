@@ -280,7 +280,7 @@ impl IntoTestJson for Value {
             Value::Decimal128(value) => {
                 format!("0x{}", value.into_inner().encode_hex::<String>())
             }
-            Value::Char(value) => todo!(),
+            Value::Char(value) => value.to_string(), // FIXME: format out of readable range chars to hex
             Value::Timestamp(value) => format!("{:#x}", value.into_inner()),
             Value::Uuid(value) => {
                 let s = uuid::Uuid::from_bytes(value.into_inner())
@@ -293,10 +293,10 @@ impl IntoTestJson for Value {
             }
             Value::String(value) => value,
             Value::Symbol(value) => format!("{}", value.0),
-            Value::Described(_) => todo!(),
             Value::List(_) => todo!(),
             Value::Map(_) => todo!(),
             Value::Array(_) => todo!(),
+            Value::Described(_) => todo!(),
         };
         // Only Debug format is recognized
         format!("{:?}", s)

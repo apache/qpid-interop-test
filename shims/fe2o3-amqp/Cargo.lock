@@ -3,8 +3,18 @@
 version = 3
 
 [[package]]
+name = "amqp_complex_types_test"
+version = "0.1.0"
+
+[[package]]
 name = "amqp_large_content_test"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "fe2o3-amqp",
+ "interop_test_common",
+ "tokio",
+]
 
 [[package]]
 name = "amqp_types_test"
