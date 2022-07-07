@@ -112,9 +112,9 @@ dependencies = [
 
 [[package]]
 name = "fe2o3-amqp"
-version = "0.0.26"
+version = "0.0.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10f54b6d38ab0c37fa31b1c305c4b39f6cadd3d2d5fca83f61fc501328766601"
+checksum = "6aec172b84eda692761841919cb33631501170ca62d1dbc37feed00aa3dd37d0"
 dependencies = [
  "async-trait",
  "bytes",
