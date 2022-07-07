@@ -1,3 +1,6 @@
+
+pub const MEGABYTE: usize = 1024 * 1024;
+
 #[cfg(test)]
 mod tests {
     #[test]
@@ -6,3 +9,4 @@ mod tests {
         assert_eq!(result, 4);
     }
 }
+

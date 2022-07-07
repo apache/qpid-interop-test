@@ -1,9 +1,11 @@
-use std::{env};
+use std::env;
 
 use anyhow::{anyhow, Result};
 
+use fe2o3_amqp::{
+    link::BodyError, types::primitives::Value, Connection, Delivery, Receiver, Session,
+};
 use interop_test_common::{AmqpType, IntoTestJson};
-use fe2o3_amqp::{types::primitives::Value, Connection, Receiver, Session};
 
 struct TestReceiver {
     ip_addr: String,
@@ -27,11 +29,14 @@ impl TestReceiver {
         )
         .await?;
 
-        let mut v = Vec::with_capacity(self.n);
+        let mut v: Vec<Value> = Vec::with_capacity(self.n);
         for _ in 0..self.n {
-            let delivery = receiver.recv().await?;
+            let delivery: Delivery<Value> = receiver.recv().await?;
             receiver.accept(&delivery).await?;
-            v.push(delivery.try_into_value()?);
+            v.push(delivery.try_into_value().or_else(|err| match err {
+                BodyError::IsNothing => Ok(Value::Null),
+                _ => Err(err),
+            })?);
         }
 
         receiver.close().await?;

@@ -7,6 +7,6 @@ edition = "2021"
 
 [dependencies]
 interop_test_common = { version = "0.1.0", path = "../interop_test_common" }
-fe2o3-amqp = "0.0.22"
+fe2o3-amqp = "0.0.26"
 anyhow = "1"
 tokio = { version = "1", features = ["net", "macros", "rt-multi-thread", "rt"]}

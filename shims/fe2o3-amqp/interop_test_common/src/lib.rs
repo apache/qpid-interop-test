@@ -31,6 +31,8 @@ pub enum AmqpType {
     Binary,
     String,
     Symbol,
+    List,
+    Map
 }
 
 impl TryFrom<String> for AmqpType {
@@ -59,6 +61,8 @@ impl TryFrom<String> for AmqpType {
             "ulong" => Ok(Self::ULong),
             "ushort" => Ok(Self::UShort),
             "uuid" => Ok(Self::Uuid),
+            "list" => Ok(Self::List),
+            "map" => Ok(Self::Map),
             _ => Err(anyhow!("Type not impelmented")),
         }
     }
@@ -232,6 +236,8 @@ pub fn parse_test_json(amqp_type: AmqpType, input: String) -> Result<Vec<Value>>
             .into_iter()
             .map(|s| Value::Symbol(Symbol(s)))
             .collect::<Vec<Value>>()),
+        AmqpType::List => unreachable!(),
+        AmqpType::Map => unreachable!(),
     }
 }
 
