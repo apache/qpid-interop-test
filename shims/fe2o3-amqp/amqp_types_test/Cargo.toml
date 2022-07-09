@@ -6,7 +6,13 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-interop_test_common = { version = "0.1.0", path = "../interop_test_common" }
 fe2o3-amqp = "0.0.31"
 anyhow = "1"
 tokio = { version = "1", features = ["net", "macros", "rt-multi-thread", "rt"]}
+serde = "1"
+serde_json = "1"
+fe2o3-amqp-types = "0.0.30"
+hex = "0.4"
+ordered-float = "3"
+uuid = "1"
+base64 = "0.13"

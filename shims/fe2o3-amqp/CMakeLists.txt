@@ -26,6 +26,5 @@ message(STATUS "BUILD_FE2O3_AMQP = ${BUILD_FE2O3_AMQP}")
 if (BUILD_FE2O3_AMQP)
     add_subdirectory(amqp_types_test)
     add_subdirectory(amqp_large_content_test)
-    add_subdirectory(amqp_complex_types_test)
 endif()
 

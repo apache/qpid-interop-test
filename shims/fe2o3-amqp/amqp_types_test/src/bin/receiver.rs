@@ -5,7 +5,7 @@ use anyhow::{anyhow, Result};
 use fe2o3_amqp::{
     link::BodyError, types::primitives::Value, Connection, Delivery, Receiver, Session,
 };
-use interop_test_common::{AmqpType, IntoTestJson};
+use amqp_types_test::{AmqpType, IntoTestJson};
 
 struct TestReceiver {
     ip_addr: String,

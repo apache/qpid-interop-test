@@ -1,8 +1,14 @@
-use std::{env, collections::{VecDeque, BTreeMap}};
+use std::{
+    collections::{BTreeMap, VecDeque},
+    env,
+};
 
-use amqp_large_content_test::{MessageSizesInMb, MEGABYTE};
-use anyhow::{anyhow, Result, Ok};
-use fe2o3_amqp::{Connection, Receiver, Session, Delivery, types::primitives::{Value, Binary, Symbol}};
+use amqp_large_content_test::{MessageSizesInMb, TotalAndChunks, MEGABYTE};
+use anyhow::{anyhow, Ok, Result};
+use fe2o3_amqp::{
+    types::primitives::{Binary, Symbol},
+    Connection, Delivery, Receiver, Session,
+};
 
 struct TestReceiver {
     broker_addr: String,
@@ -26,14 +32,7 @@ impl TestReceiver {
         )
         .await?;
 
-        let sizes = recv_then_count_size(&mut receiver, &self.type_name, self.num_expected).await?;
-        // for _ in 0..self.num_expected {
-        //     // let delivery: Delivery<Value> = receiver.recv().await?;
-        //     // receiver.accept(&delivery).await?;
-        //     let size = recv_then_count_size(&mut receiver, &self.type_name).await?;
-        //     v.push(size);
-        //     println!("received something");
-        // }
+        let sizes = recv_and_count_size(&mut receiver, &self.type_name, self.num_expected).await?;
 
         receiver.close().await?;
         session.end().await?;
@@ -43,14 +42,18 @@ impl TestReceiver {
     }
 }
 
-async fn recv_then_count_size(receiver: &mut Receiver, type_name: &str, num_expected: usize) -> Result<MessageSizesInMb> {
+async fn recv_and_count_size(
+    receiver: &mut Receiver,
+    type_name: &str,
+    num_expected: usize,
+) -> Result<MessageSizesInMb> {
     match type_name {
         "binary" => recv_binary(receiver, num_expected).await,
         "string" => recv_string(receiver, num_expected).await,
         "symbol" => recv_symbol(receiver, num_expected).await,
         "list" => recv_list(receiver, num_expected).await,
         "map" => recv_map(receiver, num_expected).await,
-        _ => Err(anyhow!("type {} Not implemented", type_name))
+        _ => Err(anyhow!("type {} Not implemented", type_name)),
     }
 }
 
@@ -58,6 +61,8 @@ async fn recv_binary(receiver: &mut Receiver, num_expected: usize) -> Result<Mes
     let mut v = VecDeque::new();
     for _ in 0..num_expected {
         let delivery: Delivery<Binary> = receiver.recv().await?;
+        receiver.accept(&delivery).await?;
+
         let b = delivery.try_into_value()?;
         v.push_back(b.len() / MEGABYTE)
     }
@@ -68,6 +73,8 @@ async fn recv_string(receiver: &mut Receiver, num_expected: usize) -> Result<Mes
     let mut v = VecDeque::new();
     for _ in 0..num_expected {
         let delivery: Delivery<String> = receiver.recv().await?;
+        receiver.accept(&delivery).await?;
+
         let s = delivery.try_as_value()?;
         v.push_back(s.len() / MEGABYTE)
     }
@@ -78,6 +85,8 @@ async fn recv_symbol(receiver: &mut Receiver, num_expected: usize) -> Result<Mes
     let mut v = VecDeque::new();
     for _ in 0..num_expected {
         let delivery: Delivery<Symbol> = receiver.recv().await?;
+        receiver.accept(&delivery).await?;
+
         let s = delivery.try_into_value()?;
         v.push_back(s.0.len() / MEGABYTE)
     }
@@ -87,23 +96,57 @@ async fn recv_symbol(receiver: &mut Receiver, num_expected: usize) -> Result<Mes
 // fn format_output(sizes: )
 
 async fn recv_list(receiver: &mut Receiver, num_expected: usize) -> Result<MessageSizesInMb> {
-    let mut v = VecDeque::new();
+    let mut v: VecDeque<TotalAndChunks> = VecDeque::new();
     for _ in 0..num_expected {
         let delivery: Delivery<Vec<String>> = receiver.recv().await?;
+        receiver.accept(&delivery).await?;
+
         let s = delivery.try_into_value()?;
-        // v.push_back(s.0.len() / MEGABYTE)
+
+        let total_in_bytes: usize = s.iter().map(|e| e.len()).sum();
+        let total_in_mb = total_in_bytes / MEGABYTE;
+        let num_chunks = s.len();
+
+        append_total_and_chunks(&mut v, total_in_mb, num_chunks);
     }
-    Ok(MessageSizesInMb::Symbol(v))
+    Ok(MessageSizesInMb::List(v))
 }
 
 async fn recv_map(receiver: &mut Receiver, num_expected: usize) -> Result<MessageSizesInMb> {
-    let mut v = VecDeque::new();
+    let mut v: VecDeque<TotalAndChunks> = VecDeque::new();
     for _ in 0..num_expected {
         let delivery: Delivery<BTreeMap<String, String>> = receiver.recv().await?;
-        let s = delivery.try_into_value()?;
-        // v.push_back(s.0.len() / MEGABYTE)
+        receiver.accept(&delivery).await?;
+
+        let map = delivery.try_into_value()?;
+        let num_chunks = map.len();
+        let total_in_bytes: usize = map.values().map(|e| e.len()).sum();
+        let total_in_mb = total_in_bytes / MEGABYTE;
+
+        append_total_and_chunks(&mut v, total_in_mb, num_chunks);
     }
-    Ok(MessageSizesInMb::Symbol(v))
+    Ok(MessageSizesInMb::Map(v))
+}
+
+fn append_total_and_chunks(
+    v: &mut VecDeque<TotalAndChunks>,
+    total_in_mb: usize,
+    num_chunks: usize,
+) {
+    match v.back_mut() {
+        Some(el) => {
+            if total_in_mb == el.0 {
+                el.1.push_back(num_chunks);
+            } else {
+                let el = TotalAndChunks(total_in_mb, vec![num_chunks].into_iter().collect());
+                v.push_back(el)
+            }
+        }
+        None => {
+            let el = TotalAndChunks(total_in_mb, vec![num_chunks].into_iter().collect());
+            v.push_back(el)
+        }
+    }
 }
 
 impl TryFrom<Vec<String>> for TestReceiver {
@@ -138,4 +181,16 @@ async fn main() -> Result<()> {
     println!("{}", type_name);
     println!("{}", sizes.to_output_string()?);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use amqp_large_content_test::{MessageSizesInMb, TotalAndChunks};
+
+    #[test]
+    fn test_formatting_total_and_chunks() {
+        let value = TotalAndChunks(1, vec![1, 2, 4].into_iter().collect());
+        let value = MessageSizesInMb::List(vec![value].into_iter().collect());
+        println!("{:?}", value.to_output_string())
+    }
 }

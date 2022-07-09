@@ -1,6 +1,9 @@
-use std::{env, collections::{VecDeque, BTreeMap}};
+use std::{
+    collections::{BTreeMap, VecDeque},
+    env,
+};
 
-use amqp_large_content_test::{MEGABYTE, MessageSizesInMb, TotalAndChunks};
+use amqp_large_content_test::{MessageSizesInMb, TotalAndChunks, MEGABYTE};
 use anyhow::{anyhow, Result};
 use fe2o3_amqp::{
     types::{
@@ -112,30 +115,24 @@ impl Iterator for MessageIter {
 
     fn next(&mut self) -> Option<Self::Item> {
         match &mut self.sizes {
-            MessageSizesInMb::Binary(sizes) => {
-                sizes.pop_front().map(|size| {
-                    let value = Value::Binary(Binary::from(vec![b'b'; size * MEGABYTE]));
-                    Message::builder().value(value).build()
-                })
-            },
-            MessageSizesInMb::String(sizes) => {
-                sizes.pop_front().map(|size| {
-                    let buf = vec![b's'; size * MEGABYTE];
-                    let s = String::from_utf8_lossy(&buf);
-                    let value = Value::String(s.to_string());
-                    Message::builder().value(value).build()
-                })
-            },
-            MessageSizesInMb::Symbol(sizes) => {
-                sizes.pop_front().map(|size| {
-                    let buf = vec![b'y'; size * MEGABYTE];
-                    let s = Symbol::new(String::from_utf8_lossy(&buf));
-                    let value = Value::Symbol(s);
-                    Message::builder().value(value).build()
-                })
-            },
+            MessageSizesInMb::Binary(sizes) => sizes.pop_front().map(|size| {
+                let value = Value::Binary(Binary::from(vec![b'b'; size * MEGABYTE]));
+                Message::builder().value(value).build()
+            }),
+            MessageSizesInMb::String(sizes) => sizes.pop_front().map(|size| {
+                let buf = vec![b's'; size * MEGABYTE];
+                let s = String::from_utf8_lossy(&buf);
+                let value = Value::String(s.to_string());
+                Message::builder().value(value).build()
+            }),
+            MessageSizesInMb::Symbol(sizes) => sizes.pop_front().map(|size| {
+                let buf = vec![b'y'; size * MEGABYTE];
+                let s = Symbol::new(String::from_utf8_lossy(&buf));
+                let value = Value::Symbol(s);
+                Message::builder().value(value).build()
+            }),
             MessageSizesInMb::List(sizes) => {
-                match sizes.get_mut(0).map(|size| (size.total_in_mb, size.num_chunks.pop_front())) {
+                match sizes.get_mut(0).map(|size| (size.0, size.1.pop_front())) {
                     Some((total_in_mb, Some(num_chunks))) => {
                         let total_in_bytes = total_in_mb * MEGABYTE;
                         let size_per_chunk = total_in_bytes / num_chunks;
@@ -144,16 +141,16 @@ impl Iterator for MessageIter {
                         let list = vec![Value::String(chunk.to_string()); num_chunks];
                         let value = Value::List(list);
                         Some(Message::builder().value(value).build())
-                    },
+                    }
                     Some((_, None)) => {
                         let _ = sizes.pop_front();
                         self.next()
-                    },
+                    }
                     None => None,
                 }
-            },
+            }
             MessageSizesInMb::Map(sizes) => {
-                match sizes.get_mut(0).map(|size| (size.total_in_mb, size.num_chunks.pop_front())) {
+                match sizes.get_mut(0).map(|size| (size.0, size.1.pop_front())) {
                     Some((total_in_mb, Some(num_chunks))) => {
                         let total_in_bytes = total_in_mb * MEGABYTE;
                         let size_per_chunk = total_in_bytes / num_chunks;
@@ -161,53 +158,24 @@ impl Iterator for MessageIter {
                         let chunk = String::from_utf8_lossy(&chunk_buf);
                         let mut map = BTreeMap::new();
 
-                        for i in 0.. num_chunks {
+                        for i in 0..num_chunks {
                             let key = Value::String(i.to_string());
                             let value = Value::String(chunk.to_string());
                             map.insert(key, value);
                         }
 
                         Some(Message::builder().value(Value::Map(map)).build())
-                    },
+                    }
                     Some((_, None)) => {
                         let _ = sizes.pop_front();
                         self.next()
-                    },
+                    }
                     None => None,
                 }
-            },
+            }
         }
     }
 }
-
-// fn generate_message(size: MessageSizesInMb) -> Message<Value> {
-//     match size {
-//         MessageSizesInMb::Binary(total_in_mb) => {
-//             let binary = Binary::from(vec![b'b'; total_in_mb * MEGABYTE]);
-//             Message::builder().value(Value::Binary(binary)).build()
-//         }
-//         MessageSizesInMb::String(total_in_mb) => {
-//             let buf = vec![b's'; total_in_mb * MEGABYTE];
-//             let s = String::from_utf8_lossy(&buf);
-//             Message::builder()
-//                 .value(Value::String(s.to_string()))
-//                 .build()
-//         }
-//         MessageSizesInMb::Symbol(total_in_mb) => {
-//             let buf = vec![b'y'; total_in_mb * MEGABYTE];
-//             let s = Symbol::new(String::from_utf8_lossy(&buf));
-//             Message::builder().value(Value::Symbol(s)).build()
-//         }
-//         MessageSizesInMb::List {
-//             total_size,
-//             num_elem,
-//         } => todo!(),
-//         MessageSizesInMb::Map {
-//             total_size,
-//             num_elem,
-//         } => todo!(),
-//     }
-// }
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -216,34 +184,4 @@ async fn main() -> Result<()> {
 
     test_sender.run().await?;
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use serde_json::{from_slice, to_string};
-
-    use crate::{SizeInMb, create_message_sizes};
-
-    #[test]
-    fn test_deserialize_size_in_mb() {
-        let buf = "[1, 10]";
-        let sizes_in_mb: Vec<usize> = serde_json::from_str(buf).unwrap();
-
-        let buf = "[[1, [1, 16, 256, 4096]], [10, [1, 16, 256, 4096]]]";
-        let sizes_in_mb: Vec<SizeInMb> = serde_json::from_str(buf).unwrap();
-        // println!("{:?}", buf);
-    }
-
-    #[test]
-    fn test_generator() {
-        let mut iter = create_message_sizes("binary", "[1]").unwrap();
-
-        println!("{:?}", iter);
-
-        let msg = iter.next();
-        println!("{:?}", msg.is_some());
-
-        let msg = iter.next();
-        println!("{:?}", msg.is_some());
-    }
 }

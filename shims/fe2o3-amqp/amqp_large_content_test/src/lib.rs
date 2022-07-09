@@ -5,10 +5,7 @@ use std::collections::VecDeque;
 pub const MEGABYTE: usize = 1024 * 1024;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct TotalAndChunks {
-    pub total_in_mb: usize,
-    pub num_chunks: VecDeque<usize>,
-}
+pub struct TotalAndChunks(pub usize, pub VecDeque<usize>);
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum MessageSizesInMb {
@@ -33,16 +30,5 @@ impl MessageSizesInMb {
                     .map_err(Into::into)
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::MessageSizesInMb;
-
-    #[test]
-    fn it_works() {
-        let value = MessageSizesInMb::Binary(vec![1, 2, 3].into_iter().collect());
-        println!("{}", value.to_output_string().unwrap())
     }
 }
