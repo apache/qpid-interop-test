@@ -1,4 +1,3 @@
-
 use std::str::FromStr;
 
 use anyhow::{anyhow, Ok, Result};
@@ -202,7 +201,7 @@ pub fn parse_test_json(amqp_type: AmqpType, input: String) -> Result<Vec<Value>>
                 } else {
                     u32::from_str_radix(s.replace("0x", "").as_str(), 16).map(|val| {
                         char::from_u32(val)
-                            .ok_or(anyhow!("Cannot parse char"))
+                            .ok_or(anyhow!("Only unicode scalar values are valid chars"))
                             .map(Value::Char)
                     })?
                 }
@@ -287,7 +286,14 @@ impl IntoTestJson for Value {
             Value::Decimal128(value) => {
                 format!("0x{}", value.into_inner().encode_hex::<String>())
             }
-            Value::Char(value) => value.to_string(), // FIXME: format out of readable range chars to hex
+            Value::Char(value) => {
+                if value.is_ascii_graphic() || value.is_whitespace() {
+                    value.to_string()
+                } else {
+                    let utf32 = u32::from(value);
+                    format!("{:#x}", utf32)
+                }
+            } // FIXME: format out of readable range chars to hex
             Value::Timestamp(value) => format!("{:#x}", value.into_inner()),
             Value::Uuid(value) => {
                 let s = uuid::Uuid::from_bytes(value.into_inner())
@@ -300,10 +306,12 @@ impl IntoTestJson for Value {
             }
             Value::String(value) => value,
             Value::Symbol(value) => format!("{}", value.0),
-            Value::List(_) => todo!(),
-            Value::Map(_) => todo!(),
-            Value::Array(_) => todo!(),
-            Value::Described(_) => todo!(),
+
+            // The following types are not included in the test
+            Value::List(_) => unreachable!(),
+            Value::Map(_) => unreachable!(),
+            Value::Array(_) => unreachable!(),
+            Value::Described(_) => unreachable!(),
         };
         // Only Debug format is recognized
         format!("{:?}", s)
@@ -323,5 +331,36 @@ impl IntoTestJson for Vec<Value> {
         }
         s.push(']');
         s
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use fe2o3_amqp_types::primitives::Value;
+
+    use crate::IntoTestJson;
+
+    #[test]
+    fn test_char_output_format() {
+        let input = [
+            ' ',
+            'A',
+            'z',
+            '0',
+            '9',
+            '}',
+            '\u{0}',
+            '\u{1}',
+            '\u{7f}',
+            '\u{80}',
+            '\u{ff}',
+            '\u{16b5}',
+            '\u{10203}',
+            '\u{10ffff}',
+        ];
+
+        let values: Vec<Value> = input.into_iter().map(Value::Char).collect();
+        let expected = r#"[" ", "A", "z", "0", "9", "}", "0x0", "0x1", "0x7f", "0x80", "0xff", "0x16b5", "0x10203", "0x10ffff"]"#;
+        assert_eq!(expected, values.into_test_json());
     }
 }
