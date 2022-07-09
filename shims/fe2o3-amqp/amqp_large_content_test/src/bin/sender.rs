@@ -1,6 +1,6 @@
-use std::{env, collections::VecDeque};
+use std::{env, collections::{VecDeque, BTreeMap}};
 
-use amqp_large_content_test::MEGABYTE;
+use amqp_large_content_test::{MEGABYTE, MessageSizesInMb, TotalAndChunks};
 use anyhow::{anyhow, Result};
 use fe2o3_amqp::{
     types::{
@@ -70,116 +70,144 @@ impl TryFrom<Vec<String>> for TestSender {
     }
 }
 
-#[derive(Debug)]
-enum MessageSizeInMb {
-    Binary(usize),
-    String(usize),
-    Symbol(usize),
-    List { total_size: usize, num_elem: usize },
-    Map { total_size: usize, num_elem: usize },
-}
-
 fn create_message_sizes(type_name: &str, input: &str) -> Result<MessageIter> {
-    let sizes: VecDeque<MessageSizeInMb> = match type_name {
+    match type_name {
         "binary" => {
-            let sizes: Vec<usize> = from_str(input)?;
-            sizes
-                .into_iter()
-                .map(|s| MessageSizeInMb::Binary(s))
-                .collect()
+            let sizes: VecDeque<usize> = from_str(input)?;
+            let sizes = MessageSizesInMb::Binary(sizes);
+            Ok(MessageIter { sizes })
         }
         "string" => {
-            let sizes: Vec<usize> = from_str(input)?;
-            sizes
-                .into_iter()
-                .map(|s| MessageSizeInMb::String(s))
-                .collect()
+            let sizes: VecDeque<usize> = from_str(input)?;
+            let sizes = MessageSizesInMb::String(sizes);
+            Ok(MessageIter { sizes })
         }
         "symbol" => {
-            let sizes: Vec<usize> = from_str(input)?;
-            sizes
-                .into_iter()
-                .map(|s| MessageSizeInMb::Symbol(s))
-                .collect()
+            let sizes: VecDeque<usize> = from_str(input)?;
+            let sizes = MessageSizesInMb::Symbol(sizes);
+            Ok(MessageIter { sizes })
         }
 
         "list" => {
-            let sizes: Vec<SizeInMb> = from_str(input)?;
-            sizes
-                .into_iter()
-                .map(|s| {
-                    s.1.into_iter()
-                        .map(|num_elem| MessageSizeInMb::List {
-                            total_size: s.0,
-                            num_elem,
-                        })
-                        .collect::<Vec<MessageSizeInMb>>()
-                })
-                .flatten()
-                .collect()
+            let sizes: VecDeque<TotalAndChunks> = from_str(input)?;
+            let sizes = MessageSizesInMb::List(sizes);
+            Ok(MessageIter { sizes })
         }
         "map" => {
-            let sizes: Vec<SizeInMb> = from_str(input)?;
-            sizes
-                .into_iter()
-                .map(|s| {
-                    s.1.into_iter()
-                        .map(|num_elem| MessageSizeInMb::Map {
-                            total_size: s.0,
-                            num_elem,
-                        })
-                        .collect::<Vec<MessageSizeInMb>>()
-                })
-                .flatten()
-                .collect()
+            let sizes: VecDeque<TotalAndChunks> = from_str(input)?;
+            let sizes = MessageSizesInMb::Map(sizes);
+            Ok(MessageIter { sizes })
         }
         _ => unreachable!(),
-    };
-
-    Ok(MessageIter { sizes })
+    }
 }
 
 #[derive(Debug)]
 struct MessageIter {
-    sizes: VecDeque<MessageSizeInMb>,
+    sizes: MessageSizesInMb,
 }
 
 impl Iterator for MessageIter {
     type Item = Message<Value>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.sizes.pop_front().map(|size| generate_message(size))
+        match &mut self.sizes {
+            MessageSizesInMb::Binary(sizes) => {
+                sizes.pop_front().map(|size| {
+                    let value = Value::Binary(Binary::from(vec![b'b'; size * MEGABYTE]));
+                    Message::builder().value(value).build()
+                })
+            },
+            MessageSizesInMb::String(sizes) => {
+                sizes.pop_front().map(|size| {
+                    let buf = vec![b's'; size * MEGABYTE];
+                    let s = String::from_utf8_lossy(&buf);
+                    let value = Value::String(s.to_string());
+                    Message::builder().value(value).build()
+                })
+            },
+            MessageSizesInMb::Symbol(sizes) => {
+                sizes.pop_front().map(|size| {
+                    let buf = vec![b'y'; size * MEGABYTE];
+                    let s = Symbol::new(String::from_utf8_lossy(&buf));
+                    let value = Value::Symbol(s);
+                    Message::builder().value(value).build()
+                })
+            },
+            MessageSizesInMb::List(sizes) => {
+                match sizes.get_mut(0).map(|size| (size.total_in_mb, size.num_chunks.pop_front())) {
+                    Some((total_in_mb, Some(num_chunks))) => {
+                        let total_in_bytes = total_in_mb * MEGABYTE;
+                        let size_per_chunk = total_in_bytes / num_chunks;
+                        let chunk_buf = vec![b's'; size_per_chunk];
+                        let chunk = String::from_utf8_lossy(&chunk_buf);
+                        let list = vec![Value::String(chunk.to_string()); num_chunks];
+                        let value = Value::List(list);
+                        Some(Message::builder().value(value).build())
+                    },
+                    Some((_, None)) => {
+                        let _ = sizes.pop_front();
+                        self.next()
+                    },
+                    None => None,
+                }
+            },
+            MessageSizesInMb::Map(sizes) => {
+                match sizes.get_mut(0).map(|size| (size.total_in_mb, size.num_chunks.pop_front())) {
+                    Some((total_in_mb, Some(num_chunks))) => {
+                        let total_in_bytes = total_in_mb * MEGABYTE;
+                        let size_per_chunk = total_in_bytes / num_chunks;
+                        let chunk_buf = vec![b's'; size_per_chunk];
+                        let chunk = String::from_utf8_lossy(&chunk_buf);
+                        let mut map = BTreeMap::new();
+
+                        for i in 0.. num_chunks {
+                            let key = Value::String(i.to_string());
+                            let value = Value::String(chunk.to_string());
+                            map.insert(key, value);
+                        }
+
+                        Some(Message::builder().value(Value::Map(map)).build())
+                    },
+                    Some((_, None)) => {
+                        let _ = sizes.pop_front();
+                        self.next()
+                    },
+                    None => None,
+                }
+            },
+        }
     }
 }
 
-fn generate_message(size: MessageSizeInMb) -> Message<Value> {
-    match size {
-        MessageSizeInMb::Binary(total_in_mb) => {
-            let binary = Binary::from(vec![b'b'; total_in_mb * MEGABYTE]);
-            Message::builder().value(Value::Binary(binary)).build()
-        }
-        MessageSizeInMb::String(total_in_mb) => {
-            let buf = vec![b's'; total_in_mb * MEGABYTE];
-            let s = String::from_utf8_lossy(&buf);
-            Message::builder()
-                .value(Value::String(s.to_string()))
-                .build()
-        }
-        MessageSizeInMb::Symbol(total_in_mb) => {
-            let buf = vec![b'y'; total_in_mb * MEGABYTE];
-            let s = Symbol::new(String::from_utf8_lossy(&buf));
-            Message::builder().value(Value::Symbol(s)).build()
-        }
-        MessageSizeInMb::List {
-            total_size,
-            num_elem,
-        } => todo!(),
-        MessageSizeInMb::Map {
-            total_size,
-            num_elem,
-        } => todo!(),
-    }
-}
+// fn generate_message(size: MessageSizesInMb) -> Message<Value> {
+//     match size {
+//         MessageSizesInMb::Binary(total_in_mb) => {
+//             let binary = Binary::from(vec![b'b'; total_in_mb * MEGABYTE]);
+//             Message::builder().value(Value::Binary(binary)).build()
+//         }
+//         MessageSizesInMb::String(total_in_mb) => {
+//             let buf = vec![b's'; total_in_mb * MEGABYTE];
+//             let s = String::from_utf8_lossy(&buf);
+//             Message::builder()
+//                 .value(Value::String(s.to_string()))
+//                 .build()
+//         }
+//         MessageSizesInMb::Symbol(total_in_mb) => {
+//             let buf = vec![b'y'; total_in_mb * MEGABYTE];
+//             let s = Symbol::new(String::from_utf8_lossy(&buf));
+//             Message::builder().value(Value::Symbol(s)).build()
+//         }
+//         MessageSizesInMb::List {
+//             total_size,
+//             num_elem,
+//         } => todo!(),
+//         MessageSizesInMb::Map {
+//             total_size,
+//             num_elem,
+//         } => todo!(),
+//     }
+// }
 
 #[tokio::main]
 async fn main() -> Result<()> {
