@@ -1,6 +1,0 @@
-[workspace]
-members = [
-    "amqp_types_test",
-    "amqp_large_content_test",
-    "interop_test_common",
-]
