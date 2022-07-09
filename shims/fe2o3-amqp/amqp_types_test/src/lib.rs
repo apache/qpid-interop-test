@@ -293,7 +293,7 @@ impl IntoTestJson for Value {
                     let utf32 = u32::from(value);
                     format!("{:#x}", utf32)
                 }
-            } // FIXME: format out of readable range chars to hex
+            }
             Value::Timestamp(value) => format!("{:#x}", value.into_inner()),
             Value::Uuid(value) => {
                 let s = uuid::Uuid::from_bytes(value.into_inner())

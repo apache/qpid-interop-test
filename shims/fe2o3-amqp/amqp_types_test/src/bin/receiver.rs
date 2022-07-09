@@ -2,10 +2,10 @@ use std::env;
 
 use anyhow::{anyhow, Result};
 
+use amqp_types_test::{AmqpType, IntoTestJson};
 use fe2o3_amqp::{
     link::BodyError, types::primitives::Value, Connection, Delivery, Receiver, Session,
 };
-use amqp_types_test::{AmqpType, IntoTestJson};
 
 struct TestReceiver {
     ip_addr: String,
