@@ -25,6 +25,7 @@ RUN dpkg -i packages-microsoft-prod.deb
 RUN apt-get update
 RUN export DEBIAN_FRONTEND=noninteractive; apt-get install -y sudo git cmake build-essential libjsoncpp-dev python3-dev maven openjdk-11-jdk libnode-dev aspnetcore-runtime-5.0
 RUN export DEBIAN_FRONTEND=noninteractive; apt-get install -y libqpid-proton-cpp12-dev python3-qpid-proton qdrouterd
+RUN export DEBIAN_FRONTEND=noninteractive; apt-get install -y cargo
 
 ARG USER_ID=qit
 RUN useradd --create-home ${USER_ID}
@@ -33,7 +34,8 @@ USER ${USER_ID}
 WORKDIR /home/${USER_ID}
 
 RUN git clone https://github.com/amqp/rhea.git
-RUN git clone https://gitbox.apache.org/repos/asf/qpid-interop-test.git && \
+# RUN git clone https://gitbox.apache.org/repos/asf/qpid-interop-test.git && \
+RUN git clone https://github.com/minghuaw/qpid-interop-test && \
     cd qpid-interop-test && \
     mkdir build && \
     cd build && \

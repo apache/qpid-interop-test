@@ -9,7 +9,6 @@ set(MAKE_INSTALL_ROOT
 install(
     CODE "EXECUTE_PROCESS (
         COMMAND cargo install --path ./ --target-dir ${CARGO_BUILD_ROOT} --root ${MAKE_INSTALL_ROOT}
-        COMMAND chmod +x ${MAKE_INSTALL_ROOT}/bin/sender ${MAKE_INSTALL_ROOT}/bin/receiver
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         )"
 )
