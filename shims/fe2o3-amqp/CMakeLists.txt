@@ -17,6 +17,9 @@ find_program(CARGO cargo)
 if (CARGO STREQUAL "CARGO-NOTFOUND")
     message(STATUS "cargo not found")
     set(build_fe2o3_amqp_default OFF)
+else()
+    execute_process(COMMAND cargo --version OUTPUT_VARIABLE ov)
+    message(STATUS "cargo is found with version ${ov}")
 endif()
 
 # Set option that controls the build process
