@@ -9,7 +9,6 @@ project(qpid-interop-test-fe2o3-amqp-shims)
 cmake_minimum_required(VERSION 3.16.3 FATAL_ERROR)
 
 set(build_fe2o3_amqp_default ON)
-set(RUST_TOOLCHAIN stable)
 
 # Check prerequisites
 # 1. Find cargo
