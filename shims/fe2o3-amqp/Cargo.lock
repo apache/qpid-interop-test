@@ -113,9 +113,9 @@ dependencies = [
 
 [[package]]
 name = "fe2o3-amqp"
-version = "0.0.31"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae1abe8c04f44d38fadfb262779070f89b56b0581de9e60c1e4a3363260c5a0e"
+checksum = "5ccdb2dbaf03f5a6787f4fc730d4e5b86b86261010d2eda70a7aa83976c0d257"
 dependencies = [
  "async-trait",
  "bytes",
@@ -136,9 +136,9 @@ dependencies = [
 
 [[package]]
 name = "fe2o3-amqp-types"
-version = "0.0.30"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4294dd925386d24ef7a2813cc755f463124866a5b1740baa427237f9385edf66"
+checksum = "cf7e281ae5a6f735a3d636f81b4396a573c277915409bd5ce2d03a1f8a764e2d"
 dependencies = [
  "ordered-float",
  "serde",
@@ -372,9 +372,9 @@ dependencies = [
 
 [[package]]
 name = "serde_amqp"
-version = "0.0.11"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f69cf08e53343b1cf43f7e7d3e4e208730a33b7f64c29cff9380089f0100b786"
+checksum = "24ee7d5681775497e3f14fff0ee99f8a20f404aaddf83796fbfa2067f12e049e"
 dependencies = [
  "bytes",
  "ordered-float",
@@ -386,9 +386,9 @@ dependencies = [
 
 [[package]]
 name = "serde_amqp_derive"
-version = "0.0.3"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "210cb77c1dd33b164779b622daff741bc52959bff188edfccc419854057d49ca"
+checksum = "524d4dc6b673a5739337b2b33a355a533a4abf2f8cb0ad166d43ed67cb0ba82e"
 dependencies = [
  "convert_case",
  "darling",
