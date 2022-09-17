@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, VecDeque},
+    collections::{VecDeque},
     env,
 };
 
@@ -156,13 +156,14 @@ impl Iterator for MessageIter {
                         let size_per_chunk = total_in_bytes / num_chunks;
                         let chunk_buf = vec![b's'; size_per_chunk];
                         let chunk = String::from_utf8_lossy(&chunk_buf);
-                        let mut map = BTreeMap::new();
 
-                        for i in 0..num_chunks {
-                            let key = Value::String(i.to_string());
-                            let value = Value::String(chunk.to_string());
-                            map.insert(key, value);
-                        }
+                        let map = (0..num_chunks).into_iter()
+                            .map(|i| {
+                                let key = Value::String(i.to_string());
+                                let value = Value::String(chunk.to_string());
+                                (key, value)
+                            })
+                            .collect();
 
                         Some(Message::builder().value(Value::Map(map)).build())
                     }

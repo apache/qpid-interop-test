@@ -34,7 +34,7 @@ impl TestReceiver {
             let delivery: Delivery<Value> = receiver.recv().await?;
             receiver.accept(&delivery).await?;
             v.push(delivery.try_into_value().or_else(|err| match err {
-                BodyError::IsNothing => Ok(Value::Null),
+                BodyError::IsEmpty => Ok(Value::Null),
                 _ => Err(err),
             })?);
         }

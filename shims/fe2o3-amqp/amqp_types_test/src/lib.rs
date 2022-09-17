@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use anyhow::{anyhow, Ok, Result};
-use fe2o3_amqp_types::primitives::{
+use fe2o3_amqp::types::primitives::{
     Binary, Byte, Dec128, Dec32, Dec64, Int, Long, Short, Symbol, Timestamp, UByte, UInt, ULong,
     UShort, Uuid, Value,
 };
@@ -336,7 +336,7 @@ impl IntoTestJson for Vec<Value> {
 
 #[cfg(test)]
 mod tests {
-    use fe2o3_amqp_types::primitives::Value;
+    use fe2o3_amqp::types::primitives::Value;
 
     use crate::IntoTestJson;
 

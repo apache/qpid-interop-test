@@ -1,12 +1,9 @@
-use std::{
-    collections::{BTreeMap, VecDeque},
-    env,
-};
+use std::{collections::VecDeque, env};
 
 use amqp_large_content_test::{MessageSizesInMb, TotalAndChunks, MEGABYTE};
 use anyhow::{anyhow, Ok, Result};
 use fe2o3_amqp::{
-    types::primitives::{Binary, Symbol},
+    types::primitives::{Binary, OrderedMap, Symbol},
     Connection, Delivery, Receiver, Session,
 };
 
@@ -115,7 +112,7 @@ async fn recv_list(receiver: &mut Receiver, num_expected: usize) -> Result<Messa
 async fn recv_map(receiver: &mut Receiver, num_expected: usize) -> Result<MessageSizesInMb> {
     let mut v: VecDeque<TotalAndChunks> = VecDeque::new();
     for _ in 0..num_expected {
-        let delivery: Delivery<BTreeMap<String, String>> = receiver.recv().await?;
+        let delivery: Delivery<OrderedMap<String, String>> = receiver.recv().await?;
         receiver.accept(&delivery).await?;
 
         let map = delivery.try_into_value()?;
