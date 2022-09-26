@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 # fe2o3-amqp = { git = "https://github.com/minghuaw/fe2o3-amqp", branch = "96-alternative-map" }
 # serde_amqp = { git = "https://github.com/minghuaw/fe2o3-amqp", branch = "96-alternative-map" }
-fe2o3-amqp = "0.6.3"
+fe2o3-amqp = "0.6.7"
 anyhow = "1.0.49"
 tokio = { version = "1", features = ["net", "macros", "rt-multi-thread", "rt"]}
 serde = { version = "1", features = ["derive"] }
