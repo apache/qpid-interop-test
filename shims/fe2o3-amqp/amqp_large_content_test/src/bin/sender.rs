@@ -7,7 +7,7 @@ use amqp_large_content_test::{MessageSizesInMb, TotalAndChunks, MEGABYTE};
 use anyhow::{anyhow, Result};
 use fe2o3_amqp::{
     types::{
-        messaging::Message,
+        messaging::{Message, AmqpValue},
         primitives::{Binary, Symbol, Value},
     },
     Connection, Sender, Session,
@@ -111,7 +111,7 @@ struct MessageIter {
 }
 
 impl Iterator for MessageIter {
-    type Item = Message<Value>;
+    type Item = Message<AmqpValue<Value>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match &mut self.sizes {

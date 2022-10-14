@@ -4,7 +4,7 @@ use anyhow::{anyhow, Result};
 
 use amqp_types_test::{AmqpType, IntoTestJson};
 use fe2o3_amqp::{
-    link::BodyError, types::primitives::Value, Connection, Delivery, Receiver, Session,
+    types::primitives::Value, Connection, Delivery, Receiver, Session,
 };
 
 struct TestReceiver {
@@ -31,12 +31,9 @@ impl TestReceiver {
 
         let mut v: Vec<Value> = Vec::with_capacity(self.n);
         for _ in 0..self.n {
-            let delivery: Delivery<Value> = receiver.recv().await?;
+            let delivery: Delivery<Option<Value>> = receiver.recv().await?;
             receiver.accept(&delivery).await?;
-            v.push(delivery.try_into_value().or_else(|err| match err {
-                BodyError::IsEmpty => Ok(Value::Null),
-                _ => Err(err),
-            })?);
+            v.push(delivery.into_body().unwrap_or(Value::Null));
         }
 
         receiver.close().await?;

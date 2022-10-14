@@ -77,9 +77,12 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "convert_case"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb4a24b1aaf0fd0ce8b45161144d6f42cd91677fd5940fd431183eb023b3a2b8"
+checksum = "ec182b0ca2f35d8fc196cf3404988fd8b8c739a4d270ff118a398feb0cbec1ca"
+dependencies = [
+ "unicode-segmentation",
+]
 
 [[package]]
 name = "darling"
@@ -118,9 +121,9 @@ dependencies = [
 
 [[package]]
 name = "fe2o3-amqp"
-version = "0.6.7"
+version = "0.7.0-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8aa938c6ea730b3324b008f40ee720f34f521d470e664e52faf91b6052afef40"
+checksum = "0ecaf719963b4b84c2d8107e8999175f09005205fabc5187854f481422208029"
 dependencies = [
  "async-trait",
  "bytes",
@@ -142,9 +145,9 @@ dependencies = [
 
 [[package]]
 name = "fe2o3-amqp-types"
-version = "0.5.2"
+version = "0.6.0-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9aefc67dffc74045eb065ce179b137d504fc55bbd495c84856e3a551e85d5168"
+checksum = "a3b49c1c30d7036f41d271e7dd2ed8f3ccc69cb5ed6a048ade8938ad3818e5aa"
 dependencies = [
  "ordered-float",
  "serde",
@@ -435,9 +438,9 @@ dependencies = [
 
 [[package]]
 name = "serde_amqp"
-version = "0.4.3"
+version = "0.5.0-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97f200a00f0878628b9d35246fb26627759a171efba72283f80cf06af50e234f"
+checksum = "602540d15b3d88c3be7d13ada498618d40d0331883e517f8d218a4f5700d1e62"
 dependencies = [
  "bytes",
  "indexmap",
@@ -450,9 +453,9 @@ dependencies = [
 
 [[package]]
 name = "serde_amqp_derive"
-version = "0.1.2"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a342626f001d05ea6ca3d2f15ca75085ed1923fe62aee5d722ca146d9470d7a"
+checksum = "a4eb9289daf98dd25a213ce816d9fc964f1a85a433833d6d439061557262f5a1"
 dependencies = [
  "convert_case",
  "darling",
@@ -687,6 +690,12 @@ checksum = "5c5713f0fc4b5db668a2ac63cdb7bb4469d8c9fed047b1d0292cc7b0ce2ba921"
 dependencies = [
  "tinyvec",
 ]
+
+[[package]]
+name = "unicode-segmentation"
+version = "1.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0fdbf052a0783de01e944a6ce7a8cb939e295b1e7be835a1112c3b9a7f047a5a"
 
 [[package]]
 name = "url"

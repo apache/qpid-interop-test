@@ -60,7 +60,7 @@ async fn recv_binary(receiver: &mut Receiver, num_expected: usize) -> Result<Mes
         let delivery: Delivery<Binary> = receiver.recv().await?;
         receiver.accept(&delivery).await?;
 
-        let b = delivery.try_into_value()?;
+        let b = delivery.into_body();
         v.push_back(b.len() / MEGABYTE)
     }
     Ok(MessageSizesInMb::Binary(v))
@@ -72,7 +72,7 @@ async fn recv_string(receiver: &mut Receiver, num_expected: usize) -> Result<Mes
         let delivery: Delivery<String> = receiver.recv().await?;
         receiver.accept(&delivery).await?;
 
-        let s = delivery.try_as_value()?;
+        let s = delivery.into_body();
         v.push_back(s.len() / MEGABYTE)
     }
     Ok(MessageSizesInMb::String(v))
@@ -84,7 +84,7 @@ async fn recv_symbol(receiver: &mut Receiver, num_expected: usize) -> Result<Mes
         let delivery: Delivery<Symbol> = receiver.recv().await?;
         receiver.accept(&delivery).await?;
 
-        let s = delivery.try_into_value()?;
+        let s = delivery.into_body();
         v.push_back(s.0.len() / MEGABYTE)
     }
     Ok(MessageSizesInMb::Symbol(v))
@@ -98,7 +98,7 @@ async fn recv_list(receiver: &mut Receiver, num_expected: usize) -> Result<Messa
         let delivery: Delivery<Vec<String>> = receiver.recv().await?;
         receiver.accept(&delivery).await?;
 
-        let s = delivery.try_into_value()?;
+        let s = delivery.into_body();
 
         let total_in_bytes: usize = s.iter().map(|e| e.len()).sum();
         let total_in_mb = total_in_bytes / MEGABYTE;
@@ -115,7 +115,7 @@ async fn recv_map(receiver: &mut Receiver, num_expected: usize) -> Result<Messag
         let delivery: Delivery<OrderedMap<String, String>> = receiver.recv().await?;
         receiver.accept(&delivery).await?;
 
-        let map = delivery.try_into_value()?;
+        let map = delivery.into_body();
         let num_chunks = map.len();
         let total_in_bytes: usize = map.values().map(|e| e.len()).sum();
         let total_in_mb = total_in_bytes / MEGABYTE;
