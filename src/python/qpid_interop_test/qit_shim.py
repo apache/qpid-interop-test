@@ -169,3 +169,11 @@ class AmqpNetLiteShim(Shim):
         super().__init__(sender_shim, receiver_shim)
         self.send_params = ['dotnet', self.sender_shim]
         self.receive_params = ['dotnet', self.receiver_shim]
+
+class Fe2o3AmqpShim(Shim):
+    """Shim for fe2o3-amqp client"""
+    NAME = "fe2o3-amqp"
+    def __init__(self, sender_shim, receiver_shim):
+        super().__init__(sender_shim, receiver_shim)
+        self.send_params = [self.sender_shim]
+        self.receive_params = [self.receiver_shim]

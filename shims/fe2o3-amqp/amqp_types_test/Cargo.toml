@@ -1,0 +1,18 @@
+[package]
+name = "amqp_types_test"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+fe2o3-amqp = { git = "https://github.com/minghuaw/fe2o3-amqp", branch = "0.9-dev" }
+# fe2o3-amqp = "0.8"
+tokio = { version = "1", features = ["net", "macros", "rt-multi-thread", "rt"]}
+serde = "1"
+serde_json = "1"
+hex = "0.4"
+ordered-float = "4"
+uuid = "1"
+base64 = "0.21"
+anyhow = "1"
