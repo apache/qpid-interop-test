@@ -24,9 +24,9 @@ cmake_minimum_required(VERSION 3.16.3 FATAL_ERROR)
 set (ErrorFlag FALSE)
 
 # Find Python
-find_package (Python 3 COMPONENTS Interpreter Development)
+find_package (Python 3.9 COMPONENTS Interpreter Development)
 if (NOT Python_FOUND)
-    message (STATUS "ERROR: Python 3 not found, but is required")
+    message (STATUS "ERROR: Python 3.9 not found, but is required")
     set (ErrorFlag TRUE)
 endif ()
 
