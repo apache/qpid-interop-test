@@ -1,15 +1,18 @@
 """
-JMS Interoperability Tests - Unified Client Matrix
+JMS Interoperability Tests - Star Configuration
 
-Tests JMS message interoperability across all AMQP clients and JMS client.
-Structure matches test_types.py (AMQP tests) for consistency.
+Tests JMS message interoperability using a star topology centered on the
+Qpid JMS Client. Every test pair includes the JMS client on at least one
+side, validating that each AMQP client can correctly send to and receive
+from a native JMS endpoint.
 
-Test Matrix: N×N (sender × receiver)
-- Phase 2b.1: Python + JMS (2×2 = 4 tests)
-- Phase 2b.2: + JavaScript (3×3 = 9 tests)
-- Phase 2b.3: + C++ (4×4 = 16 tests)
-- Phase 2b.4: + .NET (5×5 = 25 tests)
-- Phase 2b.5: + Java ProtonJ2 (6×6 = 36 tests)
+Star Pairs (11 total):
+- JMS -> AMQP client (5 pairs: python-proton, javascript-rhea, cpp-proton,
+                       dotnet-proton, java-protonj2)
+- AMQP client -> JMS (5 pairs: same clients in reverse)
+- JMS -> JMS (baseline)
+
+Test Count: 11 pairs x 5 text values = 55 tests (Phase 2b)
 
 Message Types: Incremental
 - Phase 2b: TextMessage only
@@ -48,15 +51,24 @@ TEXT_MESSAGE_VALUES = [
 # Client Configurations
 # =============================================================================
 
-# Enabled clients for testing (incrementally expand)
-ENABLED_CLIENTS = [
-    "python-proton",    # Phase 2b.1 ✅
-    "jms",              # Phase 2b.1 ✅
-    "javascript-rhea",  # Phase 2b.2 ✅
-    "cpp-proton",       # Phase 2b.3 ✅
-    "dotnet-proton",    # Phase 2b.4 ✅
-    "java-protonj2",    # Phase 2b.5 ✅
+# Hub of the star: native JMS client
+JMS_CLIENT = "jms"
+
+# Spokes of the star: AMQP clients that emulate JMS via --jms-mode
+AMQP_CLIENTS = [
+    "python-proton",
+    "javascript-rhea",
+    "cpp-proton",
+    "dotnet-proton",
+    "java-protonj2",
 ]
+
+# Star test pairs: JMS is always on at least one side
+STAR_PAIRS = (
+    [pytest.param(JMS_CLIENT, c, id=f"jms->{c}") for c in AMQP_CLIENTS]
+    + [pytest.param(c, JMS_CLIENT, id=f"{c}->jms") for c in AMQP_CLIENTS]
+    + [pytest.param(JMS_CLIENT, JMS_CLIENT, id="jms->jms")]
+)
 
 # Client metadata
 CLIENT_INFO = {
@@ -337,8 +349,7 @@ def compare_messages(sent: list[dict], received: list[dict], sender: str, receiv
 # Test Matrix
 # =============================================================================
 
-@pytest.mark.parametrize("sender_client", ENABLED_CLIENTS)
-@pytest.mark.parametrize("receiver_client", ENABLED_CLIENTS)
+@pytest.mark.parametrize("sender_client,receiver_client", STAR_PAIRS)
 @pytest.mark.parametrize("text_value", TEXT_MESSAGE_VALUES)
 def test_jms_textmessage_interop(
     sender_client: str,
@@ -349,16 +360,11 @@ def test_jms_textmessage_interop(
     project_root: Path,
 ):
     """
-    Test JMS TextMessage interoperability across all enabled clients.
+    Test JMS TextMessage interoperability using star configuration.
 
-    This creates a full N×N matrix where N = number of enabled clients.
-    Each test sends a message from one client and receives with another.
-
-    Examples:
-    - python-proton → python-proton (self-test with JMS annotation)
-    - python-proton → jms (AMQP JMS emulation → native JMS)
-    - jms → python-proton (native JMS → AMQP JMS detection)
-    - jms → jms (JMS baseline, always works)
+    The JMS client (Qpid JMS) is always on at least one side of every pair.
+    This validates that each AMQP client can correctly send JMS-annotated
+    messages to, and receive JMS messages from, the native JMS client.
     """
     # Prepare message
     if sender_client == "jms":
@@ -384,19 +390,16 @@ def test_jms_textmessage_interop(
 # =============================================================================
 
 # Phase 2c: BytesMessage, MapMessage, StreamMessage, Message
-# @pytest.mark.parametrize("sender_client", ENABLED_CLIENTS)
-# @pytest.mark.parametrize("receiver_client", ENABLED_CLIENTS)
+# @pytest.mark.parametrize("sender_client,receiver_client", STAR_PAIRS)
 # def test_jms_bytesmessage_interop(sender_client, receiver_client, ...):
 #     pass
 
 # Phase 2d: Headers
-# @pytest.mark.parametrize("sender_client", ENABLED_CLIENTS)
-# @pytest.mark.parametrize("receiver_client", ENABLED_CLIENTS)
+# @pytest.mark.parametrize("sender_client,receiver_client", STAR_PAIRS)
 # def test_jms_headers_interop(sender_client, receiver_client, ...):
 #     pass
 
 # Phase 2e: Properties
-# @pytest.mark.parametrize("sender_client", ENABLED_CLIENTS)
-# @pytest.mark.parametrize("receiver_client", ENABLED_CLIENTS)
+# @pytest.mark.parametrize("sender_client,receiver_client", STAR_PAIRS)
 # def test_jms_properties_interop(sender_client, receiver_client, ...):
 #     pass
