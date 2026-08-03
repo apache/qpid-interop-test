@@ -128,6 +128,7 @@ namespace Qit.Shim
                         Value = BitConverter.ToString(bytes).Replace("-", "").ToLower()
                     };
                 }
+                return new DecodedMessage { Type = "bytes", Value = "" };
             }
             else if (jmsType == JMS_MESSAGE)
             {

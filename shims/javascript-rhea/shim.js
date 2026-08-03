@@ -83,10 +83,11 @@ function decodeJmsMessage(body, jmsMsgType) {
         };
     } else if (jmsMsgType === JMS_BYTES_MESSAGE) {
         // BytesMessage: body is binary in Data section
-        if (Buffer.isBuffer(body)) {
-            return { type: 'bytes', value: body.toString('hex') };
+        if (body === null || body === undefined) {
+            return { type: 'bytes', value: '' };
         }
-        return { type: 'bytes', value: null };
+        const buf = Buffer.isBuffer(body) ? body : Buffer.from(body);
+        return { type: 'bytes', value: buf.toString('hex') };
     } else if (jmsMsgType === JMS_MESSAGE) {
         // Empty message
         return { type: 'null', value: null };
@@ -414,8 +415,10 @@ function send(options) {
 
             const message = {
                 message_id: msgData.index,
-                body: body
             };
+            if (body !== null && body !== undefined) {
+                message.body = body;
+            }
 
             // Add JMS annotations if in JMS mode
             if (jmsMode) {

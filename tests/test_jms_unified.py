@@ -360,8 +360,8 @@ def compare_messages(sent: list[dict], received: list[dict], sender: str, receiv
             f"sent {s['type']}, received {r['type']}"
         )
 
-        sent_value = normalize_value(s["type"], s["value"])
-        recv_value = normalize_value(r["type"], r["value"])
+        sent_value = normalize_value(s["type"], s.get("value"))
+        recv_value = normalize_value(r["type"], r.get("value"))
 
         assert sent_value == recv_value, (
             f"{sender}→{receiver}: Message {i} value mismatch - "

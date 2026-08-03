@@ -262,9 +262,11 @@ class ReceiverHandler(MessagingHandler):
         elif jms_msg_type == JMS_BYTES_MESSAGE:
             # BytesMessage: body is binary in Data section
             body_val = msg.body
-            if isinstance(body_val, bytes):
-                return {"index": msg_index, "type": "bytes", "value": body_val.hex()}
-            return {"index": msg_index, "type": "bytes", "value": None}
+            if body_val is None:
+                return {"index": msg_index, "type": "bytes", "value": ""}
+            if not isinstance(body_val, bytes):
+                body_val = bytes(body_val)
+            return {"index": msg_index, "type": "bytes", "value": body_val.hex()}
         elif jms_msg_type == JMS_MESSAGE:
             # Empty message
             return {"index": msg_index, "type": "null", "value": None}

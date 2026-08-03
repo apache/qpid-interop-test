@@ -1,6 +1,7 @@
 package org.apache.qpid.qit;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
@@ -75,7 +76,7 @@ public class JmsReceiver {
         consumer = session.createConsumer(destination);
 
         // Receive messages
-        Gson gson = new Gson();
+        Gson gson = new GsonBuilder().serializeNulls().create();
         JsonArray messages = new JsonArray();
 
         long timeoutMs = timeout * 1000L;
