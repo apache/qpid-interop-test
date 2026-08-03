@@ -23,13 +23,15 @@ class SenderHandler(MessagingHandler):
     """Handler for sending AMQP messages."""
 
     def __init__(
-        self, url: str, queue: str, messages: list[dict[str, Any]], jms_mode: bool = False
+        self, url: str, queue: str, messages: list[dict[str, Any]],
+        jms_mode: bool = False, amqp_type: str = "string",
     ) -> None:
         super().__init__()
         self.url = url
         self.queue = queue
         self.messages = messages
         self.jms_mode = jms_mode
+        self.amqp_type = amqp_type
         self.sent_count = 0
         self.confirmed_count = 0
 
@@ -46,14 +48,24 @@ class SenderHandler(MessagingHandler):
             msg.id = msg_data["index"]
 
             # Encode body
-            msg.body = self._encode_value(msg_data["type"], msg_data["value"])
+            if self.amqp_type == "map":
+                sub_type = msg_data["type"]
+                key = f"{sub_type}_{msg_data['index']:03d}"
+                encoded_value = self._encode_value(sub_type, msg_data["value"])
+                msg.body = {key: encoded_value}
+            elif self.amqp_type == "list":
+                sub_type = msg_data["type"]
+                encoded_value = self._encode_value(sub_type, msg_data["value"])
+                msg.body = [encoded_value]
+            else:
+                msg.body = self._encode_value(msg_data["type"], msg_data["value"])
 
             # Add JMS annotations if in JMS mode
             if self.jms_mode:
                 from proton import byte, symbol
 
                 # Map type to JMS message type
-                jms_type = self._get_jms_message_type(msg_data["type"])
+                jms_type = self._get_jms_message_type(self.amqp_type)
                 if jms_type is not None:
                     # NOTE: Key MUST be symbol, value MUST be byte (not ubyte)
                     # This matches Qpid JMS Client wire format
@@ -77,8 +89,10 @@ class SenderHandler(MessagingHandler):
         """Map AMQP type to JMS message type byte value."""
         # JMS message type constants (from Qpid JMS Client)
         JMS_MESSAGE = 0  # Empty message
-        JMS_TEXT_MESSAGE = 5  # String/text
+        JMS_MAP_MESSAGE = 2  # Map
         JMS_BYTES_MESSAGE = 3  # Binary data
+        JMS_STREAM_MESSAGE = 4  # List/stream
+        JMS_TEXT_MESSAGE = 5  # String/text
 
         # Map AMQP types to JMS message types
         if amqp_type == "string":
@@ -87,9 +101,11 @@ class SenderHandler(MessagingHandler):
             return JMS_BYTES_MESSAGE
         elif amqp_type == "null":
             return JMS_MESSAGE
+        elif amqp_type == "map":
+            return JMS_MAP_MESSAGE
+        elif amqp_type == "list":
+            return JMS_STREAM_MESSAGE
 
-        # Other AMQP types not directly mapped to JMS
-        # (could use BytesMessage encoding for primitives)
         return None
 
     def _encode_value(self, amqp_type: str, value: Any) -> Any:
@@ -271,11 +287,26 @@ class ReceiverHandler(MessagingHandler):
             # Empty message
             return {"index": msg_index, "type": "null", "value": None}
         elif jms_msg_type == JMS_MAP_MESSAGE:
-            # MapMessage: body is map in AmqpValue section
-            return {"index": msg_index, "type": "map", "value": msg.body}
+            body = msg.body
+            if body and isinstance(body, dict):
+                key = next(iter(body))
+                raw_value = body[key]
+                return {
+                    "index": msg_index,
+                    "type": self._infer_type(raw_value),
+                    "value": self._decode_value(raw_value),
+                }
+            return {"index": msg_index, "type": "none", "value": None}
         elif jms_msg_type == JMS_STREAM_MESSAGE:
-            # StreamMessage: body is list in AmqpSequence section
-            return {"index": msg_index, "type": "list", "value": msg.body}
+            body = msg.body
+            if body and isinstance(body, (list, tuple)) and len(body) > 0:
+                raw_value = body[0]
+                return {
+                    "index": msg_index,
+                    "type": self._infer_type(raw_value),
+                    "value": self._decode_value(raw_value),
+                }
+            return {"index": msg_index, "type": "none", "value": None}
         else:
             # Unknown JMS type, fall back to regular AMQP decoding
             return {
@@ -396,7 +427,7 @@ def send_messages(args: argparse.Namespace) -> None:
     """Send messages via broker."""
     messages = json.loads(args.data)
     jms_mode = getattr(args, "jms_mode", False)
-    handler = SenderHandler(args.broker, args.queue, messages, jms_mode)
+    handler = SenderHandler(args.broker, args.queue, messages, jms_mode, args.type)
     Container(handler).run()
 
     # Output result

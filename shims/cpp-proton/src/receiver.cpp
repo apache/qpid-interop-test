@@ -9,6 +9,8 @@
 #include <proton/work_queue.hpp>
 #include <proton/annotation_key.hpp>
 #include <proton/symbol.hpp>
+#include <proton/codec/encoder.hpp>
+#include <proton/codec/decoder.hpp>
 #include <iostream>
 #include <cstdlib>
 
@@ -118,13 +120,46 @@ Json::Value Receiver::decode_jms_message(const proton::value& body, int8_t jms_m
         result["type"] = "null";
         result["value"] = Json::nullValue;
     } else if (jms_msg_type == JMS_MAP_MESSAGE) {
-        // MapMessage: body is map in AmqpValue section
-        result["type"] = "map";
-        result["value"] = Json::nullValue;  // TODO: proper map decoding
+        try {
+            proton::codec::decoder dec(body);
+            proton::codec::start s;
+            dec >> s;
+            if (s.size >= 2) {
+                std::string key;
+                proton::value val;
+                dec >> key >> val;
+                dec >> proton::codec::finish();
+                Json::Value decoded = TypeCodec::decode(val);
+                result["type"] = decoded["type"];
+                result["value"] = decoded["value"];
+            } else {
+                result["type"] = "none";
+                result["value"] = Json::nullValue;
+            }
+        } catch (...) {
+            result["type"] = "none";
+            result["value"] = Json::nullValue;
+        }
     } else if (jms_msg_type == JMS_STREAM_MESSAGE) {
-        // StreamMessage: body is list in AmqpSequence section
-        result["type"] = "list";
-        result["value"] = Json::nullValue;  // TODO: proper list decoding
+        try {
+            proton::codec::decoder dec(body);
+            proton::codec::start s;
+            dec >> s;
+            if (s.size >= 1) {
+                proton::value val;
+                dec >> val;
+                dec >> proton::codec::finish();
+                Json::Value decoded = TypeCodec::decode(val);
+                result["type"] = decoded["type"];
+                result["value"] = decoded["value"];
+            } else {
+                result["type"] = "none";
+                result["value"] = Json::nullValue;
+            }
+        } catch (...) {
+            result["type"] = "none";
+            result["value"] = Json::nullValue;
+        }
     } else {
         // Unknown JMS type, fall back to regular AMQP decoding
         return TypeCodec::decode(body);

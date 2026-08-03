@@ -50,8 +50,10 @@ function parseArgs() {
 function getJmsMessageType(amqpType) {
     // JMS message type constants (from Qpid JMS Client)
     const JMS_MESSAGE = 0;        // Empty message
-    const JMS_TEXT_MESSAGE = 5;   // String/text
+    const JMS_MAP_MESSAGE = 2;    // Map
     const JMS_BYTES_MESSAGE = 3;  // Binary data
+    const JMS_STREAM_MESSAGE = 4; // List/stream
+    const JMS_TEXT_MESSAGE = 5;   // String/text
 
     // Map AMQP types to JMS message types
     if (amqpType === 'string') {
@@ -60,9 +62,12 @@ function getJmsMessageType(amqpType) {
         return JMS_BYTES_MESSAGE;
     } else if (amqpType === 'null') {
         return JMS_MESSAGE;
+    } else if (amqpType === 'map') {
+        return JMS_MAP_MESSAGE;
+    } else if (amqpType === 'list') {
+        return JMS_STREAM_MESSAGE;
     }
 
-    // Other AMQP types not directly mapped to JMS
     return null;
 }
 
@@ -94,11 +99,18 @@ function decodeJmsMessage(body, jmsMsgType) {
         // Empty message
         return { type: 'null', value: null };
     } else if (jmsMsgType === JMS_MAP_MESSAGE) {
-        // MapMessage: body is map in AmqpValue section
-        return { type: 'map', value: body };
+        if (body && typeof body === 'object') {
+            const keys = Object.keys(body);
+            if (keys.length > 0) {
+                return TypeDecoder.decode(body[keys[0]]);
+            }
+        }
+        return { type: 'none', value: null };
     } else if (jmsMsgType === JMS_STREAM_MESSAGE) {
-        // StreamMessage: body is list in AmqpSequence section
-        return { type: 'list', value: body };
+        if (Array.isArray(body) && body.length > 0) {
+            return TypeDecoder.decode(body[0]);
+        }
+        return { type: 'none', value: null };
     } else {
         // Unknown JMS type, fall back to regular AMQP decoding
         return TypeDecoder.decode(body);
@@ -406,7 +418,22 @@ function send(options) {
     connection.on('sendable', (context) => {
         while (context.sender.sendable() && sentCount < total) {
             const msgData = testData[sentCount];
-            const body = TypeEncoder.encode(amqpType, msgData.value);
+            let body;
+
+            if (amqpType === 'map') {
+                const subType = msgData.type || 'string';
+                const key = `${subType}_${String(msgData.index).padStart(3, '0')}`;
+                const encodedValue = TypeEncoder.encode(subType, msgData.value);
+                const mapObj = {};
+                mapObj[key] = encodedValue;
+                body = rhea.types.wrap_map(mapObj);
+            } else if (amqpType === 'list') {
+                const subType = msgData.type || 'string';
+                const encodedValue = TypeEncoder.encode(subType, msgData.value);
+                body = rhea.types.wrap_list([encodedValue]);
+            } else {
+                body = TypeEncoder.encode(amqpType, msgData.value);
+            }
 
             if (process.env.QIT_DEBUG) {
                 console.error('Sending:', amqpType, msgData.value);

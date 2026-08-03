@@ -8,10 +8,13 @@
 #include <proton/transport.hpp>
 #include <proton/annotation_key.hpp>
 #include <proton/symbol.hpp>
+#include <proton/codec/encoder.hpp>
+#include <proton/codec/decoder.hpp>
 #include <sstream>
 #include <iomanip>
 #include <iostream>
 #include <map>
+#include <cstdio>
 
 namespace qit {
 
@@ -47,20 +50,24 @@ Sender::Sender(const std::string& broker_url,
 int8_t Sender::get_jms_message_type(const std::string& amqp_type) const {
     // JMS message type constants (from Qpid JMS Client)
     const int8_t JMS_MESSAGE = 0;        // Empty message
-    const int8_t JMS_TEXT_MESSAGE = 5;   // String/text
+    const int8_t JMS_MAP_MESSAGE = 2;    // Map
     const int8_t JMS_BYTES_MESSAGE = 3;  // Binary data
+    const int8_t JMS_STREAM_MESSAGE = 4; // List/stream
+    const int8_t JMS_TEXT_MESSAGE = 5;   // String/text
 
-    // Map AMQP types to JMS message types
     if (amqp_type == "string") {
         return JMS_TEXT_MESSAGE;
     } else if (amqp_type == "binary") {
         return JMS_BYTES_MESSAGE;
     } else if (amqp_type == "null") {
         return JMS_MESSAGE;
+    } else if (amqp_type == "map") {
+        return JMS_MAP_MESSAGE;
+    } else if (amqp_type == "list") {
+        return JMS_STREAM_MESSAGE;
     }
 
-    // Other AMQP types not directly mapped to JMS
-    return -1;  // Invalid
+    return -1;
 }
 
 void Sender::on_container_start(proton::container& c) {
@@ -73,7 +80,34 @@ void Sender::on_sendable(proton::sender& s) {
         const Json::Value& test_value = test_values_[static_cast<int>(sent_count_)];
 
         msg.id(proton::message_id(test_value["index"].asInt()));
-        msg.body(TypeCodec::encode(amqp_type_, test_value["value"]));
+
+        if (amqp_type_ == "map") {
+            std::string sub_type = test_value["type"].asString();
+            int index = test_value["index"].asInt();
+            char key_buf[64];
+            snprintf(key_buf, sizeof(key_buf), "%s_%03d", sub_type.c_str(), index);
+            std::string key(key_buf);
+            proton::value encoded_value = TypeCodec::encode(sub_type, test_value["value"]);
+
+            proton::value body;
+            proton::codec::encoder enc(body);
+            enc << proton::codec::start::map();
+            enc << key << encoded_value;
+            enc << proton::codec::finish();
+            msg.body(body);
+        } else if (amqp_type_ == "list") {
+            std::string sub_type = test_value["type"].asString();
+            proton::value encoded_value = TypeCodec::encode(sub_type, test_value["value"]);
+
+            proton::value body;
+            proton::codec::encoder enc(body);
+            enc << proton::codec::start::list();
+            enc << encoded_value;
+            enc << proton::codec::finish();
+            msg.body(body);
+        } else {
+            msg.body(TypeCodec::encode(amqp_type_, test_value["value"]));
+        }
 
         // Add JMS annotations if in JMS mode
         if (jms_mode_) {

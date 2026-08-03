@@ -3,7 +3,9 @@
  */
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using Apache.Qpid.Proton.Client;
 using Newtonsoft.Json;
 
@@ -138,6 +140,26 @@ namespace Qit.Shim
                     Type = "null",
                     Value = null
                 };
+            }
+
+            if (jmsType == JMS_MAP_MESSAGE)
+            {
+                if (body is IDictionary dict && dict.Count > 0)
+                {
+                    var enumerator = dict.GetEnumerator();
+                    enumerator.MoveNext();
+                    return TypeCodec.Decode(enumerator.Value);
+                }
+                return new DecodedMessage { Type = "none", Value = null };
+            }
+
+            if (jmsType == JMS_STREAM_MESSAGE)
+            {
+                if (body is IList list && list.Count > 0)
+                {
+                    return TypeCodec.Decode(list[0]);
+                }
+                return new DecodedMessage { Type = "none", Value = null };
             }
 
             // Unknown JMS type, fall back to regular AMQP decoding

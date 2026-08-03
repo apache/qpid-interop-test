@@ -12,11 +12,11 @@ Star Pairs (11 total):
 - AMQP client -> JMS (5 pairs: same clients in reverse)
 - JMS -> JMS (baseline)
 
-Test Count (Phase 2c.1): 11 pairs x (5 text + 3 bytes + 1 empty) = 99 tests
+Test Count (Phase 2c.2): 11 pairs x (5 text + 3 bytes + 1 empty + 2 map + 2 stream) = 143 tests
 
 Message Types: Incremental
 - Phase 2b: TextMessage only
-- Phase 2c: + BytesMessage, MapMessage, StreamMessage, Message
+- Phase 2c: + BytesMessage, Message, MapMessage, StreamMessage
 - Phase 2d: + Headers, Properties
 """
 
@@ -50,7 +50,18 @@ BYTES_MESSAGE_VALUES = [
     "000102fdfeff",       # 6 bytes: boundary values including 0x00 and 0xff
 ]
 
-# Future: MapMessage, StreamMessage (Phase 2c.2 - requires AMQP shim sender work)
+# MapMessage test values (Phase 2c.2 - string values to avoid type ambiguity)
+MAP_MESSAGE_VALUES = [
+    "Hello",
+    "world",
+]
+
+# StreamMessage test values (Phase 2c.2 - string values to avoid type ambiguity)
+STREAM_MESSAGE_VALUES = [
+    "Hello",
+    "world",
+]
+
 # Future: Headers (JMSCorrelationID, JMSReplyTo, JMSType)
 # Future: Properties (boolean, byte, short, int, long, float, double, string)
 
@@ -464,18 +475,57 @@ def test_jms_message_interop(
     compare_messages(messages, received, sender_client, receiver_client)
 
 
+@pytest.mark.parametrize("sender_client,receiver_client", STAR_PAIRS)
+@pytest.mark.parametrize("map_value", MAP_MESSAGE_VALUES)
+def test_jms_mapmessage_interop(
+    sender_client: str,
+    receiver_client: str,
+    map_value: str,
+    broker_url: str,
+    test_queue: str,
+    project_root: Path,
+):
+    """Test JMS MapMessage interoperability using star configuration."""
+    messages = [{"index": 0, "type": "string", "value": map_value}]
+
+    send_result = run_sender(
+        sender_client, broker_url, test_queue, messages, project_root,
+        amqp_type="map", jms_type="JMS_MAPMESSAGE_TYPE",
+    )
+
+    recv_result = run_receiver(receiver_client, broker_url, test_queue, len(messages), project_root)
+    received = recv_result["messages"]
+
+    compare_messages(messages, received, sender_client, receiver_client)
+
+
+@pytest.mark.parametrize("sender_client,receiver_client", STAR_PAIRS)
+@pytest.mark.parametrize("stream_value", STREAM_MESSAGE_VALUES)
+def test_jms_streammessage_interop(
+    sender_client: str,
+    receiver_client: str,
+    stream_value: str,
+    broker_url: str,
+    test_queue: str,
+    project_root: Path,
+):
+    """Test JMS StreamMessage interoperability using star configuration."""
+    messages = [{"index": 0, "type": "string", "value": stream_value}]
+
+    send_result = run_sender(
+        sender_client, broker_url, test_queue, messages, project_root,
+        amqp_type="list", jms_type="JMS_STREAMMESSAGE_TYPE",
+    )
+
+    recv_result = run_receiver(receiver_client, broker_url, test_queue, len(messages), project_root)
+    received = recv_result["messages"]
+
+    compare_messages(messages, received, sender_client, receiver_client)
+
+
 # =============================================================================
 # Future: Additional Test Dimensions
 # =============================================================================
-
-# Phase 2c.2: MapMessage, StreamMessage (requires AMQP shim sender work)
-# @pytest.mark.parametrize("sender_client,receiver_client", STAR_PAIRS)
-# def test_jms_mapmessage_interop(sender_client, receiver_client, ...):
-#     pass
-
-# @pytest.mark.parametrize("sender_client,receiver_client", STAR_PAIRS)
-# def test_jms_streammessage_interop(sender_client, receiver_client, ...):
-#     pass
 
 # Phase 2d: Headers
 # @pytest.mark.parametrize("sender_client,receiver_client", STAR_PAIRS)

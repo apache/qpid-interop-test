@@ -15,7 +15,9 @@ import org.apache.qpid.protonj2.client.Message;
 
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class Sender {
     public static void main(String[] args) throws Exception {
@@ -92,7 +94,23 @@ public class Sender {
 
                 Message<Object> message = Message.create();
                 message.messageId(String.valueOf(index));
-                message.body(TypeCodec.encode(type, value));
+
+                if (type.equals("map")) {
+                    String subType = testMsg.has("type") ? testMsg.get("type").getAsString() : "string";
+                    String key = String.format("%s_%03d", subType, index);
+                    Object encodedValue = TypeCodec.encode(subType, value);
+                    Map<String, Object> mapBody = new LinkedHashMap<>();
+                    mapBody.put(key, encodedValue);
+                    message.body(mapBody);
+                } else if (type.equals("list")) {
+                    String subType = testMsg.has("type") ? testMsg.get("type").getAsString() : "string";
+                    Object encodedValue = TypeCodec.encode(subType, value);
+                    List<Object> listBody = new ArrayList<>();
+                    listBody.add(encodedValue);
+                    message.body(listBody);
+                } else {
+                    message.body(TypeCodec.encode(type, value));
+                }
 
                 // Add JMS annotations if in JMS mode
                 if (jmsMode) {
@@ -152,10 +170,11 @@ public class Sender {
     private static byte getJmsMessageType(String amqpType) {
         // JMS message type constants (from Qpid JMS Client)
         final byte JMS_MESSAGE = 0;        // Empty message
-        final byte JMS_TEXT_MESSAGE = 5;   // String/text
+        final byte JMS_MAP_MESSAGE = 2;    // Map
         final byte JMS_BYTES_MESSAGE = 3;  // Binary data
+        final byte JMS_STREAM_MESSAGE = 4; // List/stream
+        final byte JMS_TEXT_MESSAGE = 5;   // String/text
 
-        // Map AMQP types to JMS message types
         switch (amqpType) {
             case "string":
                 return JMS_TEXT_MESSAGE;
@@ -163,8 +182,12 @@ public class Sender {
                 return JMS_BYTES_MESSAGE;
             case "null":
                 return JMS_MESSAGE;
+            case "map":
+                return JMS_MAP_MESSAGE;
+            case "list":
+                return JMS_STREAM_MESSAGE;
             default:
-                return -1;  // Invalid
+                return -1;
         }
     }
 }

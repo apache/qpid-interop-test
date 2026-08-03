@@ -134,8 +134,10 @@ public class Receiver {
     private static TypeCodec.DecodedMessage decodeJmsMessage(Object body, byte jmsType) {
         // JMS message type constants
         final byte JMS_MESSAGE = 0;
-        final byte JMS_TEXT_MESSAGE = 5;
+        final byte JMS_MAP_MESSAGE = 2;
         final byte JMS_BYTES_MESSAGE = 3;
+        final byte JMS_STREAM_MESSAGE = 4;
+        final byte JMS_TEXT_MESSAGE = 5;
 
         if (jmsType == JMS_TEXT_MESSAGE) {
             // TextMessage: body is string in AmqpValue section
@@ -166,6 +168,33 @@ public class Receiver {
             // Empty message
             TypeCodec.DecodedMessage result = new TypeCodec.DecodedMessage();
             result.type = "null";
+            result.value = com.google.gson.JsonNull.INSTANCE;
+            return result;
+        }
+
+        if (jmsType == JMS_MAP_MESSAGE) {
+            if (body instanceof java.util.Map) {
+                java.util.Map<?, ?> map = (java.util.Map<?, ?>) body;
+                if (!map.isEmpty()) {
+                    Object firstValue = map.values().iterator().next();
+                    return TypeCodec.decode(firstValue);
+                }
+            }
+            TypeCodec.DecodedMessage result = new TypeCodec.DecodedMessage();
+            result.type = "none";
+            result.value = com.google.gson.JsonNull.INSTANCE;
+            return result;
+        }
+
+        if (jmsType == JMS_STREAM_MESSAGE) {
+            if (body instanceof java.util.List) {
+                java.util.List<?> list = (java.util.List<?>) body;
+                if (!list.isEmpty()) {
+                    return TypeCodec.decode(list.get(0));
+                }
+            }
+            TypeCodec.DecodedMessage result = new TypeCodec.DecodedMessage();
+            result.type = "none";
             result.value = com.google.gson.JsonNull.INSTANCE;
             return result;
         }

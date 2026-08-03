@@ -38,7 +38,24 @@ namespace Qit.Shim
                 {
                     var message = IMessage<object>.Create();
                     message.MessageId = testMsg.Index.ToString();
-                    message.Body = TypeCodec.Encode(type, testMsg.Value);
+
+                    if (type == "map")
+                    {
+                        var subType = testMsg.Type ?? "string";
+                        var key = $"{subType}_{testMsg.Index:D3}";
+                        var encodedValue = TypeCodec.Encode(subType, testMsg.Value);
+                        message.Body = new Dictionary<string, object> { { key, encodedValue } };
+                    }
+                    else if (type == "list")
+                    {
+                        var subType = testMsg.Type ?? "string";
+                        var encodedValue = TypeCodec.Encode(subType, testMsg.Value);
+                        message.Body = new List<object> { encodedValue };
+                    }
+                    else
+                    {
+                        message.Body = TypeCodec.Encode(type, testMsg.Value);
+                    }
 
                     // Add JMS annotations if in JMS mode
                     if (jmsMode)
@@ -88,16 +105,19 @@ namespace Qit.Shim
         {
             // JMS message type constants (from Qpid JMS Client)
             const sbyte JMS_MESSAGE = 0;        // Empty message
-            const sbyte JMS_TEXT_MESSAGE = 5;   // String/text
+            const sbyte JMS_MAP_MESSAGE = 2;    // Map
             const sbyte JMS_BYTES_MESSAGE = 3;  // Binary data
+            const sbyte JMS_STREAM_MESSAGE = 4; // List/stream
+            const sbyte JMS_TEXT_MESSAGE = 5;   // String/text
 
-            // Map AMQP types to JMS message types
             return amqpType switch
             {
                 "string" => JMS_TEXT_MESSAGE,
                 "binary" => JMS_BYTES_MESSAGE,
                 "null" => JMS_MESSAGE,
-                _ => -1  // Invalid
+                "map" => JMS_MAP_MESSAGE,
+                "list" => JMS_STREAM_MESSAGE,
+                _ => -1
             };
         }
     }
@@ -106,6 +126,9 @@ namespace Qit.Shim
     {
         [JsonProperty("index")]
         public int Index { get; set; }
+
+        [JsonProperty("type")]
+        public string Type { get; set; } = "string";
 
         [JsonProperty("value")]
         public object Value { get; set; }
