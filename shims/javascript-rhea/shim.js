@@ -8,6 +8,7 @@
 'use strict';
 
 const rhea = require('rhea');
+const rhea_message = require('rhea/lib/message');
 const { v4: uuidv4 } = require('uuid');
 
 // Parse command line arguments
@@ -107,8 +108,9 @@ function decodeJmsMessage(body, jmsMsgType) {
         }
         return { type: 'none', value: null };
     } else if (jmsMsgType === JMS_STREAM_MESSAGE) {
-        if (Array.isArray(body) && body.length > 0) {
-            return TypeDecoder.decode(body[0]);
+        const listData = (body && body.content !== undefined) ? body.content : body;
+        if (Array.isArray(listData) && listData.length > 0) {
+            return TypeDecoder.decode(listData[0]);
         }
         return { type: 'none', value: null };
     } else {
@@ -426,11 +428,11 @@ function send(options) {
                 const encodedValue = TypeEncoder.encode(subType, msgData.value);
                 const mapObj = {};
                 mapObj[key] = encodedValue;
-                body = rhea.types.wrap_map(mapObj);
+                body = mapObj;
             } else if (amqpType === 'list') {
                 const subType = msgData.type || 'string';
                 const encodedValue = TypeEncoder.encode(subType, msgData.value);
-                body = rhea.types.wrap_list([encodedValue]);
+                body = rhea_message.sequence_section([encodedValue]);
             } else {
                 body = TypeEncoder.encode(amqpType, msgData.value);
             }
