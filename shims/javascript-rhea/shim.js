@@ -455,10 +455,8 @@ function send(options) {
             if (jmsMode) {
                 const jmsType = getJmsMessageType(amqpType);
                 if (jmsType !== null) {
-                    // NOTE: Key MUST be Symbol, value MUST be byte (not ubyte)
-                    // This matches Qpid JMS Client wire format
                     message.message_annotations = {
-                        [Symbol.for('x-opt-jms-msg-type')]: rhea.types.wrap_byte(jmsType)
+                        'x-opt-jms-msg-type': rhea.types.wrap_byte(jmsType)
                     };
                 }
             }
