@@ -83,10 +83,12 @@ function decodeJmsMessage(body, jmsMsgType) {
         };
     } else if (jmsMsgType === JMS_BYTES_MESSAGE) {
         // BytesMessage: body is binary in Data section
-        if (body === null || body === undefined) {
+        // Rhea wraps Data sections in Section objects — extract content first
+        const data = (body !== null && body !== undefined && body.content !== undefined) ? body.content : body;
+        if (data === null || data === undefined) {
             return { type: 'bytes', value: '' };
         }
-        const buf = Buffer.isBuffer(body) ? body : Buffer.from(body);
+        const buf = Buffer.isBuffer(data) ? data : Buffer.from(data);
         return { type: 'bytes', value: buf.toString('hex') };
     } else if (jmsMsgType === JMS_MESSAGE) {
         // Empty message

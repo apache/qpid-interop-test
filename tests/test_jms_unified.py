@@ -445,6 +445,9 @@ def test_jms_message_interop(
     project_root: Path,
 ):
     """Test JMS Message (empty/no body) interoperability using star configuration."""
+    if sender_client == "javascript-rhea" and receiver_client == "jms":
+        pytest.xfail("Rhea sends AmqpValue(null) for empty body, JMS maps this to TextMessage")
+
     if sender_client == "jms":
         messages = [{"index": 0, "type": "none", "value": None}]
     else:
