@@ -12,7 +12,7 @@ Star Pairs (11 total):
 - AMQP client -> JMS (5 pairs: same clients in reverse)
 - JMS -> JMS (baseline)
 
-Test Count: 11 pairs x 5 text values = 55 tests (Phase 2b)
+Test Count (Phase 2c.1): 11 pairs x (5 text + 3 bytes + 1 empty) = 99 tests
 
 Message Types: Incremental
 - Phase 2b: TextMessage only
@@ -42,7 +42,15 @@ TEXT_MESSAGE_VALUES = [
     "The quick brown fox jumped over the lazy dog.",  # Longer text
 ]
 
-# Future: BytesMessage, MapMessage, StreamMessage, Message
+# BytesMessage test values (Phase 2c.1 - hex-encoded binary data)
+# Lengths chosen to avoid 1/2/4/8 bytes which JMS receiver reinterprets as typed values
+BYTES_MESSAGE_VALUES = [
+    "",                   # Empty bytes
+    "48656c6c6f",         # 5 bytes: "Hello" in ASCII
+    "000102fdfeff",       # 6 bytes: boundary values including 0x00 and 0xff
+]
+
+# Future: MapMessage, StreamMessage (Phase 2c.2 - requires AMQP shim sender work)
 # Future: Headers (JMSCorrelationID, JMSReplyTo, JMSType)
 # Future: Properties (boolean, byte, short, int, long, float, double, string)
 
@@ -141,6 +149,8 @@ def run_sender(
     queue: str,
     messages: list[dict[str, Any]],
     project_root: Path,
+    amqp_type: str = "string",
+    jms_type: str = "JMS_TEXTMESSAGE_TYPE",
 ) -> dict[str, Any]:
     """Run sender shim for any client."""
     client_info = CLIENT_INFO[client]
@@ -152,7 +162,7 @@ def run_sender(
             str(shim_path),
             "--broker", broker_url,
             "--queue", queue,
-            "--type", "JMS_TEXTMESSAGE_TYPE",
+            "--type", jms_type,
             "--data", json.dumps(messages),
         ]
     elif client == "python-proton":
@@ -162,7 +172,7 @@ def run_sender(
             "send",
             "--broker", f"amqp://{broker_url}",
             "--queue", queue,
-            "--type", "string",
+            "--type", amqp_type,
             "--count", str(len(messages)),
             "--data", json.dumps(messages),
         ]
@@ -175,7 +185,7 @@ def run_sender(
             "send",
             "--broker", f"amqp://{broker_url}",
             "--queue", queue,
-            "--type", "string",
+            "--type", amqp_type,
             "--count", str(len(messages)),
             "--data", json.dumps(messages),
         ]
@@ -188,7 +198,7 @@ def run_sender(
             "send",
             "--broker", f"amqp://{broker_url}",
             "--queue", queue,
-            "--type", "string",
+            "--type", amqp_type,
             "--count", str(len(messages)),
             "--data", json.dumps(messages),
         ]
@@ -201,7 +211,7 @@ def run_sender(
             "send",
             "--broker", f"amqp://{broker_url}",
             "--queue", queue,
-            "--type", "string",
+            "--type", amqp_type,
             "--count", str(len(messages)),
             "--data", json.dumps(messages),
         ]
@@ -214,7 +224,7 @@ def run_sender(
             "send",
             "--broker", f"amqp://{broker_url}",
             "--queue", queue,
-            "--type", "string",
+            "--type", amqp_type,
             "--data", json.dumps(messages),
         ]
         if client_info["jms_mode"]:
@@ -315,10 +325,22 @@ def run_receiver(
 # =============================================================================
 
 def normalize_message_type(msg_type: str) -> str:
-    """Normalize message type for comparison (string ↔ text for TextMessage)."""
+    """Normalize message type for comparison across JMS and AMQP clients."""
     if msg_type in ("string", "text"):
         return "text"
+    if msg_type in ("binary", "bytes"):
+        return "bytes"
+    if msg_type in ("null", "none"):
+        return "none"
     return msg_type
+
+
+def normalize_value(msg_type: str, value: Any) -> Any:
+    """Normalize message value for comparison."""
+    normalized_type = normalize_message_type(msg_type)
+    if normalized_type == "bytes" and isinstance(value, str):
+        return value.lower()
+    return value
 
 
 def compare_messages(sent: list[dict], received: list[dict], sender: str, receiver: str) -> None:
@@ -330,7 +352,6 @@ def compare_messages(sent: list[dict], received: list[dict], sender: str, receiv
         )
 
     for i, (s, r) in enumerate(zip(sent, received)):
-        # Normalize types
         sent_type = normalize_message_type(s["type"])
         recv_type = normalize_message_type(r["type"])
 
@@ -339,7 +360,10 @@ def compare_messages(sent: list[dict], received: list[dict], sender: str, receiv
             f"sent {s['type']}, received {r['type']}"
         )
 
-        assert s["value"] == r["value"], (
+        sent_value = normalize_value(s["type"], s["value"])
+        recv_value = normalize_value(r["type"], r["value"])
+
+        assert sent_value == recv_value, (
             f"{sender}→{receiver}: Message {i} value mismatch - "
             f"sent {repr(s['value'])}, received {repr(r['value'])}"
         )
@@ -385,13 +409,69 @@ def test_jms_textmessage_interop(
     compare_messages(messages, received, sender_client, receiver_client)
 
 
+@pytest.mark.parametrize("sender_client,receiver_client", STAR_PAIRS)
+@pytest.mark.parametrize("bytes_value", BYTES_MESSAGE_VALUES)
+def test_jms_bytesmessage_interop(
+    sender_client: str,
+    receiver_client: str,
+    bytes_value: str,
+    broker_url: str,
+    test_queue: str,
+    project_root: Path,
+):
+    """Test JMS BytesMessage interoperability using star configuration."""
+    if sender_client == "jms":
+        messages = [{"index": 0, "type": "bytes", "value": bytes_value}]
+    else:
+        messages = [{"index": 0, "type": "binary", "value": bytes_value}]
+
+    send_result = run_sender(
+        sender_client, broker_url, test_queue, messages, project_root,
+        amqp_type="binary", jms_type="JMS_BYTESMESSAGE_TYPE",
+    )
+
+    recv_result = run_receiver(receiver_client, broker_url, test_queue, len(messages), project_root)
+    received = recv_result["messages"]
+
+    compare_messages(messages, received, sender_client, receiver_client)
+
+
+@pytest.mark.parametrize("sender_client,receiver_client", STAR_PAIRS)
+def test_jms_message_interop(
+    sender_client: str,
+    receiver_client: str,
+    broker_url: str,
+    test_queue: str,
+    project_root: Path,
+):
+    """Test JMS Message (empty/no body) interoperability using star configuration."""
+    if sender_client == "jms":
+        messages = [{"index": 0, "type": "none", "value": None}]
+    else:
+        messages = [{"index": 0, "type": "null", "value": None}]
+
+    send_result = run_sender(
+        sender_client, broker_url, test_queue, messages, project_root,
+        amqp_type="null", jms_type="JMS_MESSAGE_TYPE",
+    )
+
+    recv_result = run_receiver(receiver_client, broker_url, test_queue, len(messages), project_root)
+    received = recv_result["messages"]
+
+    compare_messages(messages, received, sender_client, receiver_client)
+
+
 # =============================================================================
 # Future: Additional Test Dimensions
 # =============================================================================
 
-# Phase 2c: BytesMessage, MapMessage, StreamMessage, Message
+# Phase 2c.2: MapMessage, StreamMessage (requires AMQP shim sender work)
 # @pytest.mark.parametrize("sender_client,receiver_client", STAR_PAIRS)
-# def test_jms_bytesmessage_interop(sender_client, receiver_client, ...):
+# def test_jms_mapmessage_interop(sender_client, receiver_client, ...):
+#     pass
+
+# @pytest.mark.parametrize("sender_client,receiver_client", STAR_PAIRS)
+# def test_jms_streammessage_interop(sender_client, receiver_client, ...):
 #     pass
 
 # Phase 2d: Headers
