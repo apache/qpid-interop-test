@@ -320,16 +320,17 @@ public class JmsReceiver {
         return result;
     }
 
+    private static String stripAddressPrefix(String name) {
+        if (name.startsWith("queue://")) return name.substring(8);
+        if (name.startsWith("topic://")) return name.substring(8);
+        return name;
+    }
+
     private JsonObject extractHeaders(Message message) throws Exception {
         JsonObject headers = new JsonObject();
 
-        // JMSCorrelationID
-        String corrId = message.getJMSCorrelationID();
-        if (corrId != null) {
-            headers.addProperty("JMSCorrelationID", corrId);
-        }
-
-        // Also check for correlation ID as bytes
+        // JMSCorrelationID — try bytes first for binary correlation IDs,
+        // fall back to string for normal string correlation IDs
         try {
             byte[] corrIdBytes = message.getJMSCorrelationIDAsBytes();
             if (corrIdBytes != null && corrIdBytes.length > 0) {
@@ -339,7 +340,11 @@ public class JmsReceiver {
                 headers.add("JMSCorrelationID", corrIdObj);
             }
         } catch (JMSException e) {
-            // Not set as bytes, ignore
+            // Not available as bytes, try string
+            String corrId = message.getJMSCorrelationID();
+            if (corrId != null) {
+                headers.addProperty("JMSCorrelationID", corrId);
+            }
         }
 
         // JMSReplyTo
@@ -348,10 +353,10 @@ public class JmsReceiver {
             JsonObject replyToObj = new JsonObject();
             if (replyTo instanceof Queue) {
                 replyToObj.addProperty("type", "queue");
-                replyToObj.addProperty("value", ((Queue) replyTo).getQueueName());
+                replyToObj.addProperty("value", stripAddressPrefix(((Queue) replyTo).getQueueName()));
             } else if (replyTo instanceof Topic) {
                 replyToObj.addProperty("type", "topic");
-                replyToObj.addProperty("value", ((Topic) replyTo).getTopicName());
+                replyToObj.addProperty("value", stripAddressPrefix(((Topic) replyTo).getTopicName()));
             } else {
                 replyToObj.addProperty("type", "unknown");
                 replyToObj.addProperty("value", replyTo.toString());

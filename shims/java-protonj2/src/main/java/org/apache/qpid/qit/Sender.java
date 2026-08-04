@@ -26,6 +26,7 @@ public class Sender {
         String queue = null;
         String type = null;
         String data = null;
+        String headersJson = null;
         boolean jmsMode = false;
 
         for (int i = 1; i < args.length; i++) {
@@ -59,6 +60,9 @@ public class Sender {
                 case "data":
                     data = value;
                     break;
+                case "headers":
+                    headersJson = value;
+                    break;
             }
             i++;  // Skip the value in next iteration
         }
@@ -83,6 +87,11 @@ public class Sender {
 
         try (Connection connection = client.connect(brokerUri.getHost(), brokerUri.getPort(), options);
              org.apache.qpid.protonj2.client.Sender sender = connection.openSender(queue)) {
+
+            JsonObject headers = null;
+            if (headersJson != null) {
+                headers = gson.fromJson(headersJson, JsonObject.class);
+            }
 
             List<JsonObject> messages = new ArrayList<>();
 
@@ -121,6 +130,30 @@ public class Sender {
                         // NOTE: Key MUST be Symbol, value MUST be signed byte
                         // This matches Qpid JMS Client wire format
                         message.annotation("x-opt-jms-msg-type", jmsType);
+                    }
+                }
+
+                // Apply JMS headers
+                if (headers != null) {
+                    if (headers.has("JMSCorrelationID")) {
+                        JsonObject h = headers.getAsJsonObject("JMSCorrelationID");
+                        String htype = h.get("type").getAsString();
+                        if ("string".equals(htype)) {
+                            message.correlationId(h.get("value").getAsString());
+                        } else if ("bytes".equals(htype)) {
+                            System.err.println("Error: ProtonJ2 does not support binary correlation IDs");
+                            System.exit(1);
+                        }
+                    }
+                    if (headers.has("JMSReplyTo")) {
+                        JsonObject h = headers.getAsJsonObject("JMSReplyTo");
+                        message.replyTo(h.get("value").getAsString());
+                        byte replyType = (byte) ("topic".equals(h.get("type").getAsString()) ? 1 : 0);
+                        message.annotation("x-opt-jms-reply-to", replyType);
+                    }
+                    if (headers.has("JMSType")) {
+                        JsonObject h = headers.getAsJsonObject("JMSType");
+                        message.subject(h.get("value").getAsString());
                     }
                 }
 
@@ -167,6 +200,16 @@ public class Sender {
         }
         URI uri = new URI(broker);
         return uri;
+    }
+
+    private static byte[] hexToBytes(String hex) {
+        int len = hex.length();
+        byte[] result = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            result[i / 2] = (byte) ((Character.digit(hex.charAt(i), 16) << 4)
+                                   + Character.digit(hex.charAt(i + 1), 16));
+        }
+        return result;
     }
 
     private static byte getJmsMessageType(String amqpType) {

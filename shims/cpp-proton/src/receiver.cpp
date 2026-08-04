@@ -9,6 +9,7 @@
 #include <proton/work_queue.hpp>
 #include <proton/annotation_key.hpp>
 #include <proton/symbol.hpp>
+#include <proton/message_id.hpp>
 #include <proton/codec/encoder.hpp>
 #include <proton/codec/decoder.hpp>
 #include <iostream>
@@ -63,6 +64,50 @@ void Receiver::on_message(proton::delivery& d, proton::message& m) {
         msg_data["index"] = static_cast<int>(received_count_);
         msg_data["type"] = decoded["type"];
         msg_data["value"] = decoded["value"];
+
+        // Extract JMS headers
+        Json::Value headers(Json::objectValue);
+        try {
+            proton::message_id cid = m.correlation_id();
+            proton::type_id cid_type = cid.type();
+            if (cid_type == proton::BINARY) {
+                proton::binary bin = proton::get<proton::binary>(cid);
+                Json::Value cid_obj;
+                cid_obj["type"] = "bytes";
+                cid_obj["value"] = binary_to_hex(bin);
+                headers["JMSCorrelationID"] = cid_obj;
+            } else if (cid_type == proton::STRING) {
+                headers["JMSCorrelationID"] = proton::get<std::string>(cid);
+            }
+        } catch (...) {}
+
+        std::string reply_to = m.reply_to();
+        if (!reply_to.empty()) {
+            Json::Value rt_obj;
+            std::string reply_type = "queue";
+            proton::annotation_key rt_key(proton::symbol("x-opt-jms-reply-to"));
+            if (m.message_annotations().exists(rt_key)) {
+                proton::value rt_val = m.message_annotations().get(rt_key);
+                if (proton::get<int8_t>(rt_val) == 1) reply_type = "topic";
+            } else if (reply_to.substr(0, 8) == "topic://") {
+                reply_type = "topic";
+                reply_to = reply_to.substr(8);
+            } else if (reply_to.substr(0, 8) == "queue://") {
+                reply_to = reply_to.substr(8);
+            }
+            rt_obj["type"] = reply_type;
+            rt_obj["value"] = reply_to;
+            headers["JMSReplyTo"] = rt_obj;
+        }
+
+        std::string subject = m.subject();
+        if (!subject.empty()) {
+            headers["JMSType"] = subject;
+        }
+
+        if (headers.size() > 0) {
+            msg_data["headers"] = headers;
+        }
 
         received_messages_.append(msg_data);
         received_count_++;

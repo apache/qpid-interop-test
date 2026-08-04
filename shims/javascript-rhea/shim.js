@@ -648,7 +648,8 @@ class TypeDecoder {
 
 // Sender
 function send(options) {
-    const { broker, queue, type: amqpType, data, 'jms-mode': jmsMode } = options;
+    const { broker, queue, type: amqpType, data, 'jms-mode': jmsMode, headers: headersJson } = options;
+    const headers = headersJson ? JSON.parse(headersJson) : null;
     const testData = JSON.parse(data);
 
     let sentCount = 0;
@@ -715,6 +716,27 @@ function send(options) {
                     message.message_annotations = {
                         'x-opt-jms-msg-type': rhea.types.wrap_byte(jmsType)
                     };
+                }
+            }
+
+            // Apply JMS headers
+            if (headers) {
+                if (headers.JMSCorrelationID) {
+                    const h = headers.JMSCorrelationID;
+                    if (h.type === 'string') {
+                        message.correlation_id = h.value;
+                    } else if (h.type === 'bytes') {
+                        message.correlation_id = rhea.types.wrap_binary(Buffer.from(h.value, 'hex'));
+                    }
+                }
+                if (headers.JMSReplyTo) {
+                    const h = headers.JMSReplyTo;
+                    message.reply_to = h.value;
+                    if (!message.message_annotations) message.message_annotations = {};
+                    message.message_annotations['x-opt-jms-reply-to'] = rhea.types.wrap_byte(h.type === 'topic' ? 1 : 0);
+                }
+                if (headers.JMSType) {
+                    message.subject = headers.JMSType.value;
                 }
             }
 
@@ -897,11 +919,52 @@ function receive(options) {
             }
         }
 
-        messages.push({
+        const msgData = {
             index: messages.length,
             type: decoded.type,
             value: decoded.value
-        });
+        };
+
+        // Extract JMS headers
+        const msgHeaders = {};
+        if (context.message.correlation_id !== undefined && context.message.correlation_id !== null) {
+            const cid = context.message.correlation_id;
+            if (Buffer.isBuffer(cid)) {
+                msgHeaders.JMSCorrelationID = { type: 'bytes', value: cid.toString('hex') };
+            } else {
+                msgHeaders.JMSCorrelationID = String(cid);
+            }
+        }
+        if (context.message.reply_to !== undefined && context.message.reply_to !== null) {
+            let replyType = 'queue';
+            const annotations = context.message.message_annotations;
+            if (annotations) {
+                const rtKey = Object.keys(annotations).find(k =>
+                    k === 'x-opt-jms-reply-to' || k.toString().includes('x-opt-jms-reply-to')
+                );
+                if (rtKey) {
+                    const rtVal = annotations[rtKey];
+                    const rtNum = typeof rtVal === 'object' && rtVal.value !== undefined ? rtVal.value : rtVal;
+                    if (rtNum === 1) replyType = 'topic';
+                }
+            }
+            let replyAddr = context.message.reply_to;
+            if (replyAddr.startsWith('topic://')) {
+                replyType = 'topic';
+                replyAddr = replyAddr.substring(8);
+            } else if (replyAddr.startsWith('queue://')) {
+                replyAddr = replyAddr.substring(8);
+            }
+            msgHeaders.JMSReplyTo = { type: replyType, value: replyAddr };
+        }
+        if (context.message.subject !== undefined && context.message.subject !== null) {
+            msgHeaders.JMSType = context.message.subject;
+        }
+        if (Object.keys(msgHeaders).length > 0) {
+            msgData.headers = msgHeaders;
+        }
+
+        messages.push(msgData);
 
         if (messages.length >= expectedCount) {
             // Output result

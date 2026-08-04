@@ -22,7 +22,8 @@ Sender::Sender(const std::string& broker_url,
                const std::string& queue_name,
                const std::string& amqp_type,
                const std::string& test_data_json,
-               bool jms_mode)
+               bool jms_mode,
+               const std::string& headers_json)
     : broker_url_(broker_url),
       queue_name_(queue_name),
       amqp_type_(amqp_type),
@@ -45,6 +46,16 @@ Sender::Sender(const std::string& broker_url,
     }
 
     test_values_ = root;
+
+    // Parse headers JSON if provided
+    if (!headers_json.empty()) {
+        Json::CharReaderBuilder hbuilder;
+        std::istringstream hiss(headers_json);
+        std::string herrors;
+        if (!Json::parseFromStream(hbuilder, hiss, &headers_, &herrors)) {
+            throw std::runtime_error("Failed to parse headers JSON: " + herrors);
+        }
+    }
 }
 
 int8_t Sender::get_jms_message_type(const std::string& amqp_type) const {
@@ -122,8 +133,34 @@ void Sender::on_sendable(proton::sender& s) {
             }
         }
 
+        if (!headers_.isNull()) {
+            apply_headers(msg);
+        }
+
         s.send(msg);
         sent_count_++;
+    }
+}
+
+void Sender::apply_headers(proton::message& msg) {
+    if (headers_.isMember("JMSCorrelationID")) {
+        const Json::Value& h = headers_["JMSCorrelationID"];
+        std::string htype = h["type"].asString();
+        if (htype == "string") {
+            msg.correlation_id(h["value"].asString());
+        } else if (htype == "bytes") {
+            msg.correlation_id(hex_to_binary(h["value"].asString()));
+        }
+    }
+    if (headers_.isMember("JMSReplyTo")) {
+        const Json::Value& h = headers_["JMSReplyTo"];
+        msg.reply_to(h["value"].asString());
+        int8_t reply_type = (h["type"].asString() == "topic") ? 1 : 0;
+        proton::annotation_key rt_key(proton::symbol("x-opt-jms-reply-to"));
+        msg.message_annotations().put(rt_key, reply_type);
+    }
+    if (headers_.isMember("JMSType")) {
+        msg.subject(headers_["JMSType"]["value"].asString());
     }
 }
 

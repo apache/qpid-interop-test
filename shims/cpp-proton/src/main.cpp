@@ -36,6 +36,7 @@ struct CommandLineArgs {
     std::string queue;
     std::string amqp_type;
     std::string data;
+    std::string headers;
     int count = 0;
     int timeout = 30;
     bool jms_mode = false;
@@ -77,6 +78,8 @@ struct CommandLineArgs {
                 data = val;
             } else if (opt == "--timeout") {
                 timeout = std::atoi(val.c_str());
+            } else if (opt == "--headers") {
+                headers = val;
             } else {
                 std::cerr << "Error: Unknown option " << opt << std::endl;
                 return false;
@@ -133,7 +136,7 @@ int main(int argc, char** argv) {
         }
 
         if (args.command == "send") {
-            qit::Sender sender(args.broker, args.queue, args.amqp_type, args.data, args.jms_mode);
+            qit::Sender sender(args.broker, args.queue, args.amqp_type, args.data, args.jms_mode, args.headers);
             proton::container(sender).run();
             return 0;
         } else if (args.command == "receive") {

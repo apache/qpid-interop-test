@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using Apache.Qpid.Proton.Buffer;
 using Apache.Qpid.Proton.Client;
 using Apache.Qpid.Proton.Types.Messaging;
 using Newtonsoft.Json;
@@ -12,11 +13,16 @@ namespace Qit.Shim
 {
     public static class Sender
     {
-        public static void Send(string broker, string queue, string type, string data, bool jmsMode = false)
+        public static void Send(string broker, string queue, string type, string data, bool jmsMode = false, string headersJson = null)
         {
             try
             {
                 var testData = JsonConvert.DeserializeObject<List<TestMessage>>(data);
+                Dictionary<string, Dictionary<string, string>> headers = null;
+                if (!string.IsNullOrEmpty(headersJson))
+                {
+                    headers = JsonConvert.DeserializeObject<Dictionary<string, Dictionary<string, string>>>(headersJson);
+                }
                 var messages = new List<MessageResult>();
 
                 // Parse broker URL
@@ -77,6 +83,38 @@ namespace Qit.Shim
                             // NOTE: Key MUST be symbol, value MUST be signed byte
                             // This matches Qpid JMS Client wire format
                             message.SetAnnotation("x-opt-jms-msg-type", jmsType);
+                        }
+                    }
+
+                    // Apply JMS headers
+                    if (headers != null)
+                    {
+                        if (headers.ContainsKey("JMSCorrelationID"))
+                        {
+                            var h = headers["JMSCorrelationID"];
+                            if (h["type"] == "string")
+                            {
+                                message.CorrelationId = h["value"];
+                            }
+                            else if (h["type"] == "bytes")
+                            {
+                                // .NET Proton client cannot send binary correlation IDs —
+                                // neither byte[] nor IProtonBuffer is accepted by the encoder
+                                Console.Error.WriteLine("Send error: .NET Proton does not support binary correlation IDs");
+                                Environment.Exit(1);
+                            }
+                        }
+                        if (headers.ContainsKey("JMSReplyTo"))
+                        {
+                            var h = headers["JMSReplyTo"];
+                            message.ReplyTo = h["value"];
+                            sbyte replyType = (sbyte)(h["type"] == "topic" ? 1 : 0);
+                            message.SetAnnotation("x-opt-jms-reply-to", replyType);
+                        }
+                        if (headers.ContainsKey("JMSType"))
+                        {
+                            var h = headers["JMSType"];
+                            message.Subject = h["value"];
                         }
                     }
 
@@ -155,5 +193,8 @@ namespace Qit.Shim
 
         [JsonProperty("value")]
         public object Value { get; set; }
+
+        [JsonProperty("headers", NullValueHandling = NullValueHandling.Ignore)]
+        public Dictionary<string, object> Headers { get; set; }
     }
 }

@@ -6,6 +6,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using Apache.Qpid.Proton.Buffer;
 using Apache.Qpid.Proton.Client;
 using Apache.Qpid.Proton.Types.Messaging;
 using Newtonsoft.Json;
@@ -81,12 +82,74 @@ namespace Qit.Shim
                         decoded = TypeCodec.Decode(message.Body, isAmqpValue);
                     }
 
-                    messages.Add(new MessageResult
+                    var msgResult = new MessageResult
                     {
                         Index = i,
                         Type = decoded.Type,
                         Value = decoded.Value
-                    });
+                    };
+
+                    // Extract JMS headers
+                    var hdrs = new Dictionary<string, object>();
+                    if (message.CorrelationId != null)
+                    {
+                        if (message.CorrelationId is byte[] corrBytes)
+                        {
+                            hdrs["JMSCorrelationID"] = new Dictionary<string, string>
+                            {
+                                { "type", "bytes" },
+                                { "value", BitConverter.ToString(corrBytes).Replace("-", "").ToLower() }
+                            };
+                        }
+                        else if (message.CorrelationId is IProtonBuffer buf)
+                        {
+                            var bytes = new byte[buf.ReadableBytes];
+                            buf.CopyInto(buf.ReadOffset, bytes, 0, bytes.Length);
+                            hdrs["JMSCorrelationID"] = new Dictionary<string, string>
+                            {
+                                { "type", "bytes" },
+                                { "value", BitConverter.ToString(bytes).Replace("-", "").ToLower() }
+                            };
+                        }
+                        else
+                        {
+                            hdrs["JMSCorrelationID"] = message.CorrelationId.ToString();
+                        }
+                    }
+                    if (message.ReplyTo != null)
+                    {
+                        string replyType = "queue";
+                        string replyAddr = message.ReplyTo;
+                        if (message.HasAnnotation("x-opt-jms-reply-to"))
+                        {
+                            var rt = Convert.ToSByte(message.GetAnnotation("x-opt-jms-reply-to"));
+                            if (rt == 1) replyType = "topic";
+                        }
+                        else if (replyAddr.StartsWith("topic://"))
+                        {
+                            replyType = "topic";
+                            replyAddr = replyAddr.Substring(8);
+                        }
+                        else if (replyAddr.StartsWith("queue://"))
+                        {
+                            replyAddr = replyAddr.Substring(8);
+                        }
+                        hdrs["JMSReplyTo"] = new Dictionary<string, string>
+                        {
+                            { "type", replyType },
+                            { "value", replyAddr }
+                        };
+                    }
+                    if (message.Subject != null)
+                    {
+                        hdrs["JMSType"] = message.Subject;
+                    }
+                    if (hdrs.Count > 0)
+                    {
+                        msgResult.Headers = hdrs;
+                    }
+
+                    messages.Add(msgResult);
                 }
 
                 // Output result

@@ -96,6 +96,46 @@ public class Receiver {
                 msgResult.addProperty("index", i);
                 msgResult.addProperty("type", decoded.type);
                 msgResult.add("value", decoded.value);
+
+                // Extract JMS headers
+                JsonObject hdrs = new JsonObject();
+                Object corrId = message.correlationId();
+                if (corrId != null) {
+                    if (corrId instanceof byte[]) {
+                        byte[] corrBytes = (byte[]) corrId;
+                        JsonObject corrObj = new JsonObject();
+                        corrObj.addProperty("type", "bytes");
+                        corrObj.addProperty("value", bytesToHex(corrBytes));
+                        hdrs.add("JMSCorrelationID", corrObj);
+                    } else {
+                        hdrs.addProperty("JMSCorrelationID", corrId.toString());
+                    }
+                }
+                String replyTo = message.replyTo();
+                if (replyTo != null) {
+                    JsonObject rtObj = new JsonObject();
+                    String replyType = "queue";
+                    if (message.hasAnnotation("x-opt-jms-reply-to")) {
+                        Object rt = message.annotation("x-opt-jms-reply-to");
+                        if (rt instanceof Byte && ((Byte) rt) == 1) replyType = "topic";
+                    } else if (replyTo.startsWith("topic://")) {
+                        replyType = "topic";
+                        replyTo = replyTo.substring(8);
+                    } else if (replyTo.startsWith("queue://")) {
+                        replyTo = replyTo.substring(8);
+                    }
+                    rtObj.addProperty("type", replyType);
+                    rtObj.addProperty("value", replyTo);
+                    hdrs.add("JMSReplyTo", rtObj);
+                }
+                String subj = message.subject();
+                if (subj != null) {
+                    hdrs.addProperty("JMSType", subj);
+                }
+                if (hdrs.size() > 0) {
+                    msgResult.add("headers", hdrs);
+                }
+
                 messages.add(msgResult);
             }
 
@@ -121,6 +161,14 @@ public class Receiver {
                 System.exit(1);
             }
         }
+    }
+
+    private static String bytesToHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
     }
 
     private static URI parseBrokerUrl(String broker) throws Exception {

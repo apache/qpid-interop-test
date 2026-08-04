@@ -223,6 +223,7 @@ class SenderHandler(MessagingHandler):
     def __init__(
         self, url: str, queue: str, messages: list[dict[str, Any]],
         jms_mode: bool = False, amqp_type: str = "string",
+        headers: dict[str, Any] | None = None,
     ) -> None:
         super().__init__()
         self.url = url
@@ -230,6 +231,7 @@ class SenderHandler(MessagingHandler):
         self.messages = messages
         self.jms_mode = jms_mode
         self.amqp_type = amqp_type
+        self.headers = headers
         self.sent_count = 0
         self.confirmed_count = 0
 
@@ -271,6 +273,9 @@ class SenderHandler(MessagingHandler):
                     # This matches Qpid JMS Client wire format
                     msg.annotations = {symbol("x-opt-jms-msg-type"): byte(jms_type)}
 
+            if self.headers:
+                self._apply_headers(msg)
+
             event.sender.send(msg)
             self.sent_count += 1
 
@@ -307,6 +312,27 @@ class SenderHandler(MessagingHandler):
             return JMS_STREAM_MESSAGE
 
         return None
+
+    def _apply_headers(self, msg: Message) -> None:
+        """Set JMS headers as AMQP message properties."""
+        from proton import byte, symbol
+
+        if "JMSCorrelationID" in self.headers:
+            h = self.headers["JMSCorrelationID"]
+            if h["type"] == "string":
+                msg.correlation_id = h["value"]
+            elif h["type"] == "bytes":
+                msg.correlation_id = bytes.fromhex(h["value"])
+        if "JMSReplyTo" in self.headers:
+            h = self.headers["JMSReplyTo"]
+            msg.reply_to = h["value"]
+            reply_type = byte(1) if h["type"] == "topic" else byte(0)
+            if msg.annotations is None:
+                msg.annotations = {}
+            msg.annotations[symbol("x-opt-jms-reply-to")] = reply_type
+        if "JMSType" in self.headers:
+            h = self.headers["JMSType"]
+            msg.subject = h["value"]
 
     def _encode_value(self, amqp_type: str, value: Any) -> Any:
         """Encode test value to AMQP type."""
@@ -458,6 +484,10 @@ class ReceiverHandler(MessagingHandler):
                 "value": self._decode_value(msg.body),
             }
 
+        headers = self._extract_headers(msg)
+        if headers:
+            msg_data["headers"] = headers
+
         self.received_messages.append(msg_data)
 
         # Close when all messages received
@@ -476,6 +506,35 @@ class ReceiverHandler(MessagingHandler):
         if isinstance(body, (list, tuple)):
             return True
         return False
+
+    def _extract_headers(self, msg: Message) -> dict[str, Any]:
+        """Extract JMS headers from AMQP message properties."""
+        from proton import symbol
+
+        headers: dict[str, Any] = {}
+        if msg.correlation_id is not None:
+            if isinstance(msg.correlation_id, (bytes, bytearray, memoryview)):
+                headers["JMSCorrelationID"] = {
+                    "type": "bytes",
+                    "value": bytes(msg.correlation_id).hex(),
+                }
+            else:
+                headers["JMSCorrelationID"] = str(msg.correlation_id)
+        if msg.reply_to is not None:
+            reply_to = msg.reply_to
+            reply_type = "queue"
+            ann_key = symbol("x-opt-jms-reply-to")
+            if msg.annotations and ann_key in msg.annotations:
+                reply_type = "topic" if int(msg.annotations[ann_key]) == 1 else "queue"
+            elif reply_to.startswith("topic://"):
+                reply_type = "topic"
+                reply_to = reply_to[8:]
+            elif reply_to.startswith("queue://"):
+                reply_to = reply_to[8:]
+            headers["JMSReplyTo"] = {"type": reply_type, "value": reply_to}
+        if msg.subject is not None:
+            headers["JMSType"] = msg.subject
+        return headers
 
     def _decode_jms_message(self, msg: Message, jms_msg_type: int) -> dict[str, Any]:
         """Decode JMS message based on message type annotation."""
@@ -631,7 +690,8 @@ def send_messages(args: argparse.Namespace) -> None:
     """Send messages via broker."""
     messages = json.loads(args.data)
     jms_mode = getattr(args, "jms_mode", False)
-    handler = SenderHandler(args.broker, args.queue, messages, jms_mode, args.type)
+    headers = json.loads(args.headers) if args.headers else None
+    handler = SenderHandler(args.broker, args.queue, messages, jms_mode, args.type, headers)
     Container(handler).run()
 
     # Output result
@@ -687,6 +747,7 @@ def main() -> None:
         action="store_true",
         help="Enable JMS message emulation (adds x-opt-jms-msg-type annotation)",
     )
+    send_parser.add_argument("--headers", default=None, help="JSON JMS headers")
 
     # Receive command
     recv_parser = subparsers.add_parser("receive", help="Receive messages")

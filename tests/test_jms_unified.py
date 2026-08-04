@@ -12,12 +12,13 @@ Star Pairs (11 total):
 - AMQP client -> JMS (5 pairs: same clients in reverse)
 - JMS -> JMS (baseline)
 
-Test Count (Phase 2c.2): 11 pairs x (5 text + 3 bytes + 1 empty + 2 map + 2 stream) = 143 tests
+Test Count (Phase 2d): 143 body + 132 header = 275 tests
 
 Message Types: Incremental
 - Phase 2b: TextMessage only
 - Phase 2c: + BytesMessage, Message, MapMessage, StreamMessage
-- Phase 2d: + Headers, Properties
+- Phase 2d: + Headers (JMSCorrelationID, JMSReplyTo, JMSType)
+- Phase 2e: + Properties
 """
 
 import json
@@ -62,7 +63,34 @@ STREAM_MESSAGE_VALUES = [
     "world",
 ]
 
-# Future: Headers (JMSCorrelationID, JMSReplyTo, JMSType)
+# JMS Header test data (Phase 2d)
+JMS_HEADERS_CORRELATION_ID_STRING = [
+    "Hello, world",
+    "correlation-123",
+    "Charlie's \"peach\"",
+]
+
+JMS_HEADERS_CORRELATION_ID_BYTES = [
+    "48656c6c6f",              # "Hello"
+    "636f7272656c6174696f6e",  # "correlation"
+]
+
+JMS_HEADERS_REPLY_TO_QUEUE = [
+    "reply-queue-1",
+    "reply-queue-2",
+]
+
+JMS_HEADERS_REPLY_TO_TOPIC = [
+    "reply-topic-1",
+    "reply-topic-2",
+]
+
+JMS_HEADERS_JMS_TYPE = [
+    "OrderRequest",
+    "OrderResponse",
+    "Hello, world",
+]
+
 # Future: Properties (boolean, byte, short, int, long, float, double, string)
 
 
@@ -162,6 +190,7 @@ def run_sender(
     project_root: Path,
     amqp_type: str = "string",
     jms_type: str = "JMS_TEXTMESSAGE_TYPE",
+    headers: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Run sender shim for any client."""
     client_info = CLIENT_INFO[client]
@@ -242,6 +271,9 @@ def run_sender(
             cmd.append("--jms-mode")
     else:
         pytest.skip(f"Sender for {client} not yet implemented")
+
+    if headers:
+        cmd.extend(["--headers", json.dumps(headers)])
 
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
     if result.returncode != 0:
@@ -524,15 +556,209 @@ def test_jms_streammessage_interop(
 
 
 # =============================================================================
-# Future: Additional Test Dimensions
+# Phase 2d: JMS Headers
 # =============================================================================
 
-# Phase 2d: Headers
-# @pytest.mark.parametrize("sender_client,receiver_client", STAR_PAIRS)
-# def test_jms_headers_interop(sender_client, receiver_client, ...):
-#     pass
+def compare_headers(
+    sent_headers: dict[str, Any],
+    received_headers: dict[str, Any],
+    sender: str,
+    receiver: str,
+) -> None:
+    """Compare sent and received JMS headers."""
+    for header_name, sent_value in sent_headers.items():
+        assert header_name in received_headers, (
+            f"{sender}→{receiver}: Missing header {header_name} "
+            f"in received: {received_headers}"
+        )
+        recv_value = received_headers[header_name]
 
-# Phase 2e: Properties
+        if header_name == "JMSCorrelationID":
+            if sent_value.get("type") == "bytes":
+                if isinstance(recv_value, dict):
+                    assert recv_value.get("type") == "bytes", (
+                        f"Expected bytes correlation ID, got {recv_value}"
+                    )
+                    assert recv_value["value"].lower() == sent_value["value"].lower()
+                else:
+                    pytest.fail(f"Expected bytes correlation ID, got string: {recv_value}")
+            else:
+                expected_str = sent_value["value"]
+                if isinstance(recv_value, str):
+                    assert recv_value == expected_str
+                elif isinstance(recv_value, dict) and recv_value.get("type") == "bytes":
+                    expected_hex = expected_str.encode("utf-8").hex()
+                    assert recv_value["value"].lower() == expected_hex.lower()
+                else:
+                    pytest.fail(f"Unexpected correlation ID format: {recv_value}")
+
+        elif header_name == "JMSReplyTo":
+            assert isinstance(recv_value, dict), f"JMSReplyTo should be dict, got {recv_value}"
+            assert recv_value.get("type") == sent_value.get("type"), (
+                f"JMSReplyTo type mismatch: sent {sent_value.get('type')}, got {recv_value.get('type')}"
+            )
+            assert recv_value.get("value") == sent_value.get("value"), (
+                f"JMSReplyTo value mismatch: sent {sent_value.get('value')}, got {recv_value.get('value')}"
+            )
+
+        elif header_name == "JMSType":
+            expected = sent_value["value"] if isinstance(sent_value, dict) else sent_value
+            assert recv_value == expected, (
+                f"JMSType mismatch: sent {expected}, got {recv_value}"
+            )
+
+
+def _header_test_message(sender_client: str) -> list[dict[str, Any]]:
+    """Create a single TextMessage for header tests."""
+    if sender_client == "jms":
+        return [{"index": 0, "type": "text", "value": "header-test"}]
+    return [{"index": 0, "type": "string", "value": "header-test"}]
+
+
+@pytest.mark.parametrize("sender_client,receiver_client", STAR_PAIRS)
+@pytest.mark.parametrize("corr_id", JMS_HEADERS_CORRELATION_ID_STRING)
+def test_jms_header_correlationid_string(
+    sender_client: str,
+    receiver_client: str,
+    corr_id: str,
+    broker_url: str,
+    test_queue: str,
+    project_root: Path,
+):
+    """Test JMSCorrelationID header with string values."""
+    headers = {"JMSCorrelationID": {"type": "string", "value": corr_id}}
+    messages = _header_test_message(sender_client)
+
+    run_sender(
+        sender_client, broker_url, test_queue, messages, project_root,
+        headers=headers,
+    )
+
+    recv_result = run_receiver(receiver_client, broker_url, test_queue, 1, project_root)
+    received = recv_result["messages"]
+
+    assert len(received) == 1
+    assert "headers" in received[0], f"No headers in received message: {received[0]}"
+    compare_headers(headers, received[0]["headers"], sender_client, receiver_client)
+
+
+@pytest.mark.parametrize("sender_client,receiver_client", STAR_PAIRS)
+@pytest.mark.parametrize("corr_id_hex", JMS_HEADERS_CORRELATION_ID_BYTES)
+def test_jms_header_correlationid_bytes(
+    sender_client: str,
+    receiver_client: str,
+    corr_id_hex: str,
+    broker_url: str,
+    test_queue: str,
+    project_root: Path,
+):
+    """Test JMSCorrelationID header with binary values."""
+    if sender_client in ("dotnet-proton", "java-protonj2"):
+        pytest.xfail(f"{sender_client} client cannot send binary correlation IDs (message-id type restriction)")
+    if receiver_client == "java-protonj2":
+        pytest.xfail("ProtonJ2 decodes binary correlation IDs as UTF-8 strings")
+
+    headers = {"JMSCorrelationID": {"type": "bytes", "value": corr_id_hex}}
+    messages = _header_test_message(sender_client)
+
+    run_sender(
+        sender_client, broker_url, test_queue, messages, project_root,
+        headers=headers,
+    )
+
+    recv_result = run_receiver(receiver_client, broker_url, test_queue, 1, project_root)
+    received = recv_result["messages"]
+
+    assert len(received) == 1
+    assert "headers" in received[0], f"No headers in received message: {received[0]}"
+    compare_headers(headers, received[0]["headers"], sender_client, receiver_client)
+
+
+@pytest.mark.parametrize("sender_client,receiver_client", STAR_PAIRS)
+@pytest.mark.parametrize("reply_queue", JMS_HEADERS_REPLY_TO_QUEUE)
+def test_jms_header_replyto_queue(
+    sender_client: str,
+    receiver_client: str,
+    reply_queue: str,
+    broker_url: str,
+    test_queue: str,
+    project_root: Path,
+):
+    """Test JMSReplyTo header with queue destination."""
+    headers = {"JMSReplyTo": {"type": "queue", "value": reply_queue}}
+    messages = _header_test_message(sender_client)
+
+    run_sender(
+        sender_client, broker_url, test_queue, messages, project_root,
+        headers=headers,
+    )
+
+    recv_result = run_receiver(receiver_client, broker_url, test_queue, 1, project_root)
+    received = recv_result["messages"]
+
+    assert len(received) == 1
+    assert "headers" in received[0], f"No headers in received message: {received[0]}"
+    compare_headers(headers, received[0]["headers"], sender_client, receiver_client)
+
+
+@pytest.mark.parametrize("sender_client,receiver_client", STAR_PAIRS)
+@pytest.mark.parametrize("reply_topic", JMS_HEADERS_REPLY_TO_TOPIC)
+def test_jms_header_replyto_topic(
+    sender_client: str,
+    receiver_client: str,
+    reply_topic: str,
+    broker_url: str,
+    test_queue: str,
+    project_root: Path,
+):
+    """Test JMSReplyTo header with topic destination."""
+    headers = {"JMSReplyTo": {"type": "topic", "value": reply_topic}}
+    messages = _header_test_message(sender_client)
+
+    run_sender(
+        sender_client, broker_url, test_queue, messages, project_root,
+        headers=headers,
+    )
+
+    recv_result = run_receiver(receiver_client, broker_url, test_queue, 1, project_root)
+    received = recv_result["messages"]
+
+    assert len(received) == 1
+    assert "headers" in received[0], f"No headers in received message: {received[0]}"
+    compare_headers(headers, received[0]["headers"], sender_client, receiver_client)
+
+
+@pytest.mark.parametrize("sender_client,receiver_client", STAR_PAIRS)
+@pytest.mark.parametrize("jms_type_value", JMS_HEADERS_JMS_TYPE)
+def test_jms_header_jmstype(
+    sender_client: str,
+    receiver_client: str,
+    jms_type_value: str,
+    broker_url: str,
+    test_queue: str,
+    project_root: Path,
+):
+    """Test JMSType header."""
+    headers = {"JMSType": {"type": "string", "value": jms_type_value}}
+    messages = _header_test_message(sender_client)
+
+    run_sender(
+        sender_client, broker_url, test_queue, messages, project_root,
+        headers=headers,
+    )
+
+    recv_result = run_receiver(receiver_client, broker_url, test_queue, 1, project_root)
+    received = recv_result["messages"]
+
+    assert len(received) == 1
+    assert "headers" in received[0], f"No headers in received message: {received[0]}"
+    compare_headers(headers, received[0]["headers"], sender_client, receiver_client)
+
+
+# =============================================================================
+# Future: Phase 2e — Properties
+# =============================================================================
+
 # @pytest.mark.parametrize("sender_client,receiver_client", STAR_PAIRS)
 # def test_jms_properties_interop(sender_client, receiver_client, ...):
 #     pass

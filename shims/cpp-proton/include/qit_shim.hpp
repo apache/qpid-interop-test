@@ -19,6 +19,10 @@
 
 namespace qit {
 
+// Hex/binary conversion utilities
+std::string binary_to_hex(const proton::binary& bin);
+proton::binary hex_to_binary(const std::string& hex_str);
+
 // Sender handler - sends messages
 class Sender : public proton::messaging_handler {
 public:
@@ -26,7 +30,8 @@ public:
            const std::string& queue_name,
            const std::string& amqp_type,
            const std::string& test_data_json,
-           bool jms_mode = false);
+           bool jms_mode = false,
+           const std::string& headers_json = "");
 
     void on_container_start(proton::container& c) override;
     void on_sendable(proton::sender& s) override;
@@ -42,8 +47,10 @@ private:
     size_t sent_count_;
     size_t confirmed_count_;
     bool jms_mode_;
+    Json::Value headers_;
 
     int8_t get_jms_message_type(const std::string& amqp_type) const;
+    void apply_headers(proton::message& msg);
 };
 
 // Receiver handler - receives messages
