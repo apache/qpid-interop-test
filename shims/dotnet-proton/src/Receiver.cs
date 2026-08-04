@@ -149,6 +149,94 @@ namespace Qit.Shim
                         msgResult.Headers = hdrs;
                     }
 
+                    // Extract JMS application properties
+                    var props = new Dictionary<string, object>();
+                    message.ForEachProperty((name, value) =>
+                    {
+                        if (value is bool b)
+                        {
+                            var boolProp = new Dictionary<string, object>
+                            {
+                                { "type", "boolean" },
+                                { "value", b }
+                            };
+                            props[name] = boolProp;
+                            return;
+                        }
+                        Dictionary<string, string> prop;
+                        if (value is sbyte sb)
+                        {
+                            prop = new Dictionary<string, string>
+                            {
+                                { "type", "byte" },
+                                { "value", $"0x{(sb & 0xFF):x2}" }
+                            };
+                        }
+                        else if (value is short s)
+                        {
+                            prop = new Dictionary<string, string>
+                            {
+                                { "type", "short" },
+                                { "value", $"0x{(s & 0xFFFF):x4}" }
+                            };
+                        }
+                        else if (value is int i)
+                        {
+                            prop = new Dictionary<string, string>
+                            {
+                                { "type", "int" },
+                                { "value", $"0x{(uint)i:x8}" }
+                            };
+                        }
+                        else if (value is long l)
+                        {
+                            prop = new Dictionary<string, string>
+                            {
+                                { "type", "long" },
+                                { "value", $"0x{(ulong)l:x16}" }
+                            };
+                        }
+                        else if (value is float f)
+                        {
+                            var bits = BitConverter.SingleToInt32Bits(f);
+                            prop = new Dictionary<string, string>
+                            {
+                                { "type", "float" },
+                                { "value", $"0x{(uint)bits:x8}" }
+                            };
+                        }
+                        else if (value is double d)
+                        {
+                            var bits = BitConverter.DoubleToInt64Bits(d);
+                            prop = new Dictionary<string, string>
+                            {
+                                { "type", "double" },
+                                { "value", $"0x{(ulong)bits:x16}" }
+                            };
+                        }
+                        else if (value is string str)
+                        {
+                            prop = new Dictionary<string, string>
+                            {
+                                { "type", "string" },
+                                { "value", str }
+                            };
+                        }
+                        else
+                        {
+                            prop = new Dictionary<string, string>
+                            {
+                                { "type", "string" },
+                                { "value", value?.ToString() ?? "" }
+                            };
+                        }
+                        props[name] = prop;
+                    });
+                    if (props.Count > 0)
+                    {
+                        msgResult.Properties = props;
+                    }
+
                     messages.Add(msgResult);
                 }
 

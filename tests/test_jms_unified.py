@@ -91,7 +91,46 @@ JMS_HEADERS_JMS_TYPE = [
     "Hello, world",
 ]
 
-# Future: Properties (boolean, byte, short, int, long, float, double, string)
+# Phase 2e: JMS Application Properties test data
+JMS_PROPS_BOOLEAN = {
+    "bool_true": {"type": "boolean", "value": True},
+    "bool_false": {"type": "boolean", "value": False},
+}
+JMS_PROPS_BYTE = {
+    "byte_pos": {"type": "byte", "value": "0x0f"},
+    "byte_neg": {"type": "byte", "value": "0xff"},
+    "byte_zero": {"type": "byte", "value": "0x00"},
+}
+JMS_PROPS_SHORT = {
+    "short_pos": {"type": "short", "value": "0x1234"},
+    "short_neg": {"type": "short", "value": "0xffff"},
+    "short_zero": {"type": "short", "value": "0x0000"},
+}
+JMS_PROPS_INT = {
+    "int_pos": {"type": "int", "value": "0x12345678"},
+    "int_neg": {"type": "int", "value": "0xffffffff"},
+    "int_zero": {"type": "int", "value": "0x00000000"},
+}
+JMS_PROPS_LONG = {
+    "long_pos": {"type": "long", "value": "0x0123456789abcdef"},
+    "long_neg": {"type": "long", "value": "0xffffffffffffffff"},
+    "long_zero": {"type": "long", "value": "0x0000000000000000"},
+}
+JMS_PROPS_FLOAT = {
+    "float_pi": {"type": "float", "value": "0x40490fdb"},
+    "float_neg": {"type": "float", "value": "0xc0490fdb"},
+    "float_zero": {"type": "float", "value": "0x00000000"},
+}
+JMS_PROPS_DOUBLE = {
+    "double_pi": {"type": "double", "value": "0x400921fb54442d18"},
+    "double_neg": {"type": "double", "value": "0xc00921fb54442d18"},
+    "double_zero": {"type": "double", "value": "0x0000000000000000"},
+}
+JMS_PROPS_STRING = {
+    "str_hello": {"type": "string", "value": "Hello, world"},
+    "str_special": {"type": "string", "value": "Charlie's \"peach\""},
+    "str_empty": {"type": "string", "value": ""},
+}
 
 
 # =============================================================================
@@ -191,6 +230,7 @@ def run_sender(
     amqp_type: str = "string",
     jms_type: str = "JMS_TEXTMESSAGE_TYPE",
     headers: dict[str, Any] | None = None,
+    properties: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Run sender shim for any client."""
     client_info = CLIENT_INFO[client]
@@ -274,6 +314,9 @@ def run_sender(
 
     if headers:
         cmd.extend(["--headers", json.dumps(headers)])
+
+    if properties:
+        cmd.extend(["--properties", json.dumps(properties)])
 
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
     if result.returncode != 0:
@@ -756,9 +799,219 @@ def test_jms_header_jmstype(
 
 
 # =============================================================================
-# Future: Phase 2e — Properties
+# Phase 2e: JMS Application Properties
 # =============================================================================
 
-# @pytest.mark.parametrize("sender_client,receiver_client", STAR_PAIRS)
-# def test_jms_properties_interop(sender_client, receiver_client, ...):
-#     pass
+def compare_properties(
+    sent_props: dict[str, Any],
+    received_props: dict[str, Any],
+    sender: str,
+    receiver: str,
+) -> None:
+    """Compare sent and received JMS application properties."""
+    for prop_name, sent_obj in sent_props.items():
+        assert prop_name in received_props, (
+            f"{sender}→{receiver}: Missing property '{prop_name}' "
+            f"in received: {received_props}"
+        )
+        recv_obj = received_props[prop_name]
+        assert isinstance(recv_obj, dict), (
+            f"{sender}→{receiver}: Property '{prop_name}' should be dict, got {recv_obj}"
+        )
+        assert recv_obj["type"] == sent_obj["type"], (
+            f"{sender}→{receiver}: Property '{prop_name}' type mismatch: "
+            f"sent {sent_obj['type']}, got {recv_obj['type']}"
+        )
+        if sent_obj["type"] == "boolean":
+            assert recv_obj["value"] == sent_obj["value"], (
+                f"{sender}→{receiver}: Property '{prop_name}' value mismatch: "
+                f"sent {sent_obj['value']}, got {recv_obj['value']}"
+            )
+        elif sent_obj["type"] == "string":
+            assert recv_obj["value"] == sent_obj["value"], (
+                f"{sender}→{receiver}: Property '{prop_name}' value mismatch: "
+                f"sent {sent_obj['value']!r}, got {recv_obj['value']!r}"
+            )
+        else:
+            assert recv_obj["value"].lower() == sent_obj["value"].lower(), (
+                f"{sender}→{receiver}: Property '{prop_name}' value mismatch: "
+                f"sent {sent_obj['value']}, got {recv_obj['value']}"
+            )
+
+
+@pytest.mark.parametrize("sender_client,receiver_client", STAR_PAIRS)
+def test_jms_property_boolean(
+    sender_client: str,
+    receiver_client: str,
+    broker_url: str,
+    test_queue: str,
+    project_root: Path,
+) -> None:
+    """Test JMS boolean application properties round-trip."""
+    messages = _header_test_message(sender_client)
+    run_sender(
+        sender_client, broker_url, test_queue, messages, project_root,
+        properties=JMS_PROPS_BOOLEAN,
+    )
+    recv_result = run_receiver(receiver_client, broker_url, test_queue, 1, project_root)
+    received = recv_result["messages"]
+    assert len(received) == 1
+    assert "properties" in received[0], f"No properties in received message: {received[0]}"
+    compare_properties(JMS_PROPS_BOOLEAN, received[0]["properties"], sender_client, receiver_client)
+
+
+@pytest.mark.parametrize("sender_client,receiver_client", STAR_PAIRS)
+def test_jms_property_byte(
+    sender_client: str,
+    receiver_client: str,
+    broker_url: str,
+    test_queue: str,
+    project_root: Path,
+) -> None:
+    """Test JMS byte application properties round-trip."""
+    if receiver_client == "javascript-rhea" and sender_client != "javascript-rhea":
+        pytest.xfail("Rhea loses AMQP byte type — JS has no typed integers")
+    messages = _header_test_message(sender_client)
+    run_sender(
+        sender_client, broker_url, test_queue, messages, project_root,
+        properties=JMS_PROPS_BYTE,
+    )
+    recv_result = run_receiver(receiver_client, broker_url, test_queue, 1, project_root)
+    received = recv_result["messages"]
+    assert len(received) == 1
+    assert "properties" in received[0], f"No properties in received message: {received[0]}"
+    compare_properties(JMS_PROPS_BYTE, received[0]["properties"], sender_client, receiver_client)
+
+
+@pytest.mark.parametrize("sender_client,receiver_client", STAR_PAIRS)
+def test_jms_property_short(
+    sender_client: str,
+    receiver_client: str,
+    broker_url: str,
+    test_queue: str,
+    project_root: Path,
+) -> None:
+    """Test JMS short application properties round-trip."""
+    if receiver_client == "javascript-rhea" and sender_client != "javascript-rhea":
+        pytest.xfail("Rhea loses AMQP short type — JS has no typed integers")
+    messages = _header_test_message(sender_client)
+    run_sender(
+        sender_client, broker_url, test_queue, messages, project_root,
+        properties=JMS_PROPS_SHORT,
+    )
+    recv_result = run_receiver(receiver_client, broker_url, test_queue, 1, project_root)
+    received = recv_result["messages"]
+    assert len(received) == 1
+    assert "properties" in received[0], f"No properties in received message: {received[0]}"
+    compare_properties(JMS_PROPS_SHORT, received[0]["properties"], sender_client, receiver_client)
+
+
+@pytest.mark.parametrize("sender_client,receiver_client", STAR_PAIRS)
+def test_jms_property_int(
+    sender_client: str,
+    receiver_client: str,
+    broker_url: str,
+    test_queue: str,
+    project_root: Path,
+) -> None:
+    """Test JMS int application properties round-trip."""
+    if receiver_client == "javascript-rhea" and sender_client != "javascript-rhea":
+        pytest.xfail("Rhea loses AMQP int type — JS has no typed integers")
+    messages = _header_test_message(sender_client)
+    run_sender(
+        sender_client, broker_url, test_queue, messages, project_root,
+        properties=JMS_PROPS_INT,
+    )
+    recv_result = run_receiver(receiver_client, broker_url, test_queue, 1, project_root)
+    received = recv_result["messages"]
+    assert len(received) == 1
+    assert "properties" in received[0], f"No properties in received message: {received[0]}"
+    compare_properties(JMS_PROPS_INT, received[0]["properties"], sender_client, receiver_client)
+
+
+@pytest.mark.parametrize("sender_client,receiver_client", STAR_PAIRS)
+def test_jms_property_long(
+    sender_client: str,
+    receiver_client: str,
+    broker_url: str,
+    test_queue: str,
+    project_root: Path,
+) -> None:
+    """Test JMS long application properties round-trip."""
+    if receiver_client == "javascript-rhea" and sender_client != "javascript-rhea":
+        pytest.xfail("Rhea loses AMQP long type — JS number can't represent 64-bit integers")
+    messages = _header_test_message(sender_client)
+    run_sender(
+        sender_client, broker_url, test_queue, messages, project_root,
+        properties=JMS_PROPS_LONG,
+    )
+    recv_result = run_receiver(receiver_client, broker_url, test_queue, 1, project_root)
+    received = recv_result["messages"]
+    assert len(received) == 1
+    assert "properties" in received[0], f"No properties in received message: {received[0]}"
+    compare_properties(JMS_PROPS_LONG, received[0]["properties"], sender_client, receiver_client)
+
+
+@pytest.mark.parametrize("sender_client,receiver_client", STAR_PAIRS)
+def test_jms_property_float(
+    sender_client: str,
+    receiver_client: str,
+    broker_url: str,
+    test_queue: str,
+    project_root: Path,
+) -> None:
+    """Test JMS float application properties round-trip."""
+    if receiver_client == "javascript-rhea" and sender_client != "javascript-rhea":
+        pytest.xfail("Rhea loses AMQP float type — JS has only double-precision numbers")
+    messages = _header_test_message(sender_client)
+    run_sender(
+        sender_client, broker_url, test_queue, messages, project_root,
+        properties=JMS_PROPS_FLOAT,
+    )
+    recv_result = run_receiver(receiver_client, broker_url, test_queue, 1, project_root)
+    received = recv_result["messages"]
+    assert len(received) == 1
+    assert "properties" in received[0], f"No properties in received message: {received[0]}"
+    compare_properties(JMS_PROPS_FLOAT, received[0]["properties"], sender_client, receiver_client)
+
+
+@pytest.mark.parametrize("sender_client,receiver_client", STAR_PAIRS)
+def test_jms_property_double(
+    sender_client: str,
+    receiver_client: str,
+    broker_url: str,
+    test_queue: str,
+    project_root: Path,
+) -> None:
+    """Test JMS double application properties round-trip."""
+    messages = _header_test_message(sender_client)
+    run_sender(
+        sender_client, broker_url, test_queue, messages, project_root,
+        properties=JMS_PROPS_DOUBLE,
+    )
+    recv_result = run_receiver(receiver_client, broker_url, test_queue, 1, project_root)
+    received = recv_result["messages"]
+    assert len(received) == 1
+    assert "properties" in received[0], f"No properties in received message: {received[0]}"
+    compare_properties(JMS_PROPS_DOUBLE, received[0]["properties"], sender_client, receiver_client)
+
+
+@pytest.mark.parametrize("sender_client,receiver_client", STAR_PAIRS)
+def test_jms_property_string(
+    sender_client: str,
+    receiver_client: str,
+    broker_url: str,
+    test_queue: str,
+    project_root: Path,
+) -> None:
+    """Test JMS string application properties round-trip."""
+    messages = _header_test_message(sender_client)
+    run_sender(
+        sender_client, broker_url, test_queue, messages, project_root,
+        properties=JMS_PROPS_STRING,
+    )
+    recv_result = run_receiver(receiver_client, broker_url, test_queue, 1, project_root)
+    received = recv_result["messages"]
+    assert len(received) == 1
+    assert "properties" in received[0], f"No properties in received message: {received[0]}"
+    compare_properties(JMS_PROPS_STRING, received[0]["properties"], sender_client, receiver_client)

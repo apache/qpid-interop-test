@@ -15,6 +15,7 @@
 #include <iostream>
 #include <map>
 #include <cstdio>
+#include <cstring>
 
 namespace qit {
 
@@ -23,7 +24,8 @@ Sender::Sender(const std::string& broker_url,
                const std::string& amqp_type,
                const std::string& test_data_json,
                bool jms_mode,
-               const std::string& headers_json)
+               const std::string& headers_json,
+               const std::string& properties_json)
     : broker_url_(broker_url),
       queue_name_(queue_name),
       amqp_type_(amqp_type),
@@ -54,6 +56,16 @@ Sender::Sender(const std::string& broker_url,
         std::string herrors;
         if (!Json::parseFromStream(hbuilder, hiss, &headers_, &herrors)) {
             throw std::runtime_error("Failed to parse headers JSON: " + herrors);
+        }
+    }
+
+    // Parse properties JSON if provided
+    if (!properties_json.empty()) {
+        Json::CharReaderBuilder pbuilder;
+        std::istringstream piss(properties_json);
+        std::string perrors;
+        if (!Json::parseFromStream(pbuilder, piss, &properties_, &perrors)) {
+            throw std::runtime_error("Failed to parse properties JSON: " + perrors);
         }
     }
 }
@@ -137,6 +149,10 @@ void Sender::on_sendable(proton::sender& s) {
             apply_headers(msg);
         }
 
+        if (!properties_.isNull()) {
+            apply_properties(msg);
+        }
+
         s.send(msg);
         sent_count_++;
     }
@@ -161,6 +177,51 @@ void Sender::apply_headers(proton::message& msg) {
     }
     if (headers_.isMember("JMSType")) {
         msg.subject(headers_["JMSType"]["value"].asString());
+    }
+}
+
+void Sender::apply_properties(proton::message& msg) {
+    std::map<std::string, proton::scalar> props;
+    for (auto it = properties_.begin(); it != properties_.end(); ++it) {
+        std::string name = it.key().asString();
+        const Json::Value& prop = *it;
+        std::string ptype = prop["type"].asString();
+        std::string pvalue = prop["value"].asString();
+
+        if (ptype == "boolean") {
+            props[name] = (pvalue == "true");
+        } else if (ptype == "byte") {
+            unsigned long val = std::stoull(pvalue, nullptr, 16);
+            props[name] = static_cast<int8_t>(val);
+        } else if (ptype == "short") {
+            unsigned long val = std::stoull(pvalue, nullptr, 16);
+            props[name] = static_cast<int16_t>(val);
+        } else if (ptype == "int") {
+            unsigned long val = std::stoull(pvalue, nullptr, 16);
+            props[name] = static_cast<int32_t>(val);
+        } else if (ptype == "long") {
+            uint64_t val = std::stoull(pvalue, nullptr, 16);
+            int64_t sval;
+            std::memcpy(&sval, &val, sizeof(sval));
+            props[name] = sval;
+        } else if (ptype == "float") {
+            uint32_t bits = static_cast<uint32_t>(std::stoull(pvalue, nullptr, 16));
+            float fval;
+            std::memcpy(&fval, &bits, sizeof(fval));
+            props[name] = fval;
+        } else if (ptype == "double") {
+            uint64_t bits = std::stoull(pvalue, nullptr, 16);
+            double dval;
+            std::memcpy(&dval, &bits, sizeof(dval));
+            props[name] = dval;
+        } else if (ptype == "string") {
+            props[name] = pvalue;
+        }
+    }
+
+    // Set application properties on the message
+    for (auto& kv : props) {
+        msg.properties().put(kv.first, kv.second);
     }
 }
 

@@ -14,6 +14,8 @@
 #include <proton/codec/decoder.hpp>
 #include <iostream>
 #include <cstdlib>
+#include <cstring>
+#include <cstdio>
 
 namespace qit {
 
@@ -107,6 +109,77 @@ void Receiver::on_message(proton::delivery& d, proton::message& m) {
 
         if (headers.size() > 0) {
             msg_data["headers"] = headers;
+        }
+
+        // Extract application properties
+        Json::Value props(Json::objectValue);
+        try {
+            if (!m.properties().empty()) {
+                const proton::value& pval = m.properties().value();
+                proton::codec::decoder dec(pval);
+                proton::codec::start s;
+                dec >> s;
+                for (size_t pi = 0; pi < s.size / 2; ++pi) {
+                    std::string key;
+                    proton::scalar val;
+                    dec >> key >> val;
+
+                    Json::Value prop_obj;
+                    proton::type_id tid = val.type();
+                    char hex_buf[32];
+
+                    if (tid == proton::BOOLEAN) {
+                        prop_obj["type"] = "boolean";
+                        prop_obj["value"] = proton::get<bool>(val);
+                    } else if (tid == proton::BYTE) {
+                        prop_obj["type"] = "byte";
+                        int8_t v = proton::get<int8_t>(val);
+                        snprintf(hex_buf, sizeof(hex_buf), "0x%02x", static_cast<unsigned int>(v & 0xFF));
+                        prop_obj["value"] = std::string(hex_buf);
+                    } else if (tid == proton::SHORT) {
+                        prop_obj["type"] = "short";
+                        int16_t v = proton::get<int16_t>(val);
+                        snprintf(hex_buf, sizeof(hex_buf), "0x%04x", static_cast<unsigned int>(v & 0xFFFF));
+                        prop_obj["value"] = std::string(hex_buf);
+                    } else if (tid == proton::INT) {
+                        prop_obj["type"] = "int";
+                        int32_t v = proton::get<int32_t>(val);
+                        snprintf(hex_buf, sizeof(hex_buf), "0x%08x", static_cast<unsigned int>(v));
+                        prop_obj["value"] = std::string(hex_buf);
+                    } else if (tid == proton::LONG) {
+                        prop_obj["type"] = "long";
+                        int64_t v = proton::get<int64_t>(val);
+                        snprintf(hex_buf, sizeof(hex_buf), "0x%016llx", static_cast<unsigned long long>(v));
+                        prop_obj["value"] = std::string(hex_buf);
+                    } else if (tid == proton::FLOAT) {
+                        prop_obj["type"] = "float";
+                        float fv = proton::get<float>(val);
+                        uint32_t bits;
+                        std::memcpy(&bits, &fv, sizeof(bits));
+                        snprintf(hex_buf, sizeof(hex_buf), "0x%08x", bits);
+                        prop_obj["value"] = std::string(hex_buf);
+                    } else if (tid == proton::DOUBLE) {
+                        prop_obj["type"] = "double";
+                        double dv = proton::get<double>(val);
+                        uint64_t bits;
+                        std::memcpy(&bits, &dv, sizeof(bits));
+                        snprintf(hex_buf, sizeof(hex_buf), "0x%016llx", static_cast<unsigned long long>(bits));
+                        prop_obj["value"] = std::string(hex_buf);
+                    } else if (tid == proton::STRING) {
+                        prop_obj["type"] = "string";
+                        prop_obj["value"] = proton::get<std::string>(val);
+                    } else {
+                        continue;
+                    }
+
+                    props[key] = prop_obj;
+                }
+                dec >> proton::codec::finish();
+            }
+        } catch (...) {}
+
+        if (props.size() > 0) {
+            msg_data["properties"] = props;
         }
 
         received_messages_.append(msg_data);

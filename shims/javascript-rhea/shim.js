@@ -648,8 +648,9 @@ class TypeDecoder {
 
 // Sender
 function send(options) {
-    const { broker, queue, type: amqpType, data, 'jms-mode': jmsMode, headers: headersJson } = options;
+    const { broker, queue, type: amqpType, data, 'jms-mode': jmsMode, headers: headersJson, properties: propsJson } = options;
     const headers = headersJson ? JSON.parse(headersJson) : null;
+    const properties = propsJson ? JSON.parse(propsJson) : null;
     const testData = JSON.parse(data);
 
     let sentCount = 0;
@@ -738,6 +739,45 @@ function send(options) {
                 if (headers.JMSType) {
                     message.subject = headers.JMSType.value;
                 }
+            }
+
+            // Apply JMS application properties
+            if (properties) {
+                const appProps = {};
+                for (const [name, prop] of Object.entries(properties)) {
+                    const ptype = prop.type;
+                    const pval = prop.value;
+                    if (ptype === 'boolean') {
+                        appProps[name] = typeof pval === 'boolean' ? pval : pval === 'True';
+                    } else if (ptype === 'byte') {
+                        let v = typeof pval === 'string' ? parseInt(pval, 16) : pval;
+                        if (v > 127) v -= 256;
+                        appProps[name] = rhea.types.wrap_byte(v);
+                    } else if (ptype === 'short') {
+                        let v = typeof pval === 'string' ? parseInt(pval, 16) : pval;
+                        if (v > 32767) v -= 65536;
+                        appProps[name] = rhea.types.wrap_short(v);
+                    } else if (ptype === 'int') {
+                        let v = typeof pval === 'string' ? parseInt(pval, 16) : pval;
+                        if (v > 0x7FFFFFFF) v -= 0x100000000;
+                        appProps[name] = rhea.types.wrap_int(v);
+                    } else if (ptype === 'long') {
+                        const hex = typeof pval === 'string' ? pval.replace(/^0x/i, '') : pval.toString(16);
+                        appProps[name] = rhea.types.wrap_long(Buffer.from(hex.padStart(16, '0'), 'hex'));
+                    } else if (ptype === 'float') {
+                        const bits = typeof pval === 'string' ? parseInt(pval, 16) : pval;
+                        const buf = Buffer.alloc(4);
+                        buf.writeUInt32BE(bits, 0);
+                        appProps[name] = rhea.types.wrap_float(buf.readFloatBE(0));
+                    } else if (ptype === 'double') {
+                        const hex = typeof pval === 'string' ? pval.replace(/^0x/, '') : pval.toString(16);
+                        const buf = Buffer.from(hex.padStart(16, '0'), 'hex');
+                        appProps[name] = rhea.types.wrap_double(buf.readDoubleBE(0));
+                    } else if (ptype === 'string') {
+                        appProps[name] = String(pval);
+                    }
+                }
+                message.application_properties = appProps;
             }
 
             context.sender.send(message);
@@ -962,6 +1002,70 @@ function receive(options) {
         }
         if (Object.keys(msgHeaders).length > 0) {
             msgData.headers = msgHeaders;
+        }
+
+        // Extract application properties
+        const appProps = context.message.application_properties;
+        if (appProps && Object.keys(appProps).length > 0) {
+            const propsOut = {};
+            for (const [name, value] of Object.entries(appProps)) {
+                if (name.startsWith('JMS')) continue;
+                const prop = {};
+                if (typeof value === 'boolean') {
+                    prop.type = 'boolean';
+                    prop.value = value;
+                } else if (value && value.typecode !== undefined) {
+                    const tc = value.typecode;
+                    const v = typeof value.valueOf === 'function' ? value.valueOf() : value;
+                    if (tc === 0x51) {
+                        prop.type = 'byte';
+                        prop.value = '0x' + ((v & 0xFF) >>> 0).toString(16).padStart(2, '0');
+                    } else if (tc === 0x61) {
+                        prop.type = 'short';
+                        prop.value = '0x' + ((v & 0xFFFF) >>> 0).toString(16).padStart(4, '0');
+                    } else if (tc === 0x71 || tc === 0x54) {
+                        prop.type = 'int';
+                        prop.value = '0x' + ((v & 0xFFFFFFFF) >>> 0).toString(16).padStart(8, '0');
+                    } else if (tc === 0x81 || tc === 0x55) {
+                        prop.type = 'long';
+                        if (Buffer.isBuffer(v)) {
+                            prop.value = '0x' + v.toString('hex').padStart(16, '0');
+                        } else {
+                            const buf = Buffer.alloc(8);
+                            buf.writeBigInt64BE(BigInt(v), 0);
+                            prop.value = '0x' + buf.toString('hex');
+                        }
+                    } else if (tc === 0x72) {
+                        prop.type = 'float';
+                        const buf = Buffer.alloc(4);
+                        buf.writeFloatBE(v, 0);
+                        prop.value = '0x' + buf.toString('hex');
+                    } else if (tc === 0x82) {
+                        prop.type = 'double';
+                        const buf = Buffer.alloc(8);
+                        buf.writeDoubleBE(v, 0);
+                        prop.value = '0x' + buf.toString('hex');
+                    } else {
+                        prop.type = 'string';
+                        prop.value = String(v);
+                    }
+                } else if (typeof value === 'number') {
+                    prop.type = 'double';
+                    const buf = Buffer.alloc(8);
+                    buf.writeDoubleBE(value, 0);
+                    prop.value = '0x' + buf.toString('hex');
+                } else if (typeof value === 'string') {
+                    prop.type = 'string';
+                    prop.value = value;
+                } else {
+                    prop.type = 'string';
+                    prop.value = String(value);
+                }
+                propsOut[name] = prop;
+            }
+            if (Object.keys(propsOut).length > 0) {
+                msgData.properties = propsOut;
+            }
         }
 
         messages.push(msgData);

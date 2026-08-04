@@ -27,6 +27,7 @@ public class Sender {
         String type = null;
         String data = null;
         String headersJson = null;
+        String propertiesJson = null;
         boolean jmsMode = false;
 
         for (int i = 1; i < args.length; i++) {
@@ -63,6 +64,9 @@ public class Sender {
                 case "headers":
                     headersJson = value;
                     break;
+                case "properties":
+                    propertiesJson = value;
+                    break;
             }
             i++;  // Skip the value in next iteration
         }
@@ -91,6 +95,11 @@ public class Sender {
             JsonObject headers = null;
             if (headersJson != null) {
                 headers = gson.fromJson(headersJson, JsonObject.class);
+            }
+
+            JsonObject properties = null;
+            if (propertiesJson != null) {
+                properties = gson.fromJson(propertiesJson, JsonObject.class);
             }
 
             List<JsonObject> messages = new ArrayList<>();
@@ -154,6 +163,61 @@ public class Sender {
                     if (headers.has("JMSType")) {
                         JsonObject h = headers.getAsJsonObject("JMSType");
                         message.subject(h.get("value").getAsString());
+                    }
+                }
+
+                // Apply JMS application properties
+                if (properties != null) {
+                    for (Map.Entry<String, JsonElement> entry : properties.entrySet()) {
+                        String name = entry.getKey();
+                        JsonObject prop = entry.getValue().getAsJsonObject();
+                        String ptype = prop.get("type").getAsString();
+                        switch (ptype) {
+                            case "boolean":
+                                message.property(name, prop.get("value").getAsBoolean());
+                                break;
+                            case "byte": {
+                                String hex = prop.get("value").getAsString().replace("0x", "");
+                                long val = Long.parseUnsignedLong(hex, 16);
+                                message.property(name, (byte) val);
+                                break;
+                            }
+                            case "short": {
+                                String hex = prop.get("value").getAsString().replace("0x", "");
+                                long val = Long.parseUnsignedLong(hex, 16);
+                                message.property(name, (short) val);
+                                break;
+                            }
+                            case "int": {
+                                String hex = prop.get("value").getAsString().replace("0x", "");
+                                long val = Long.parseUnsignedLong(hex, 16);
+                                message.property(name, (int) val);
+                                break;
+                            }
+                            case "long": {
+                                String hex = prop.get("value").getAsString().replace("0x", "");
+                                long val = Long.parseUnsignedLong(hex, 16);
+                                message.property(name, val);
+                                break;
+                            }
+                            case "float": {
+                                String hex = prop.get("value").getAsString().replace("0x", "");
+                                long val = Long.parseUnsignedLong(hex, 16);
+                                float floatVal = Float.intBitsToFloat((int) val);
+                                message.property(name, floatVal);
+                                break;
+                            }
+                            case "double": {
+                                String hex = prop.get("value").getAsString().replace("0x", "");
+                                long val = Long.parseUnsignedLong(hex, 16);
+                                double doubleVal = Double.longBitsToDouble(val);
+                                message.property(name, doubleVal);
+                                break;
+                            }
+                            case "string":
+                                message.property(name, prop.get("value").getAsString());
+                                break;
+                        }
                     }
                 }
 

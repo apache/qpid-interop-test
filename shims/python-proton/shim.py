@@ -224,6 +224,7 @@ class SenderHandler(MessagingHandler):
         self, url: str, queue: str, messages: list[dict[str, Any]],
         jms_mode: bool = False, amqp_type: str = "string",
         headers: dict[str, Any] | None = None,
+        properties: dict[str, Any] | None = None,
     ) -> None:
         super().__init__()
         self.url = url
@@ -232,6 +233,7 @@ class SenderHandler(MessagingHandler):
         self.jms_mode = jms_mode
         self.amqp_type = amqp_type
         self.headers = headers
+        self.properties = properties
         self.sent_count = 0
         self.confirmed_count = 0
 
@@ -275,6 +277,9 @@ class SenderHandler(MessagingHandler):
 
             if self.headers:
                 self._apply_headers(msg)
+
+            if self.properties:
+                self._apply_properties(msg)
 
             event.sender.send(msg)
             self.sent_count += 1
@@ -333,6 +338,43 @@ class SenderHandler(MessagingHandler):
         if "JMSType" in self.headers:
             h = self.headers["JMSType"]
             msg.subject = h["value"]
+
+    def _apply_properties(self, msg: Message) -> None:
+        """Set JMS application properties as AMQP application-properties."""
+        import struct
+        from proton import byte, float32, int32, short
+
+        props = {}
+        for name, prop in self.properties.items():
+            ptype = prop["type"]
+            pval = prop["value"]
+            if ptype == "boolean":
+                props[name] = bool(pval) if isinstance(pval, bool) else pval == "True"
+            elif ptype == "byte":
+                v = int(pval, 16) if isinstance(pval, str) else int(pval)
+                props[name] = byte(v if v < 128 else v - 256)
+            elif ptype == "short":
+                v = int(pval, 16) if isinstance(pval, str) else int(pval)
+                props[name] = short(v if v < 32768 else v - 65536)
+            elif ptype == "int":
+                v = int(pval, 16) if isinstance(pval, str) else int(pval)
+                if v >= 0x80000000:
+                    v -= 0x100000000
+                props[name] = int32(v)
+            elif ptype == "long":
+                v = int(pval, 16) if isinstance(pval, str) else int(pval)
+                if v >= 0x8000000000000000:
+                    v -= 0x10000000000000000
+                props[name] = v
+            elif ptype == "float":
+                bits = int(pval, 16) if isinstance(pval, str) else int(pval)
+                props[name] = float32(struct.unpack("!f", struct.pack("!I", bits))[0])
+            elif ptype == "double":
+                bits = int(pval, 16) if isinstance(pval, str) else int(pval)
+                props[name] = struct.unpack("!d", struct.pack("!Q", bits))[0]
+            elif ptype == "string":
+                props[name] = str(pval)
+        msg.properties = props
 
     def _encode_value(self, amqp_type: str, value: Any) -> Any:
         """Encode test value to AMQP type."""
@@ -488,6 +530,10 @@ class ReceiverHandler(MessagingHandler):
         if headers:
             msg_data["headers"] = headers
 
+        properties = self._extract_properties(msg)
+        if properties:
+            msg_data["properties"] = properties
+
         self.received_messages.append(msg_data)
 
         # Close when all messages received
@@ -535,6 +581,48 @@ class ReceiverHandler(MessagingHandler):
         if msg.subject is not None:
             headers["JMSType"] = msg.subject
         return headers
+
+    def _extract_properties(self, msg: Message) -> dict[str, Any]:
+        """Extract JMS application properties from AMQP application-properties."""
+        import struct
+        from proton import byte, float32, int32, short
+
+        properties: dict[str, Any] = {}
+        if msg.properties is None:
+            return properties
+        for name, value in msg.properties.items():
+            prop: dict[str, Any] = {}
+            if isinstance(value, bool):
+                prop["type"] = "boolean"
+                prop["value"] = value
+            elif isinstance(value, byte):
+                prop["type"] = "byte"
+                prop["value"] = f"0x{int(value) & 0xFF:02x}"
+            elif isinstance(value, short):
+                prop["type"] = "short"
+                prop["value"] = f"0x{int(value) & 0xFFFF:04x}"
+            elif isinstance(value, int32):
+                prop["type"] = "int"
+                prop["value"] = f"0x{int(value) & 0xFFFFFFFF:08x}"
+            elif isinstance(value, int):
+                prop["type"] = "long"
+                prop["value"] = f"0x{value & 0xFFFFFFFFFFFFFFFF:016x}"
+            elif isinstance(value, float32):
+                prop["type"] = "float"
+                bits = struct.unpack("!I", struct.pack("!f", float(value)))[0]
+                prop["value"] = f"0x{bits:08x}"
+            elif isinstance(value, float):
+                prop["type"] = "double"
+                bits = struct.unpack("!Q", struct.pack("!d", value))[0]
+                prop["value"] = f"0x{bits:016x}"
+            elif isinstance(value, str):
+                prop["type"] = "string"
+                prop["value"] = value
+            else:
+                prop["type"] = "string"
+                prop["value"] = str(value)
+            properties[name] = prop
+        return properties
 
     def _decode_jms_message(self, msg: Message, jms_msg_type: int) -> dict[str, Any]:
         """Decode JMS message based on message type annotation."""
@@ -691,7 +779,8 @@ def send_messages(args: argparse.Namespace) -> None:
     messages = json.loads(args.data)
     jms_mode = getattr(args, "jms_mode", False)
     headers = json.loads(args.headers) if args.headers else None
-    handler = SenderHandler(args.broker, args.queue, messages, jms_mode, args.type, headers)
+    properties = json.loads(args.properties) if getattr(args, "properties", None) else None
+    handler = SenderHandler(args.broker, args.queue, messages, jms_mode, args.type, headers, properties)
     Container(handler).run()
 
     # Output result
@@ -748,6 +837,7 @@ def main() -> None:
         help="Enable JMS message emulation (adds x-opt-jms-msg-type annotation)",
     )
     send_parser.add_argument("--headers", default=None, help="JSON JMS headers")
+    send_parser.add_argument("--properties", default=None, help="JSON JMS application properties")
 
     # Receive command
     recv_parser = subparsers.add_parser("receive", help="Receive messages")

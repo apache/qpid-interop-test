@@ -13,7 +13,7 @@ namespace Qit.Shim
 {
     public static class Sender
     {
-        public static void Send(string broker, string queue, string type, string data, bool jmsMode = false, string headersJson = null)
+        public static void Send(string broker, string queue, string type, string data, bool jmsMode = false, string headersJson = null, string propertiesJson = null)
         {
             try
             {
@@ -22,6 +22,11 @@ namespace Qit.Shim
                 if (!string.IsNullOrEmpty(headersJson))
                 {
                     headers = JsonConvert.DeserializeObject<Dictionary<string, Dictionary<string, string>>>(headersJson);
+                }
+                Dictionary<string, Dictionary<string, string>> properties = null;
+                if (!string.IsNullOrEmpty(propertiesJson))
+                {
+                    properties = JsonConvert.DeserializeObject<Dictionary<string, Dictionary<string, string>>>(propertiesJson);
                 }
                 var messages = new List<MessageResult>();
 
@@ -118,6 +123,33 @@ namespace Qit.Shim
                         }
                     }
 
+                    // Apply JMS application properties
+                    if (properties != null)
+                    {
+                        foreach (var kvp in properties)
+                        {
+                            var name = kvp.Key;
+                            var prop = kvp.Value;
+                            var propType = prop["type"];
+                            var propValue = prop["value"];
+
+                            object typedValue = propType switch
+                            {
+                                "boolean" => bool.Parse(propValue),
+                                "byte" => (sbyte)Convert.ToInt32(propValue, 16),
+                                "short" => unchecked((short)Convert.ToInt32(propValue, 16)),
+                                "int" => unchecked((int)Convert.ToUInt32(propValue, 16)),
+                                "long" => unchecked((long)Convert.ToUInt64(propValue, 16)),
+                                "float" => BitConverter.Int32BitsToSingle(unchecked((int)Convert.ToUInt32(propValue, 16))),
+                                "double" => BitConverter.Int64BitsToDouble(unchecked((long)Convert.ToUInt64(propValue, 16))),
+                                "string" => propValue,
+                                _ => propValue
+                            };
+
+                            message.SetProperty(name, typedValue);
+                        }
+                    }
+
                     sender.Send(message);
 
                     messages.Add(new MessageResult
@@ -196,5 +228,8 @@ namespace Qit.Shim
 
         [JsonProperty("headers", NullValueHandling = NullValueHandling.Ignore)]
         public Dictionary<string, object> Headers { get; set; }
+
+        [JsonProperty("properties", NullValueHandling = NullValueHandling.Ignore)]
+        public Dictionary<string, object> Properties { get; set; }
     }
 }

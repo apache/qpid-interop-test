@@ -136,6 +136,49 @@ public class Receiver {
                     msgResult.add("headers", hdrs);
                 }
 
+                // Extract application properties
+                JsonObject propsJson = new JsonObject();
+                message.forEachProperty((name, value) -> {
+                    JsonObject propObj = new JsonObject();
+                    if (value instanceof Boolean) {
+                        propObj.addProperty("type", "boolean");
+                        propObj.addProperty("value", (Boolean) value);
+                    } else if (value instanceof Byte) {
+                        byte b = (Byte) value;
+                        propObj.addProperty("type", "byte");
+                        propObj.addProperty("value", String.format("0x%02x", b & 0xFF));
+                    } else if (value instanceof Short) {
+                        short s = (Short) value;
+                        propObj.addProperty("type", "short");
+                        propObj.addProperty("value", String.format("0x%04x", s & 0xFFFF));
+                    } else if (value instanceof Integer) {
+                        int iv = (Integer) value;
+                        propObj.addProperty("type", "int");
+                        propObj.addProperty("value", String.format("0x%08x", iv));
+                    } else if (value instanceof Long) {
+                        long l = (Long) value;
+                        propObj.addProperty("type", "long");
+                        propObj.addProperty("value", String.format("0x%016x", l));
+                    } else if (value instanceof Float) {
+                        float f = (Float) value;
+                        propObj.addProperty("type", "float");
+                        propObj.addProperty("value", String.format("0x%08x", Float.floatToRawIntBits(f)));
+                    } else if (value instanceof Double) {
+                        double d = (Double) value;
+                        propObj.addProperty("type", "double");
+                        propObj.addProperty("value", String.format("0x%016x", Double.doubleToRawLongBits(d)));
+                    } else if (value instanceof String) {
+                        propObj.addProperty("type", "string");
+                        propObj.addProperty("value", (String) value);
+                    }
+                    if (propObj.size() > 0) {
+                        propsJson.add(name, propObj);
+                    }
+                });
+                if (propsJson.size() > 0) {
+                    msgResult.add("properties", propsJson);
+                }
+
                 messages.add(msgResult);
             }
 

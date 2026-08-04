@@ -24,6 +24,7 @@ namespace Qit.Shim
             var sendDataOption = new Option<string>("--data", "JSON test data") { IsRequired = true };
             var sendJmsModeOption = new Option<bool>("--jms-mode", () => false, "Enable JMS emulation mode");
             var sendHeadersOption = new Option<string>("--headers", () => null, "JSON JMS headers");
+            var sendPropertiesOption = new Option<string>("--properties", () => null, "JSON JMS application properties");
 
             sendCommand.AddOption(sendBrokerOption);
             sendCommand.AddOption(sendQueueOption);
@@ -32,19 +33,20 @@ namespace Qit.Shim
             sendCommand.AddOption(sendDataOption);
             sendCommand.AddOption(sendJmsModeOption);
             sendCommand.AddOption(sendHeadersOption);
+            sendCommand.AddOption(sendPropertiesOption);
 
-            sendCommand.SetHandler((broker, queue, type, count, data, jmsMode, headers) =>
+            sendCommand.SetHandler((broker, queue, type, count, data, jmsMode, headers, properties) =>
             {
                 try
                 {
-                    Sender.Send(broker, queue, type, data, jmsMode, headers);
+                    Sender.Send(broker, queue, type, data, jmsMode, headers, properties);
                 }
                 catch (Exception ex)
                 {
                     Console.Error.WriteLine($"Error: {ex.Message}");
                     Environment.Exit(1);
                 }
-            }, sendBrokerOption, sendQueueOption, sendTypeOption, sendCountOption, sendDataOption, sendJmsModeOption, sendHeadersOption);
+            }, sendBrokerOption, sendQueueOption, sendTypeOption, sendCountOption, sendDataOption, sendJmsModeOption, sendHeadersOption, sendPropertiesOption);
 
             // Receive command
             var receiveCommand = new Command("receive", "Receive AMQP messages");
