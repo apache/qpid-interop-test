@@ -81,7 +81,7 @@ void Sender::on_sendable(proton::sender& s) {
 
         msg.id(proton::message_id(test_value["index"].asInt()));
 
-        if (amqp_type_ == "map") {
+        if (jms_mode_ && amqp_type_ == "map") {
             std::string sub_type = test_value["type"].asString();
             int index = test_value["index"].asInt();
             char key_buf[64];
@@ -95,7 +95,7 @@ void Sender::on_sendable(proton::sender& s) {
             enc << key << encoded_value;
             enc << proton::codec::finish();
             msg.body(body);
-        } else if (amqp_type_ == "list") {
+        } else if (jms_mode_ && amqp_type_ == "list") {
             std::string sub_type = test_value["type"].asString();
             proton::value encoded_value = TypeCodec::encode(sub_type, test_value["value"]);
 
@@ -105,6 +105,8 @@ void Sender::on_sendable(proton::sender& s) {
             enc << encoded_value;
             enc << proton::codec::finish();
             msg.body(body);
+        } else if (TypeCodec::is_complex_type(amqp_type_)) {
+            msg.body(TypeCodec::encode_complex(amqp_type_, test_value["value"]));
         } else {
             msg.body(TypeCodec::encode(amqp_type_, test_value["value"]));
         }

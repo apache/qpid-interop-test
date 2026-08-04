@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Generic;
 using Apache.Qpid.Proton.Client;
+using Apache.Qpid.Proton.Types.Messaging;
 using Newtonsoft.Json;
 
 namespace Qit.Shim
@@ -39,18 +40,28 @@ namespace Qit.Shim
                     var message = IMessage<object>.Create();
                     message.MessageId = testMsg.Index.ToString();
 
-                    if (type == "map")
+                    if (jmsMode && type == "map")
                     {
                         var subType = testMsg.Type ?? "string";
                         var key = $"{subType}_{testMsg.Index:D3}";
                         var encodedValue = TypeCodec.Encode(subType, testMsg.Value);
                         message.Body = new Dictionary<string, object> { { key, encodedValue } };
                     }
-                    else if (type == "list")
+                    else if (jmsMode && type == "list")
                     {
                         var subType = testMsg.Type ?? "string";
                         var encodedValue = TypeCodec.Encode(subType, testMsg.Value);
                         message.Body = new List<object> { encodedValue };
+                    }
+                    else if (type == "array" || type == "described")
+                    {
+                        var encoded = TypeCodec.EncodeComplex(type, testMsg.Value);
+                        var advanced = (IAdvancedMessage<object>)message;
+                        advanced.AddBodySection(new AmqpValue(encoded));
+                    }
+                    else if (TypeCodec.IsComplexType(type))
+                    {
+                        message.Body = TypeCodec.EncodeComplex(type, testMsg.Value);
                     }
                     else
                     {

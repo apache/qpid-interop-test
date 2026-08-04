@@ -112,6 +112,11 @@ def test() -> None:
     type=click.Path(),
     help="Generate JUnit XML report (for CI/CD integration)",
 )
+@click.option(
+    "--extended",
+    is_flag=True,
+    help="Include extended tier test values for complex types",
+)
 def test_amqp_types(
     sender: tuple[str, ...],
     receiver: tuple[str, ...],
@@ -120,12 +125,13 @@ def test_amqp_types(
     mode: str,
     verbose: bool,
     junit_xml: str | None,
+    extended: bool,
 ) -> None:
-    """Test AMQP primitive types interoperability."""
+    """Test AMQP primitive and complex types interoperability."""
     from pathlib import Path
 
     from qit.core import BrokerConfig, BrokerManager, Orchestrator, Shim, ShimConfig
-    from qit.types import AmqpPrimitiveTypes
+    from qit.types import AmqpComplexTypes, AmqpPrimitiveTypes
 
     click.echo("QIT - AMQP Types Test")
     click.echo("=" * 80)
@@ -207,8 +213,8 @@ def test_amqp_types(
     sender_shims = list(sender) if sender else list(available_shims.keys())
     receiver_shims = list(receiver) if receiver else list(available_shims.keys())
 
-    # Get AMQP types to test
-    all_types = AmqpPrimitiveTypes.get_all_types()
+    # Get AMQP types to test (primitives + complex)
+    all_types = {**AmqpPrimitiveTypes.get_all_types(), **AmqpComplexTypes.get_all_types(include_extended=extended)}
     if amqp_types:
         test_types = {k: all_types[k]["values"] for k in amqp_types if k in all_types}
     else:

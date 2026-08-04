@@ -7,6 +7,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Apache.Qpid.Proton.Client;
+using Apache.Qpid.Proton.Types.Messaging;
 using Newtonsoft.Json;
 
 namespace Qit.Shim
@@ -62,8 +63,22 @@ namespace Qit.Shim
                     }
                     else
                     {
-                        // Decode as regular AMQP message
-                        decoded = TypeCodec.Decode(message.Body);
+                        bool isAmqpValue = false;
+                        var advanced = message as IAdvancedMessage<object>;
+                        if (advanced != null)
+                        {
+                            var sections = advanced.GetBodySections();
+                            if (sections != null)
+                            {
+                                foreach (var section in sections)
+                                {
+                                    if (section is AmqpValue)
+                                        isAmqpValue = true;
+                                    break;
+                                }
+                            }
+                        }
+                        decoded = TypeCodec.Decode(message.Body, isAmqpValue);
                     }
 
                     messages.Add(new MessageResult

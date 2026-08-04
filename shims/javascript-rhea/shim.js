@@ -11,6 +11,44 @@ const rhea = require('rhea');
 const rhea_message = require('rhea/lib/message');
 const { v4: uuidv4 } = require('uuid');
 
+// Monkey-patch Writer to support:
+// 1. Nested described types (AmqpValue wrapping custom described types)
+// 2. Nested array elements (array of arrays, array of lists)
+const _rheaTypes = require('rhea/lib/types');
+
+const _origWriterWrite = _rheaTypes.Writer.prototype.write;
+_rheaTypes.Writer.prototype.write = function(o) {
+    if (o && o._nestedDescribed && o.descriptor && o.value && o.value.descriptor) {
+        this.write_typecode(0x00);
+        _origWriterWrite.call(this, o.descriptor);
+        _origWriterWrite.call(this, o.value);
+    } else {
+        _origWriterWrite.call(this, o);
+    }
+};
+
+const _origWriteArray = _rheaTypes.Writer.prototype.write_array;
+_rheaTypes.Writer.prototype.write_array = function(type, value, constructor) {
+    if (constructor && value.length > 0 && value[0] && value[0].type &&
+        (value[0].type.category === 4 || value[0].type.category === 3)) {
+        var saved = this.position;
+        this.position += type.width;
+        this.write_uint(value.length, type.width);
+        this.write_constructor(constructor.typecode, constructor.descriptor);
+        for (var i = 0; i < value.length; i++) {
+            var elem = value[i];
+            if (elem.type.category === 4) {
+                this.write_array(elem.type, elem.value, elem.array_constructor);
+            } else {
+                this.write_value(elem.type, elem.value);
+            }
+        }
+        this.backfill_size(type.width, saved);
+    } else {
+        _origWriteArray.call(this, type, value, constructor);
+    }
+};
+
 // Parse command line arguments
 function parseArgs() {
     const args = process.argv.slice(2);
@@ -119,6 +157,216 @@ function decodeJmsMessage(body, jmsMsgType) {
     }
 }
 
+// AMQP type name to Rhea typecode map
+const AMQP_TYPE_TO_TYPECODE = {
+    'null': 0x40, 'boolean': 0x56,
+    'ubyte': 0x50, 'ushort': 0x60, 'uint': 0x70, 'ulong': 0x80,
+    'byte': 0x51, 'short': 0x61, 'int': 0x71, 'long': 0x81,
+    'float': 0x72, 'double': 0x82,
+    'char': 0x73, 'timestamp': 0x83, 'uuid': 0x98,
+    'binary': 0xa0, 'string': 0xa1, 'symbol': 0xa3,
+    'list': 0xd0, 'map': 0xd1, 'array': 0xf0,
+};
+
+// Encode a typed element ["type", value] for complex type structures
+function encodeTypedElement(elemType, elemValue) {
+    if (elemType === 'array') return encodeArray(elemValue);
+    if (elemType === 'list') return encodeList(elemValue);
+    if (elemType === 'map') return encodeMapComplex(elemValue);
+    if (elemType === 'described') return encodeDescribed(elemValue);
+    const types_mod = require('rhea/lib/types');
+    if (elemType === 'null') return types_mod.Null();
+    if (elemType === 'boolean') return types_mod.wrap_boolean(elemValue === true || elemValue === 'True');
+    return TypeEncoder.encode(elemType, elemValue);
+}
+
+function encodeArray(value) {
+    const elemType = value.element_type;
+    const elements = value.elements || [];
+    const typecode = AMQP_TYPE_TO_TYPECODE[elemType];
+    if (!typecode) throw new Error(`Unknown array element type: ${elemType}`);
+    if (elemType === 'array' || elemType === 'list' || elemType === 'map') {
+        const encoded = elements.map(e => encodeTypedElement(elemType, e));
+        return rhea.types.wrap_array(encoded, typecode);
+    }
+    const encoded = elements.map(e => {
+        const typed = encodeTypedElement(elemType, e);
+        return (typed && typed.value !== undefined) ? typed.value : typed;
+    });
+    return rhea.types.wrap_array(encoded, typecode);
+}
+
+function encodeList(value) {
+    const types_mod = require('rhea/lib/types');
+    if (!value || value.length === 0) return types_mod.List0();
+    const encoded = value.map(e => encodeTypedElement(e[0], e[1]));
+    return types_mod.List32(encoded);
+}
+
+function encodeMapComplex(value) {
+    const types_mod = require('rhea/lib/types');
+    if (!value || value.length === 0) return types_mod.Map32([]);
+    const items = [];
+    for (const pair of value) {
+        items.push(encodeTypedElement(pair[0][0], pair[0][1]));
+        items.push(encodeTypedElement(pair[1][0], pair[1][1]));
+    }
+    return types_mod.Map32(items);
+}
+
+function encodeDescribed(value) {
+    const types_mod = require('rhea/lib/types');
+    const desc = encodeTypedElement(value.descriptor[0], value.descriptor[1]);
+    const inner = encodeTypedElement(value.value[0], value.value[1]);
+    types_mod.described_nc(desc, inner);
+    return inner;
+}
+
+function wrapDescribedAsBody(describedTyped) {
+    const types_mod = require('rhea/lib/types');
+    return {
+        collect_sections: function(sections) {
+            var Typed = describedTyped.constructor;
+            var outer = new Typed(describedTyped.type, describedTyped);
+            outer.descriptor = types_mod.wrap_ulong(0x77);
+            outer._nestedDescribed = true;
+            sections.push(outer);
+        }
+    };
+}
+
+// Decode a Typed object (pre-unwrap) to ["type", decoded_value] recursively
+function decodeTypedRecursive(typed) {
+    if (typed === null || typed === undefined) {
+        return ['null', null];
+    }
+
+    // Not a Typed object — decode as primitive
+    if (!typed || !typed.type || !typed.type.name) {
+        return decodePrimitiveToTyped(typed);
+    }
+
+    const typeName = typed.type.name;
+
+    // Described — must check BEFORE array/list/map since described types wrapping
+    // complex values have the inner value's type name but also have .descriptor set
+    if (typed.descriptor) {
+        const desc = decodeTypedRecursive(typed.descriptor);
+        let val;
+        if (typed.value && typed.value.type && typed.value.type.name) {
+            val = decodeTypedRecursive(typed.value);
+        } else {
+            const innerTypeName = typed.type ? typed.type.name : null;
+            if (innerTypeName === 'List0' || innerTypeName === 'List8' || innerTypeName === 'List32') {
+                const rawElements = Array.isArray(typed.value) ? typed.value : [];
+                const decoded = rawElements.map(e => decodePrimitiveToTyped(e));
+                val = ['list', decoded];
+            } else if (innerTypeName === 'Map8' || innerTypeName === 'Map32') {
+                const rawItems = Array.isArray(typed.value) ? typed.value : [];
+                const pairs = [];
+                for (let i = 0; i < rawItems.length; i += 2) {
+                    pairs.push([decodePrimitiveToTyped(rawItems[i]), decodePrimitiveToTyped(rawItems[i + 1])]);
+                }
+                val = ['map', pairs];
+            } else if (innerTypeName === 'Array8' || innerTypeName === 'Array32') {
+                const rawElements = Array.isArray(typed.value) ? typed.value : [];
+                const elemType = rawElements.length > 0 ? decodePrimitiveToTyped(rawElements[0])[0] : 'unknown';
+                const decoded = rawElements.map(e => decodePrimitiveToTyped(e)[1]);
+                val = ['array', { element_type: elemType, elements: decoded }];
+            } else {
+                val = decodePrimitiveToTyped(typed.value);
+            }
+        }
+        return ['described', { descriptor: desc, value: val }];
+    }
+
+    // Array
+    if (typeName === 'Array32' || typeName === 'Array8') {
+        const elemTypecode = typed.array_constructor ? typed.array_constructor.typecode : null;
+        const elemTypeName = elemTypecode ? typecodeToAmqpType(elemTypecode) : 'unknown';
+        const rawElements = Array.isArray(typed.value) ? typed.value : [];
+        const decoded = rawElements.map(e =>
+            (e && e.type && e.type.name) ? decodeTypedRecursive(e)[1] : decodePrimitiveToTyped(e)[1]
+        );
+        return ['array', { element_type: elemTypeName, elements: decoded }];
+    }
+
+    // List
+    if (typeName === 'List0' || typeName === 'List8' || typeName === 'List32') {
+        const rawElements = Array.isArray(typed.value) ? typed.value : [];
+        const decoded = rawElements.map(e => decodeTypedRecursive(e));
+        return ['list', decoded];
+    }
+
+    // Map
+    if (typeName === 'Map8' || typeName === 'Map32') {
+        const rawItems = Array.isArray(typed.value) ? typed.value : [];
+        const pairs = [];
+        for (let i = 0; i < rawItems.length; i += 2) {
+            const k = decodeTypedRecursive(rawItems[i]);
+            const v = decodeTypedRecursive(rawItems[i + 1]);
+            pairs.push([k, v]);
+        }
+        return ['map', pairs];
+    }
+
+    // Primitive Typed object
+    return decodePrimitiveToTyped(typed);
+}
+
+function typecodeToAmqpType(tc) {
+    const map = {};
+    for (const [name, code] of Object.entries(AMQP_TYPE_TO_TYPECODE)) {
+        map[code] = name;
+    }
+    // Handle small encoding variants
+    map[0x41] = 'boolean';  // True
+    map[0x42] = 'boolean';  // False
+    map[0x43] = 'uint';     // Uint0
+    map[0x44] = 'ulong';    // Ulong0
+    map[0x52] = 'uint';     // SmallUint
+    map[0x53] = 'ulong';    // SmallUlong
+    map[0x54] = 'int';      // SmallInt
+    map[0x55] = 'long';     // SmallLong
+    map[0xb0] = 'binary';   // Bin32
+    map[0xb1] = 'string';   // Str32
+    map[0xb3] = 'symbol';   // Sym32
+    map[0xc0] = 'list';     // List8
+    map[0xc1] = 'map';      // Map8
+    map[0xe0] = 'array';    // Array8
+    return map[tc] || 'unknown';
+}
+
+function decodePrimitiveToTyped(value) {
+    if (value === null || value === undefined) return ['null', null];
+    if (typeof value === 'boolean') return ['boolean', value];
+
+    // Typed object with type info
+    if (value && value.type && value.type.name) {
+        const { type: decoded } = TypeDecoder.decode(value);
+        const amqpType = TypeDecoder.inferType(value);
+        return [amqpType, TypeDecoder.decode(value).value];
+    }
+
+    if (Buffer.isBuffer(value)) return ['binary', value.toString('hex')];
+    if (value instanceof Date) return ['timestamp', value.getTime()];
+    if (typeof value === 'string') return ['string', value];
+    if (typeof value === 'number') return ['long', value];
+
+    return ['string', String(value)];
+}
+
+// Check if a Typed object is a complex AMQP type
+function isComplexType(typed) {
+    if (!typed || !typed.type || !typed.type.name) return false;
+    const name = typed.type.name;
+    if (name === 'Array8' || name === 'Array32') return true;
+    if (name === 'List0' || name === 'List8' || name === 'List32') return true;
+    if (name === 'Map8' || name === 'Map32') return true;
+    if (typed.descriptor) return true;
+    return false;
+}
+
 // Type encoders - convert JSON test values to AMQP types
 class TypeEncoder {
     static encode(amqpType, testValue) {
@@ -178,8 +426,7 @@ class TypeEncoder {
                 return rhea.types.wrap_double(parseFloat(value));
 
             case 'char':
-                const codePoint = parseInt(value);
-                return new rhea.types.CharUTF32(String.fromCodePoint(codePoint));
+                return rhea.types.CharUTF32(parseInt(value));
 
             case 'timestamp':
                 return rhea.types.wrap_timestamp(new Date(parseInt(value)));
@@ -216,6 +463,9 @@ class TypeDecoder {
         const typeName = TypeDecoder.inferType(value);
 
         switch (typeName) {
+            case 'null':
+                return { type: 'null', value: null };
+
             case 'boolean':
                 return { type: 'boolean', value: Boolean(rawValue) };
 
@@ -229,7 +479,9 @@ class TypeDecoder {
 
             case 'ulong':
             case 'long':
-                // Handle as number (may lose precision for very large values)
+                if (Array.isArray(rawValue) && rawValue.length === 2) {
+                    return { type: typeName, value: rawValue[0] * 4294967296 + rawValue[1] };
+                }
                 return { type: typeName, value: Number(rawValue) };
 
             case 'float':
@@ -314,8 +566,8 @@ class TypeDecoder {
                 'Timestamp': 'timestamp',
                 'Uuid': 'uuid',
                 'Binary': 'binary',
-                'Bin8': 'binary',
-                'Bin32': 'binary',
+                'Vbin8': 'binary',
+                'Vbin32': 'binary',
                 'String': 'string',
                 'Str8': 'string',  // Small string encoding
                 'Str32': 'string', // Large string encoding
@@ -422,17 +674,22 @@ function send(options) {
             const msgData = testData[sentCount];
             let body;
 
-            if (amqpType === 'map') {
+            if (jmsMode && amqpType === 'map') {
                 const subType = msgData.type || 'string';
                 const key = `${subType}_${String(msgData.index).padStart(3, '0')}`;
                 const encodedValue = TypeEncoder.encode(subType, msgData.value);
                 const mapObj = {};
                 mapObj[key] = encodedValue;
                 body = mapObj;
-            } else if (amqpType === 'list') {
+            } else if (jmsMode && amqpType === 'list') {
                 const subType = msgData.type || 'string';
                 const encodedValue = TypeEncoder.encode(subType, msgData.value);
                 body = rhea_message.sequence_section([encodedValue]);
+            } else if (['array', 'list', 'map', 'described'].includes(amqpType)) {
+                body = encodeTypedElement(amqpType, msgData.value);
+                if (amqpType === 'described') {
+                    body = wrapDescribedAsBody(body);
+                }
             } else {
                 body = TypeEncoder.encode(amqpType, msgData.value);
             }
@@ -506,14 +763,41 @@ function receive(options) {
     const brokerUrl = broker.replace(/^amqp:\/\//, '');
     const [host, port] = brokerUrl.split(':');
 
-    // HACK: Monkey-patch types.unwrap to preserve Typed objects for message bodies
+    // Monkey-patch Reader.prototype.read to handle nested described types.
+    // Rhea's reader collapses nested described constructors (e.g., AmqpValue wrapping
+    // a custom described type), keeping only the outermost descriptor and discarding
+    // inner ones. This patch builds a proper nested Typed chain so inner descriptors
+    // survive through unwrap (which returns described types with leave_described=true).
+    const types_mod = require('rhea/lib/types');
+    const origReaderRead = types_mod.Reader.prototype.read;
+    types_mod.Reader.prototype.read = function() {
+        var constructor = this.read_constructor();
+        var typeInfo = types_mod.by_code[constructor.typecode];
+        if (!typeInfo) throw new Error('Unrecognised typecode: ' + constructor.typecode);
+        var value = this.read_value(typeInfo);
+
+        if (constructor.descriptors && constructor.descriptors.length > 1) {
+            var Typed = value.constructor;
+            var result = value;
+            for (var i = constructor.descriptors.length - 1; i >= 0; i--) {
+                var wrapperType = (i === 0)
+                    ? { name: 'Described', typecode: 0 }
+                    : (result.type || value.type);
+                var wrapper = new Typed(wrapperType, result);
+                wrapper.descriptor = constructor.descriptors[i];
+                result = wrapper;
+            }
+            return result;
+        }
+
+        return constructor.descriptor ? types_mod.described_nc(constructor.descriptor, value) : value;
+    };
+
+    // Monkey-patch types.unwrap to capture Typed objects for message bodies
     const originalUnwrap = rhea.types.unwrap;
     let capturedTypedBodies = [];
 
     rhea.types.unwrap = function(o, leave_described) {
-        // If this is a Typed object being unwrapped, capture it
-        // We'll get multiple unwraps per message (headers, properties, body, etc.)
-        // So we capture ALL of them and let the message handler pick the right one
         if (o && o.type && o.type.name) {
             capturedTypedBodies.push({
                 typeName: o.type.name,
@@ -522,7 +806,6 @@ function receive(options) {
                 typed: o
             });
         }
-        // Call original unwrap
         return originalUnwrap.call(this, o, leave_described);
     };
 
@@ -575,18 +858,43 @@ function receive(options) {
         if (jmsMsgType !== null) {
             // Decode as JMS message
             decoded = decodeJmsMessage(body, jmsMsgType);
+        } else if (body && body.type && body.type.name && body.descriptor) {
+            // Body is a described Typed object (preserved by reader patch)
+            const [type, value] = decodeTypedRecursive(body);
+            decoded = { type, value };
         } else {
-            // Decode as regular AMQP message
-            // Find the Typed object that matches the body value
+            // Search for the first complex Typed body in captured list
             let typedBody = null;
-            for (let i = capturedList.length - 1; i >= 0; i--) {
+            for (let i = 0; i < capturedList.length; i++) {
                 const cap = capturedList[i];
-                if (cap.value === body || JSON.stringify(cap.value) === JSON.stringify(body)) {
+                if (isComplexType(cap.typed)) {
                     typedBody = cap.typed;
                     break;
                 }
             }
-            decoded = typedBody ? TypeDecoder.decode(typedBody) : TypeDecoder.decode(body);
+
+            if (typedBody) {
+                // Strip section descriptor (AmqpValue 0x70-0x78) applied by described_nc
+                if (typedBody.descriptor) {
+                    var dv = typedBody.descriptor.value;
+                    if (typeof dv === 'number' && dv >= 0x70 && dv <= 0x78) {
+                        delete typedBody.descriptor;
+                    }
+                }
+                const [type, value] = decodeTypedRecursive(typedBody);
+                decoded = { type, value };
+            } else {
+                // Fall back to value matching for primitives
+                let primitiveTyped = null;
+                for (let i = capturedList.length - 1; i >= 0; i--) {
+                    const cap = capturedList[i];
+                    if (cap.value === body || JSON.stringify(cap.value) === JSON.stringify(body)) {
+                        primitiveTyped = cap.typed;
+                        break;
+                    }
+                }
+                decoded = primitiveTyped ? TypeDecoder.decode(primitiveTyped) : TypeDecoder.decode(body);
+            }
         }
 
         messages.push({

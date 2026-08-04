@@ -207,7 +207,142 @@ proton::value TypeCodec::encode(const std::string& amqp_type, const Json::Value&
         return proton::symbol(val.asString());
     }
 
+    // Complex types
+    if (amqp_type == "array" || amqp_type == "list" || amqp_type == "map" || amqp_type == "described") {
+        return encode_complex(amqp_type, val);
+    }
+
     throw std::runtime_error("Unsupported AMQP type: " + amqp_type);
+}
+
+// Encode a typed element ["type", value] — used recursively for complex type contents
+static proton::value encode_typed_element(const Json::Value& elem) {
+    if (!elem.isArray() || elem.size() != 2) {
+        throw std::runtime_error("Typed element must be [\"type\", value]");
+    }
+    std::string elem_type = elem[0].asString();
+    const Json::Value& elem_value = elem[1];
+
+    if (elem_type == "array" || elem_type == "list" || elem_type == "map" || elem_type == "described") {
+        return TypeCodec::encode_complex(elem_type, elem_value);
+    }
+    return TypeCodec::encode(elem_type, elem_value);
+}
+
+// Helper: encode an element value for arrays (not wrapped in ["type", value] tuple)
+static void encode_array_element(proton::codec::encoder& enc, const std::string& elem_type, const Json::Value& elem) {
+    proton::value v;
+    if (elem_type == "array" || elem_type == "list" || elem_type == "map" || elem_type == "described") {
+        v = TypeCodec::encode_complex(elem_type, elem);
+    } else {
+        v = TypeCodec::encode(elem_type, elem);
+    }
+    enc << v;
+}
+
+proton::value TypeCodec::encode_complex(const std::string& amqp_type, const Json::Value& value) {
+    proton::value body;
+    proton::codec::encoder enc(body);
+
+    if (amqp_type == "array") {
+        std::string elem_type = value["element_type"].asString();
+        const Json::Value& elements = value["elements"];
+        proton::type_id tid = type_name_to_id(elem_type);
+
+        enc << proton::codec::start::array(tid);
+        for (Json::ArrayIndex i = 0; i < elements.size(); ++i) {
+            encode_array_element(enc, elem_type, elements[i]);
+        }
+        enc << proton::codec::finish();
+    } else if (amqp_type == "list") {
+        enc << proton::codec::start::list();
+        for (Json::ArrayIndex i = 0; i < value.size(); ++i) {
+            proton::value elem = encode_typed_element(value[i]);
+            enc << elem;
+        }
+        enc << proton::codec::finish();
+    } else if (amqp_type == "map") {
+        enc << proton::codec::start::map();
+        for (Json::ArrayIndex i = 0; i < value.size(); ++i) {
+            const Json::Value& pair = value[i];
+            proton::value k = encode_typed_element(pair[0]);
+            proton::value v = encode_typed_element(pair[1]);
+            enc << k << v;
+        }
+        enc << proton::codec::finish();
+    } else if (amqp_type == "described") {
+        proton::value desc = encode_typed_element(value["descriptor"]);
+        proton::value inner = encode_typed_element(value["value"]);
+        enc << proton::codec::start::described();
+        enc << desc << inner;
+        enc << proton::codec::finish();
+    }
+
+    return body;
+}
+
+bool TypeCodec::is_complex_type(const std::string& type_name) {
+    return type_name == "array" || type_name == "list" || type_name == "map" || type_name == "described";
+}
+
+proton::type_id TypeCodec::type_name_to_id(const std::string& name) {
+    if (name == "null") return proton::NULL_TYPE;
+    if (name == "boolean") return proton::BOOLEAN;
+    if (name == "ubyte") return proton::UBYTE;
+    if (name == "ushort") return proton::USHORT;
+    if (name == "uint") return proton::UINT;
+    if (name == "ulong") return proton::ULONG;
+    if (name == "byte") return proton::BYTE;
+    if (name == "short") return proton::SHORT;
+    if (name == "int") return proton::INT;
+    if (name == "long") return proton::LONG;
+    if (name == "float") return proton::FLOAT;
+    if (name == "double") return proton::DOUBLE;
+    if (name == "char") return proton::CHAR;
+    if (name == "timestamp") return proton::TIMESTAMP;
+    if (name == "uuid") return proton::UUID;
+    if (name == "binary") return proton::BINARY;
+    if (name == "string") return proton::STRING;
+    if (name == "symbol") return proton::SYMBOL;
+    if (name == "list") return proton::LIST;
+    if (name == "map") return proton::MAP;
+    if (name == "array") return proton::ARRAY;
+    if (name == "described") return proton::DESCRIBED;
+    return proton::NULL_TYPE;
+}
+
+// Helper: map proton::type_id to AMQP type name
+static std::string infer_type_from_id(proton::type_id tid) {
+    switch (tid) {
+        case proton::NULL_TYPE: return "null";
+        case proton::BOOLEAN: return "boolean";
+        case proton::UBYTE: return "ubyte";
+        case proton::USHORT: return "ushort";
+        case proton::UINT: return "uint";
+        case proton::ULONG: return "ulong";
+        case proton::BYTE: return "byte";
+        case proton::SHORT: return "short";
+        case proton::INT: return "int";
+        case proton::LONG: return "long";
+        case proton::FLOAT: return "float";
+        case proton::DOUBLE: return "double";
+        case proton::CHAR: return "char";
+        case proton::TIMESTAMP: return "timestamp";
+        case proton::UUID: return "uuid";
+        case proton::BINARY: return "binary";
+        case proton::STRING: return "string";
+        case proton::SYMBOL: return "symbol";
+        case proton::ARRAY: return "array";
+        case proton::LIST: return "list";
+        case proton::MAP: return "map";
+        case proton::DESCRIBED: return "described";
+        default: return "unknown";
+    }
+}
+
+// Infer AMQP type name from proton::value
+std::string TypeCodec::infer_type(const proton::value& val) {
+    return infer_type_from_id(val.type());
 }
 
 // Decode AMQP proton::value to JSON
@@ -306,6 +441,83 @@ Json::Value TypeCodec::decode(const proton::value& val) {
             result["value"] = std::string(proton::get<proton::symbol>(val));
             break;
 
+        case proton::ARRAY: {
+            result["type"] = "array";
+            proton::codec::decoder dec(val);
+            proton::codec::start s;
+            dec >> s;
+            std::string elem_type_name = infer_type_from_id(s.element);
+            Json::Value elements(Json::arrayValue);
+            for (size_t i = 0; i < s.size; ++i) {
+                proton::value elem;
+                dec >> elem;
+                if (is_complex_type(infer_type(elem))) {
+                    Json::Value decoded = decode_typed(elem);
+                    elements.append(decoded[1]);
+                } else {
+                    Json::Value decoded = decode(elem);
+                    elements.append(decoded["value"]);
+                }
+            }
+            dec >> proton::codec::finish();
+            Json::Value arr_val;
+            arr_val["element_type"] = elem_type_name;
+            arr_val["elements"] = elements;
+            result["value"] = arr_val;
+            break;
+        }
+
+        case proton::LIST: {
+            result["type"] = "list";
+            proton::codec::decoder dec(val);
+            proton::codec::start s;
+            dec >> s;
+            Json::Value list_val(Json::arrayValue);
+            for (size_t i = 0; i < s.size; ++i) {
+                proton::value elem;
+                dec >> elem;
+                Json::Value typed = decode_typed(elem);
+                list_val.append(typed);
+            }
+            dec >> proton::codec::finish();
+            result["value"] = list_val;
+            break;
+        }
+
+        case proton::MAP: {
+            result["type"] = "map";
+            proton::codec::decoder dec(val);
+            proton::codec::start s;
+            dec >> s;
+            Json::Value pairs(Json::arrayValue);
+            for (size_t i = 0; i < s.size / 2; ++i) {
+                proton::value k, v;
+                dec >> k >> v;
+                Json::Value pair(Json::arrayValue);
+                pair.append(decode_typed(k));
+                pair.append(decode_typed(v));
+                pairs.append(pair);
+            }
+            dec >> proton::codec::finish();
+            result["value"] = pairs;
+            break;
+        }
+
+        case proton::DESCRIBED: {
+            result["type"] = "described";
+            proton::codec::decoder dec(val);
+            proton::codec::start s;
+            dec >> s;
+            proton::value desc_val, inner_val;
+            dec >> desc_val >> inner_val;
+            dec >> proton::codec::finish();
+            Json::Value desc_obj;
+            desc_obj["descriptor"] = decode_typed(desc_val);
+            desc_obj["value"] = decode_typed(inner_val);
+            result["value"] = desc_obj;
+            break;
+        }
+
         default:
             result["value"] = "unknown";
             break;
@@ -314,29 +526,20 @@ Json::Value TypeCodec::decode(const proton::value& val) {
     return result;
 }
 
-// Infer AMQP type name from proton::value
-std::string TypeCodec::infer_type(const proton::value& val) {
-    switch (val.type()) {
-        case proton::NULL_TYPE: return "null";
-        case proton::BOOLEAN: return "boolean";
-        case proton::UBYTE: return "ubyte";
-        case proton::USHORT: return "ushort";
-        case proton::UINT: return "uint";
-        case proton::ULONG: return "ulong";
-        case proton::BYTE: return "byte";
-        case proton::SHORT: return "short";
-        case proton::INT: return "int";
-        case proton::LONG: return "long";
-        case proton::FLOAT: return "float";
-        case proton::DOUBLE: return "double";
-        case proton::CHAR: return "char";
-        case proton::TIMESTAMP: return "timestamp";
-        case proton::UUID: return "uuid";
-        case proton::BINARY: return "binary";
-        case proton::STRING: return "string";
-        case proton::SYMBOL: return "symbol";
-        default: return "unknown";
+Json::Value TypeCodec::decode_typed(const proton::value& val) {
+    Json::Value result(Json::arrayValue);
+    std::string type_name = infer_type(val);
+
+    if (is_complex_type(type_name)) {
+        Json::Value decoded = decode(val);
+        result.append(decoded["type"]);
+        result.append(decoded["value"]);
+    } else {
+        Json::Value decoded = decode(val);
+        result.append(decoded["type"]);
+        result.append(decoded["value"]);
     }
+    return result;
 }
 
 } // namespace qit

@@ -99,12 +99,23 @@ class MessageComparator:
         - Float/double representation (hex vs decimal)
         - Binary data (hex string vs bytes)
         - String encodings
+        - Recursive comparison for complex types (array, list, map, described)
         """
         # Handle None/null
         if expected is None and actual is None:
             return True
         if expected is None or actual is None:
             return False
+
+        # Complex types — recursive comparison
+        if amqp_type == "array":
+            return self._compare_array(expected, actual)
+        if amqp_type == "list":
+            return self._compare_list(expected, actual)
+        if amqp_type == "map":
+            return self._compare_map(expected, actual)
+        if amqp_type == "described":
+            return self._compare_described(expected, actual)
 
         # Floating point - compare hex representations for exactness
         if amqp_type in ("float", "double"):
@@ -143,6 +154,75 @@ class MessageComparator:
 
         # Fallback to equality
         return expected == actual
+
+    def _compare_typed_element(self, expected: list, actual: list) -> bool:
+        """Compare two typed elements: ["type", value]."""
+        if not isinstance(expected, list) or len(expected) != 2:
+            return False
+        if not isinstance(actual, list) or len(actual) != 2:
+            return False
+        if expected[0] != actual[0]:
+            return False
+        return self._values_equal(expected[0], expected[1], actual[1])
+
+    def _compare_array(self, expected: Any, actual: Any) -> bool:
+        """Compare array values: {"element_type": str, "elements": [...]}."""
+        if not isinstance(expected, dict) or not isinstance(actual, dict):
+            return False
+        if expected.get("element_type") != actual.get("element_type"):
+            return False
+        exp_elems = expected.get("elements", [])
+        act_elems = actual.get("elements", [])
+        if len(exp_elems) != len(act_elems):
+            return False
+        elem_type = expected["element_type"]
+        for e, a in zip(exp_elems, act_elems):
+            if not self._values_equal(elem_type, e, a):
+                return False
+        return True
+
+    def _compare_list(self, expected: Any, actual: Any) -> bool:
+        """Compare list values: [["type", value], ...]."""
+        if not isinstance(expected, list) or not isinstance(actual, list):
+            return False
+        if len(expected) != len(actual):
+            return False
+        for e, a in zip(expected, actual):
+            if not self._compare_typed_element(e, a):
+                return False
+        return True
+
+    def _compare_map(self, expected: Any, actual: Any) -> bool:
+        """Compare map values as unordered set of typed key-value pairs."""
+        if not isinstance(expected, list) or not isinstance(actual, list):
+            return False
+        if len(expected) != len(actual):
+            return False
+        # Maps are unordered — match each expected pair to an actual pair
+        used = [False] * len(actual)
+        for exp_pair in expected:
+            found = False
+            for j, act_pair in enumerate(actual):
+                if used[j]:
+                    continue
+                if (
+                    self._compare_typed_element(exp_pair[0], act_pair[0])
+                    and self._compare_typed_element(exp_pair[1], act_pair[1])
+                ):
+                    used[j] = True
+                    found = True
+                    break
+            if not found:
+                return False
+        return True
+
+    def _compare_described(self, expected: Any, actual: Any) -> bool:
+        """Compare described values: {"descriptor": ["type", val], "value": ["type", val]}."""
+        if not isinstance(expected, dict) or not isinstance(actual, dict):
+            return False
+        if not self._compare_typed_element(expected["descriptor"], actual["descriptor"]):
+            return False
+        return self._compare_typed_element(expected["value"], actual["value"])
 
     def _compare_float(self, expected: Any, actual: Any) -> bool:
         """Compare floating point values using hex representation."""

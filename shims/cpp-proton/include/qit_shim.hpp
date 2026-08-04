@@ -81,11 +81,23 @@ public:
     // Encode JSON test value to AMQP value
     static proton::value encode(const std::string& amqp_type, const Json::Value& test_value);
 
+    // Encode a complex type (array, list, map, described) to AMQP value
+    static proton::value encode_complex(const std::string& amqp_type, const Json::Value& value);
+
     // Decode AMQP value to JSON
     static Json::Value decode(const proton::value& amqp_value);
 
+    // Decode AMQP value to typed element ["type", value]
+    static Json::Value decode_typed(const proton::value& val);
+
     // Infer AMQP type name from proton::value
     static std::string infer_type(const proton::value& amqp_value);
+
+    // Check if an AMQP type is complex
+    static bool is_complex_type(const std::string& type_name);
+
+    // Map AMQP type name to proton::type_id
+    static proton::type_id type_name_to_id(const std::string& name);
 };
 
 } // namespace qit

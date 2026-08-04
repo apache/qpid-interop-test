@@ -95,19 +95,21 @@ public class Sender {
                 Message<Object> message = Message.create();
                 message.messageId(String.valueOf(index));
 
-                if (type.equals("map")) {
+                if (jmsMode && type.equals("map")) {
                     String subType = testMsg.has("type") ? testMsg.get("type").getAsString() : "string";
                     String key = String.format("%s_%03d", subType, index);
                     Object encodedValue = TypeCodec.encode(subType, value);
                     Map<String, Object> mapBody = new LinkedHashMap<>();
                     mapBody.put(key, encodedValue);
                     message.body(mapBody);
-                } else if (type.equals("list")) {
+                } else if (jmsMode && type.equals("list")) {
                     String subType = testMsg.has("type") ? testMsg.get("type").getAsString() : "string";
                     Object encodedValue = TypeCodec.encode(subType, value);
                     List<Object> listBody = new ArrayList<>();
                     listBody.add(encodedValue);
                     message.body(listBody);
+                } else if (TypeCodec.isComplexType(type)) {
+                    message.body(TypeCodec.encodeComplex(type, value));
                 } else {
                     message.body(TypeCodec.encode(type, value));
                 }

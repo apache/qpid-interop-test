@@ -14,9 +14,207 @@ import sys
 import uuid as uuid_module
 from typing import Any
 
-from proton import Message
+from proton import Array, Data, Described, Message, UNDESCRIBED
 from proton.handlers import MessagingHandler
 from proton.reactor import Container
+
+AMQP_TYPE_TO_DATA_TYPE = {
+    "null": Data.NULL, "boolean": Data.BOOL,
+    "ubyte": Data.UBYTE, "ushort": Data.USHORT, "uint": Data.UINT, "ulong": Data.ULONG,
+    "byte": Data.BYTE, "short": Data.SHORT, "int": Data.INT, "long": Data.LONG,
+    "float": Data.FLOAT, "double": Data.DOUBLE,
+    "char": Data.CHAR, "timestamp": Data.TIMESTAMP, "uuid": Data.UUID,
+    "binary": Data.BINARY, "string": Data.STRING, "symbol": Data.SYMBOL,
+    "list": Data.LIST, "map": Data.MAP, "array": Data.ARRAY, "described": Data.DESCRIBED,
+}
+DATA_TYPE_TO_AMQP_TYPE = {v: k for k, v in AMQP_TYPE_TO_DATA_TYPE.items()}
+
+
+def encode_typed_element(elem_type, elem_value):
+    """Encode a typed element ["type", value] to a proton value. Recurses for complex types."""
+    if elem_type == "array":
+        return encode_array(elem_value)
+    if elem_type == "list":
+        return encode_list(elem_value)
+    if elem_type == "map":
+        return encode_map(elem_value)
+    if elem_type == "described":
+        return encode_described(elem_value)
+    return encode_primitive(elem_type, elem_value)
+
+
+def encode_array(value):
+    """Encode array: {"element_type": str, "elements": [...]}."""
+    elem_type = value["element_type"]
+    elements = value.get("elements", [])
+    data_type = AMQP_TYPE_TO_DATA_TYPE.get(elem_type, Data.NULL)
+    if not elements:
+        return Array(UNDESCRIBED, data_type)
+    encoded = [encode_typed_element(elem_type, e) for e in elements]
+    return Array(UNDESCRIBED, data_type, *encoded)
+
+
+def encode_list(value):
+    """Encode list: [["type", value], ...]."""
+    return [encode_typed_element(e[0], e[1]) for e in value]
+
+
+def encode_map(value):
+    """Encode map: [[["ktype", kval], ["vtype", vval]], ...]."""
+    result = {}
+    for pair in value:
+        k = encode_typed_element(pair[0][0], pair[0][1])
+        v = encode_typed_element(pair[1][0], pair[1][1])
+        result[k] = v
+    return result
+
+
+def encode_described(value):
+    """Encode described: {"descriptor": ["type", val], "value": ["type", val]}."""
+    desc = encode_typed_element(value["descriptor"][0], value["descriptor"][1])
+    inner = encode_typed_element(value["value"][0], value["value"][1])
+    return Described(desc, inner)
+
+
+def encode_primitive(amqp_type, value):
+    """Encode a single primitive value to proton type (standalone version)."""
+    from proton import byte, char, float32, int32, short, symbol, timestamp, ubyte, uint, ulong, ushort
+
+    if amqp_type == "null":
+        return None
+    if amqp_type == "boolean":
+        return bool(value)
+    if amqp_type == "ubyte":
+        return ubyte(int(value) if isinstance(value, str) else value)
+    if amqp_type == "ushort":
+        return ushort(int(value) if isinstance(value, str) else value)
+    if amqp_type == "uint":
+        return uint(int(value) if isinstance(value, str) else value)
+    if amqp_type == "ulong":
+        return ulong(int(value) if isinstance(value, str) else value)
+    if amqp_type == "byte":
+        return byte(int(value) if isinstance(value, str) else value)
+    if amqp_type == "short":
+        return short(int(value) if isinstance(value, str) else value)
+    if amqp_type == "int":
+        return int32(int(value) if isinstance(value, str) else value)
+    if amqp_type == "long":
+        return int(value) if isinstance(value, str) else value
+    if amqp_type == "float":
+        if isinstance(value, str) and value.startswith("0x"):
+            int_val = int(value, 16)
+            bytes_val = struct.pack(">I", int_val)
+            return float32(struct.unpack(">f", bytes_val)[0])
+        return float32(float(value))
+    if amqp_type == "double":
+        if isinstance(value, str) and value.startswith("0x"):
+            int_val = int(value, 16)
+            bytes_val = struct.pack(">Q", int_val)
+            return struct.unpack(">d", bytes_val)[0]
+        return float(value)
+    if amqp_type == "char":
+        if isinstance(value, str):
+            if value == '' or value == '\\x00':
+                code_point = 0
+            elif len(value) == 1:
+                code_point = ord(value)
+            else:
+                code_point = int(value)
+        else:
+            code_point = value
+        return char(chr(code_point))
+    if amqp_type == "timestamp":
+        return timestamp(int(value) if isinstance(value, str) else value)
+    if amqp_type == "uuid":
+        return uuid_module.UUID(value)
+    if amqp_type == "binary":
+        if isinstance(value, str):
+            return bytes.fromhex(value)
+        return bytes(value)
+    if amqp_type == "string":
+        return str(value)
+    if amqp_type == "symbol":
+        return symbol(str(value))
+    raise ValueError(f"Unsupported AMQP type: {amqp_type}")
+
+
+def decode_value_recursive(value):
+    """Decode a proton value to a typed element ["type", decoded_value]. Recurses for complex types."""
+    if value is None:
+        return ["null", None]
+
+    if isinstance(value, Array):
+        elem_type_name = DATA_TYPE_TO_AMQP_TYPE.get(value.type, "unknown")
+        decoded_elements = []
+        for elem in value.elements:
+            _, decoded = decode_value_recursive(elem)
+            decoded_elements.append(decoded)
+        return ["array", {"element_type": elem_type_name, "elements": decoded_elements}]
+
+    if isinstance(value, Described):
+        desc_elem = decode_value_recursive(value.descriptor)
+        val_elem = decode_value_recursive(value.value)
+        return ["described", {"descriptor": desc_elem, "value": val_elem}]
+
+    if isinstance(value, dict):
+        pairs = []
+        for k, v in value.items():
+            pairs.append([decode_value_recursive(k), decode_value_recursive(v)])
+        return ["map", pairs]
+
+    if isinstance(value, (list, tuple)):
+        elements = [decode_value_recursive(elem) for elem in value]
+        return ["list", elements]
+
+    # Primitive value — infer type and decode
+    return _decode_primitive_to_typed(value)
+
+
+def _decode_primitive_to_typed(value):
+    """Decode a proton primitive value to ["type", json_value]."""
+    if value is None:
+        return ["null", None]
+    if isinstance(value, bool):
+        return ["boolean", value]
+
+    type_name = type(value).__name__
+
+    if isinstance(value, uuid_module.UUID):
+        return ["uuid", str(value)]
+    if isinstance(value, bytes):
+        return ["binary", value.hex()]
+    if isinstance(value, (bytearray, memoryview)):
+        return ["binary", bytes(value).hex()]
+
+    if type_name == "float32":
+        float_bytes = struct.pack(">f", float(value))
+        int_val = struct.unpack(">I", float_bytes)[0]
+        return ["float", f"0x{int_val:08x}"]
+    if type_name in ("float", "double") or isinstance(value, float):
+        float_bytes = struct.pack(">d", float(value))
+        int_val = struct.unpack(">Q", float_bytes)[0]
+        return ["double", f"0x{int_val:016x}"]
+
+    if type_name == "char":
+        return ["char", ord(str(value))]
+    if type_name == "timestamp":
+        return ["timestamp", int(value)]
+    if type_name == "symbol":
+        return ["symbol", str(value)]
+
+    int_type_map = {
+        "ubyte": "ubyte", "ushort": "ushort", "uint": "uint", "ulong": "ulong",
+        "byte": "byte", "short": "short", "int32": "int",
+    }
+    if type_name in int_type_map:
+        return [int_type_map[type_name], int(value)]
+    if type_name == "int" or isinstance(value, int):
+        return ["long", int(value)]
+
+    if isinstance(value, str):
+        return ["string", value]
+
+    return ["string", str(value)]
 
 
 class SenderHandler(MessagingHandler):
@@ -48,15 +246,17 @@ class SenderHandler(MessagingHandler):
             msg.id = msg_data["index"]
 
             # Encode body
-            if self.amqp_type == "map":
+            if self.jms_mode and self.amqp_type == "map":
                 sub_type = msg_data["type"]
                 key = f"{sub_type}_{msg_data['index']:03d}"
                 encoded_value = self._encode_value(sub_type, msg_data["value"])
                 msg.body = {key: encoded_value}
-            elif self.amqp_type == "list":
+            elif self.jms_mode and self.amqp_type == "list":
                 sub_type = msg_data["type"]
                 encoded_value = self._encode_value(sub_type, msg_data["value"])
                 msg.body = [encoded_value]
+            elif self.amqp_type in ("array", "list", "map", "described"):
+                msg.body = encode_typed_element(self.amqp_type, msg_data["value"])
             else:
                 msg.body = self._encode_value(msg_data["type"], msg_data["value"])
 
@@ -242,8 +442,16 @@ class ReceiverHandler(MessagingHandler):
         if jms_msg_type is not None:
             # Decode as JMS message
             msg_data = self._decode_jms_message(msg, jms_msg_type)
+        elif self._is_complex_type(msg.body):
+            # Decode as complex AMQP type
+            typed_elem = decode_value_recursive(msg.body)
+            msg_data = {
+                "index": msg.id if msg.id is not None else len(self.received_messages),
+                "type": typed_elem[0],
+                "value": typed_elem[1],
+            }
         else:
-            # Decode as regular AMQP message
+            # Decode as regular AMQP primitive
             msg_data = {
                 "index": msg.id if msg.id is not None else len(self.received_messages),
                 "type": self._infer_type(msg.body),
@@ -256,6 +464,18 @@ class ReceiverHandler(MessagingHandler):
         if len(self.received_messages) >= self.expected_count:
             event.receiver.close()
             event.connection.close()
+
+    def _is_complex_type(self, body: Any) -> bool:
+        """Check if body is a complex AMQP type (array, list, map, described)."""
+        if isinstance(body, Array):
+            return True
+        if isinstance(body, Described):
+            return True
+        if isinstance(body, dict):
+            return True
+        if isinstance(body, (list, tuple)):
+            return True
+        return False
 
     def _decode_jms_message(self, msg: Message, jms_msg_type: int) -> dict[str, Any]:
         """Decode JMS message based on message type annotation."""

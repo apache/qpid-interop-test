@@ -43,12 +43,13 @@ class Message:
             result["annotations"] = self.annotations
         return result
 
-    def _serialize_value(self) -> str | int | float | bool | None:
+    def _serialize_value(self) -> Any:
         """Serialize value for JSON transport."""
+        if self.amqp_type in ("array", "list", "map", "described"):
+            return self.value
         if self.amqp_type in ("binary", "uuid"):
             return str(self.value)
         if self.amqp_type in ("float", "double") and isinstance(self.value, int):
-            # Hex representation for exact floating point comparison
             return f"0x{self.value:08x}" if self.amqp_type == "float" else f"0x{self.value:016x}"
         return self.value
 
