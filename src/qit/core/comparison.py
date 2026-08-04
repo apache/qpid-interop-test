@@ -224,36 +224,37 @@ class MessageComparator:
             return False
         return self._compare_typed_element(expected["value"], actual["value"])
 
+    def _to_float_bits(self, value: Any) -> int | None:
+        """Normalize a float/double value to its integer bit-pattern."""
+        if isinstance(value, int):
+            return value
+        if isinstance(value, str):
+            s = value.strip()
+            if s.startswith("0x") or s.startswith("0X"):
+                return int(s, 16)
+            try:
+                return int(s)
+            except ValueError:
+                return None
+        return None
+
     def _compare_float(self, expected: Any, actual: Any) -> bool:
-        """Compare floating point values using hex representation."""
-        # If both are hex strings, compare directly
-        if isinstance(expected, str) and expected.startswith("0x"):
-            if isinstance(actual, str) and actual.startswith("0x"):
-                return expected.lower() == actual.lower()
-            # Convert actual to hex if it's numeric
-            return expected.lower() == hex(int(actual)).lower()
-
-        # If both are numeric, compare directly (may have precision issues)
-        if isinstance(expected, (int, float)) and isinstance(actual, (int, float)):
-            return expected == actual
-
-        # Mixed types - try conversion
-        try:
-            if isinstance(expected, str):
-                expected = int(expected, 16)
-            if isinstance(actual, str):
-                actual = int(actual, 16)
-            return expected == actual
-        except (ValueError, TypeError):
+        """Compare floating point values by normalizing to integer bit-patterns."""
+        exp_bits = self._to_float_bits(expected)
+        act_bits = self._to_float_bits(actual)
+        if exp_bits is None or act_bits is None:
             return False
+        return exp_bits == act_bits
 
     def _normalize_hex(self, value: Any) -> str:
         """Normalize hex string representation."""
         if isinstance(value, bytes):
             return value.hex().lower()
         if isinstance(value, str):
-            # Remove any whitespace, 0x prefix, etc.
-            return value.replace(" ", "").replace("0x", "").lower()
+            s = value.replace(" ", "").lower()
+            if s.startswith("0x"):
+                s = s[2:]
+            return s
         return str(value).lower()
 
     def format_diff_report(self, diffs: list[MessageDiff]) -> str:

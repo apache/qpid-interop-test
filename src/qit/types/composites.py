@@ -34,6 +34,14 @@ class AmqpComplexTypes:
                     {"element_type": "ushort", "elements": [4, 5, 6]},
                 ],
             },
+            # Array of ubyte arrays (triggers Proton .NET byte[]/binary ambiguity)
+            {
+                "element_type": "array",
+                "elements": [
+                    {"element_type": "ubyte", "elements": [1, 2, 3]},
+                    {"element_type": "ubyte", "elements": [4, 5, 6]},
+                ],
+            },
             # Array of lists (nested)
             {
                 "element_type": "list",
@@ -55,14 +63,15 @@ class AmqpComplexTypes:
             [["string", "hello"], ["string", "world"]],
             # Homogeneous ints
             [["int", -1], ["int", 0], ["int", 1]],
-            # Mixed primitives (null first: works around Proton .NET ListTypeEncoder NRE;
-            # binary omitted: Proton .NET encodes byte[] as array-of-ubyte in lists)
+            # Mixed primitives (null first: works around Proton .NET ListTypeEncoder NRE)
             [
                 ["null", None],
                 ["string", "hello"],
                 ["int", -42],
                 ["boolean", True],
                 ["float", "0x3f800000"],
+                ["binary", "deadbeef"],
+                ["timestamp", 1609459200000],
             ],
             # Nested lists
             [
@@ -80,9 +89,13 @@ class AmqpComplexTypes:
                 ["array", {"element_type": "uint", "elements": [1, 2, 3]}],
                 ["string", "after"],
             ],
+            # Null after non-null (triggers Proton .NET ListTypeEncoder NRE)
+            [
+                ["string", "before"],
+                ["null", None],
+                ["int", 42],
+            ],
             # Kitchen sink: one element per common primitive type
-            # (timestamp omitted: Proton .NET decodes it as long in list context;
-            #  binary omitted: Proton .NET encodes byte[] as array-of-ubyte in lists)
             [
                 ["null", None],
                 ["boolean", True],
@@ -98,6 +111,8 @@ class AmqpComplexTypes:
                 ["symbol", "sym"],
                 ["uuid", "550e8400-e29b-41d4-a716-446655440000"],
                 ["char", 65],
+                ["binary", "ff00"],
+                ["timestamp", 946684800000],
             ],
         ],
         "description": "Heterogeneous typed list",

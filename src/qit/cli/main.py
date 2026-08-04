@@ -117,6 +117,11 @@ def test() -> None:
     is_flag=True,
     help="Include extended tier test values for complex types",
 )
+@click.option(
+    "--strict",
+    is_flag=True,
+    help="Treat known failures (xfail) as real failures",
+)
 def test_amqp_types(
     sender: tuple[str, ...],
     receiver: tuple[str, ...],
@@ -126,6 +131,7 @@ def test_amqp_types(
     verbose: bool,
     junit_xml: str | None,
     extended: bool,
+    strict: bool,
 ) -> None:
     """Test AMQP primitive and complex types interoperability."""
     from pathlib import Path
@@ -263,11 +269,13 @@ def test_amqp_types(
 
     # Generate JUnit XML if requested
     if junit_xml:
-        orchestrator.generate_junit_xml(results, junit_xml)
+        orchestrator.generate_junit_xml(results, junit_xml, strict=strict)
         click.echo(f"\n✓ JUnit XML report written to: {junit_xml}")
 
     # Exit with error if any tests failed
-    if any(not r.success for r in results):
+    has_failures = any(not r.success for r in results)
+    has_xfails = any(r.success and r.xfail_diffs for r in results)
+    if has_failures or (strict and has_xfails):
         sys.exit(1)
 
 

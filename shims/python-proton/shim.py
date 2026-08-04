@@ -577,44 +577,26 @@ class ReceiverHandler(MessagingHandler):
         if isinstance(value, bool):
             return value
 
-        # Regular Python floats (check before int, since bool is a subclass of int)
+        # Proton numeric types — check BEFORE isinstance(float/int) since
+        # Proton types like float32 are float subclasses
+        type_name = type(value).__name__
+
+        if type_name in ("ubyte", "ushort", "uint", "ulong", "byte", "short", "int32"):
+            return int(value)
+
+        if type_name == "float32":
+            float_bytes = struct.pack(">f", float(value))
+            int_val = struct.unpack(">I", float_bytes)[0]
+            return f"0x{int_val:08x}"
+
+        # Python float (64-bit double) — Proton's "float" type name is double
         if isinstance(value, float):
-            # Convert to hex for exact comparison (handles infinity, NaN, etc.)
             float_bytes = struct.pack(">d", value)
             int_val = struct.unpack(">Q", float_bytes)[0]
             return f"0x{int_val:016x}"
 
-        # Integers
         if isinstance(value, int):
             return value
-
-        # Proton numeric types
-        type_name = type(value).__name__
-
-        # Integer types
-        if type_name in ("ubyte", "ushort", "uint", "ulong", "byte", "short", "int32"):
-            return int(value)
-
-        # Floating point - convert to hex for exact comparison
-        if type_name == "float32":
-            float_val = float(value)
-            # Handle special float values
-            if math.isinf(float_val) or math.isnan(float_val):
-                float_bytes = struct.pack(">f", float_val)
-            else:
-                float_bytes = struct.pack(">f", float_val)
-            int_val = struct.unpack(">I", float_bytes)[0]
-            return f"0x{int_val:08x}"
-
-        if type_name == "float":
-            float_val = float(value)
-            # Handle special double values
-            if math.isinf(float_val) or math.isnan(float_val):
-                float_bytes = struct.pack(">d", float_val)
-            else:
-                float_bytes = struct.pack(">d", float_val)
-            int_val = struct.unpack(">Q", float_bytes)[0]
-            return f"0x{int_val:016x}"
 
         # Character
         if type_name == "char":
@@ -629,8 +611,10 @@ class ReceiverHandler(MessagingHandler):
             return str(value)
 
         # Binary
-        if isinstance(value, bytes):
-            return value.hex()
+        if isinstance(value, (bytes, bytearray)):
+            return bytes(value).hex()
+        if isinstance(value, memoryview):
+            return bytes(value).hex()
 
         # String
         if isinstance(value, str):

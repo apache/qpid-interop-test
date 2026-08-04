@@ -404,6 +404,9 @@ namespace Qit.Shim
 
         private static Guid UuidStringToAmqpGuid(string uuid)
         {
+            // Parse UUID hex bytes in RFC 4122 order and pass directly to Guid(byte[]).
+            // Guid(byte[]) interprets groups 1-3 as LE, but ToByteArray() reverses the
+            // same way, so the wire bytes end up in the original RFC 4122 order.
             var clean = uuid.Replace("-", "");
             var bytes = new byte[16];
             for (int i = 0; i < 16; i++)
@@ -413,6 +416,8 @@ namespace Qit.Shim
 
         private static string AmqpGuidToUuidString(Guid guid)
         {
+            // ToByteArray() returns bytes in the same order they were passed to
+            // the Guid(byte[]) constructor, preserving RFC 4122 byte order.
             var b = guid.ToByteArray();
             return $"{b[0]:x2}{b[1]:x2}{b[2]:x2}{b[3]:x2}-{b[4]:x2}{b[5]:x2}-{b[6]:x2}{b[7]:x2}-{b[8]:x2}{b[9]:x2}-{b[10]:x2}{b[11]:x2}{b[12]:x2}{b[13]:x2}{b[14]:x2}{b[15]:x2}";
         }
