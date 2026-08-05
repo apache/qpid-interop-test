@@ -3,7 +3,9 @@ services:
     image: apache/artemis:latest-alpine
     container_name: qit-artemis
     ports:
-      - "5672:5672"   # AMQP
+      - "5672:5672"   # AMQP (default 128KB frame size)
+      - "5673:5673"   # AMQP (4KB frame size)
+      - "5674:5674"   # AMQP (1MB frame size)
       - "8161:8161"   # Web console (optional)
     volumes:
       # Mount etc-override directory - files will be copied to etc/ after instance creation

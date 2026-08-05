@@ -1,9 +1,11 @@
 """
-Large Content Interoperability Tests (Phase 4 + 4b)
+Large Content Interoperability Tests (Phase 4 + 4b + 4c)
 
 Phase 4: Large binary/string messages (1MB default, 10MB extended).
 Phase 4b: Large collection types (list, array, map, described) with elements
           sized to straddle AMQP frame boundaries.
+Phase 4c: Multi-frame-size tests — same payloads through brokers with
+          4KB and 1MB AMQP frame sizes (ports 5673, 5674).
 
 Test Pairs:
 - JMS star (11 pairs): JMS always on at least one side
@@ -13,6 +15,8 @@ Phase 4 default: 72 tests (1MB binary + string × 36 pairs)
 Phase 4 extended: 72 tests (10MB binary + string × 36 pairs)
 Phase 4b default: 122 tests (list × 36 + array × 25, sub/super-frame)
 Phase 4b extended: 122 tests (map × 36 + described × 25, sub/super-frame)
+Phase 4c default: 200 tests (binary + string + list + array × 25 pairs × 2 frame sizes)
+Phase 4c extended: 200 tests (map + described × 25 pairs × 2 frame sizes)
 """
 
 import itertools
@@ -107,6 +111,62 @@ JMS_CONTENT_TYPE = {
 @pytest.fixture
 def broker_url():
     return os.environ.get("QIT_BROKER_URL", "localhost:5672")
+
+
+EXPECTED_SMALL_FRAME_SIZE = 4096
+EXPECTED_LARGE_FRAME_SIZE = 1_048_576
+
+
+def _verify_broker_frame_size(broker_url: str, expected_max_frame_size: int) -> None:
+    """Connect to broker via Proton and assert the negotiated max frame size."""
+    from proton.handlers import MessagingHandler
+    from proton.reactor import Container
+
+    result: dict[str, Any] = {}
+
+    class FrameChecker(MessagingHandler):
+        def on_start(self, event):
+            event.container.connect(f"amqp://{broker_url}")
+
+        def on_connection_opened(self, event):
+            result["remote_max_frame_size"] = (
+                event.connection.transport.remote_max_frame_size
+            )
+            event.connection.close()
+
+        def on_transport_error(self, event):
+            result["error"] = str(event.transport.condition)
+
+    Container(FrameChecker()).run()
+
+    if "error" in result:
+        pytest.fail(
+            f"Cannot connect to broker at {broker_url}: {result['error']}"
+        )
+    if "remote_max_frame_size" not in result:
+        pytest.fail(
+            f"No frame size negotiated with broker at {broker_url}"
+        )
+    actual = result["remote_max_frame_size"]
+    assert actual == expected_max_frame_size, (
+        f"Broker at {broker_url} negotiated max_frame_size={actual}, "
+        f"expected {expected_max_frame_size}. "
+        f"Check broker acceptor 'maxFrameSize' parameter."
+    )
+
+
+@pytest.fixture(scope="session")
+def broker_url_small_frame():
+    url = os.environ.get("QIT_BROKER_URL_SMALL_FRAME", "localhost:5673")
+    _verify_broker_frame_size(url, EXPECTED_SMALL_FRAME_SIZE)
+    return url
+
+
+@pytest.fixture(scope="session")
+def broker_url_large_frame():
+    url = os.environ.get("QIT_BROKER_URL_LARGE_FRAME", "localhost:5674")
+    _verify_broker_frame_size(url, EXPECTED_LARGE_FRAME_SIZE)
+    return url
 
 
 @pytest.fixture
@@ -650,6 +710,500 @@ def test_large_described_superframe(
     )
     result = run_collection_receiver(
         receiver_client, broker_url, test_queue, "described",
+        SUPERFRAME_ELEMENTS, SUPERFRAME_ELEMENT_SIZE, SEED_DESCRIBED_SUPER,
+        project_root,
+    )
+    assert result["match"] is True, _collection_mismatch_msg(result)
+
+
+# =============================================================================
+# Phase 4c: Multi-Frame-Size Tests (4KB and 1MB frame sizes)
+#
+# Same payloads as above, routed through broker acceptors with different
+# amqpMaxFrameSize settings. AMQP_PAIRS only (no JMS).
+#
+# Default tier: binary + string + list + array (200 tests)
+# Extended tier: map + described (200 tests)
+# =============================================================================
+
+# -- 4KB frame size (port 5673) -- Default tier ----------------------------
+
+
+@pytest.mark.timeout(180)
+@pytest.mark.parametrize("sender_client,receiver_client", AMQP_PAIRS)
+def test_large_binary_1mb_smallframe(
+    sender_client: str,
+    receiver_client: str,
+    broker_url_small_frame: str,
+    test_queue: str,
+    project_root: Path,
+):
+    """Binary 1MB through 4KB frame-size acceptor."""
+    run_large_sender(
+        sender_client, broker_url_small_frame, test_queue, "binary", SIZE_1MB, SEED_BINARY,
+        project_root, timeout=60,
+    )
+    result = run_large_receiver(
+        receiver_client, broker_url_small_frame, test_queue, "binary", SIZE_1MB, SEED_BINARY,
+        project_root, timeout=60,
+    )
+    assert result["match"] is True, (
+        f"Content mismatch at offset {result.get('first_mismatch_offset', '?')}, "
+        f"received {result.get('size', '?')} bytes, expected {SIZE_1MB}"
+    )
+
+
+@pytest.mark.timeout(180)
+@pytest.mark.parametrize("sender_client,receiver_client", AMQP_PAIRS)
+def test_large_string_1mb_smallframe(
+    sender_client: str,
+    receiver_client: str,
+    broker_url_small_frame: str,
+    test_queue: str,
+    project_root: Path,
+):
+    """String 1MB through 4KB frame-size acceptor."""
+    run_large_sender(
+        sender_client, broker_url_small_frame, test_queue, "string", SIZE_1MB, SEED_STRING,
+        project_root, timeout=60,
+    )
+    result = run_large_receiver(
+        receiver_client, broker_url_small_frame, test_queue, "string", SIZE_1MB, SEED_STRING,
+        project_root, timeout=60,
+    )
+    assert result["match"] is True, (
+        f"Content mismatch at offset {result.get('first_mismatch_offset', '?')}, "
+        f"received {result.get('size', '?')} chars, expected {SIZE_1MB}"
+    )
+
+
+@pytest.mark.timeout(180)
+@pytest.mark.parametrize("sender_client,receiver_client", AMQP_PAIRS)
+def test_large_list_subframe_smallframe(
+    sender_client: str,
+    receiver_client: str,
+    broker_url_small_frame: str,
+    test_queue: str,
+    project_root: Path,
+):
+    """List of 24 sub-frame strings through 4KB frame-size acceptor."""
+    run_collection_sender(
+        sender_client, broker_url_small_frame, test_queue, "list",
+        SUBFRAME_ELEMENTS, SUBFRAME_ELEMENT_SIZE, SEED_LIST_SUB,
+        project_root,
+    )
+    result = run_collection_receiver(
+        receiver_client, broker_url_small_frame, test_queue, "list",
+        SUBFRAME_ELEMENTS, SUBFRAME_ELEMENT_SIZE, SEED_LIST_SUB,
+        project_root,
+    )
+    assert result["match"] is True, _collection_mismatch_msg(result)
+
+
+@pytest.mark.timeout(180)
+@pytest.mark.parametrize("sender_client,receiver_client", AMQP_PAIRS)
+def test_large_list_superframe_smallframe(
+    sender_client: str,
+    receiver_client: str,
+    broker_url_small_frame: str,
+    test_queue: str,
+    project_root: Path,
+):
+    """List of 5 super-frame strings through 4KB frame-size acceptor."""
+    run_collection_sender(
+        sender_client, broker_url_small_frame, test_queue, "list",
+        SUPERFRAME_ELEMENTS, SUPERFRAME_ELEMENT_SIZE, SEED_LIST_SUPER,
+        project_root,
+    )
+    result = run_collection_receiver(
+        receiver_client, broker_url_small_frame, test_queue, "list",
+        SUPERFRAME_ELEMENTS, SUPERFRAME_ELEMENT_SIZE, SEED_LIST_SUPER,
+        project_root,
+    )
+    assert result["match"] is True, _collection_mismatch_msg(result)
+
+
+@pytest.mark.timeout(180)
+@pytest.mark.parametrize("sender_client,receiver_client", AMQP_PAIRS)
+def test_large_array_subframe_smallframe(
+    sender_client: str,
+    receiver_client: str,
+    broker_url_small_frame: str,
+    test_queue: str,
+    project_root: Path,
+):
+    """Array of 24 sub-frame strings through 4KB frame-size acceptor."""
+    run_collection_sender(
+        sender_client, broker_url_small_frame, test_queue, "array",
+        SUBFRAME_ELEMENTS, SUBFRAME_ELEMENT_SIZE, SEED_ARRAY_SUB,
+        project_root,
+    )
+    result = run_collection_receiver(
+        receiver_client, broker_url_small_frame, test_queue, "array",
+        SUBFRAME_ELEMENTS, SUBFRAME_ELEMENT_SIZE, SEED_ARRAY_SUB,
+        project_root,
+    )
+    assert result["match"] is True, _collection_mismatch_msg(result)
+
+
+@pytest.mark.timeout(180)
+@pytest.mark.parametrize("sender_client,receiver_client", AMQP_PAIRS)
+def test_large_array_superframe_smallframe(
+    sender_client: str,
+    receiver_client: str,
+    broker_url_small_frame: str,
+    test_queue: str,
+    project_root: Path,
+):
+    """Array of 5 super-frame strings through 4KB frame-size acceptor."""
+    run_collection_sender(
+        sender_client, broker_url_small_frame, test_queue, "array",
+        SUPERFRAME_ELEMENTS, SUPERFRAME_ELEMENT_SIZE, SEED_ARRAY_SUPER,
+        project_root,
+    )
+    result = run_collection_receiver(
+        receiver_client, broker_url_small_frame, test_queue, "array",
+        SUPERFRAME_ELEMENTS, SUPERFRAME_ELEMENT_SIZE, SEED_ARRAY_SUPER,
+        project_root,
+    )
+    assert result["match"] is True, _collection_mismatch_msg(result)
+
+
+# -- 1MB frame size (port 5674) -- Default tier ----------------------------
+
+
+@pytest.mark.timeout(180)
+@pytest.mark.parametrize("sender_client,receiver_client", AMQP_PAIRS)
+def test_large_binary_1mb_largeframe(
+    sender_client: str,
+    receiver_client: str,
+    broker_url_large_frame: str,
+    test_queue: str,
+    project_root: Path,
+):
+    """Binary 1MB through 1MB frame-size acceptor."""
+    run_large_sender(
+        sender_client, broker_url_large_frame, test_queue, "binary", SIZE_1MB, SEED_BINARY,
+        project_root, timeout=60,
+    )
+    result = run_large_receiver(
+        receiver_client, broker_url_large_frame, test_queue, "binary", SIZE_1MB, SEED_BINARY,
+        project_root, timeout=60,
+    )
+    assert result["match"] is True, (
+        f"Content mismatch at offset {result.get('first_mismatch_offset', '?')}, "
+        f"received {result.get('size', '?')} bytes, expected {SIZE_1MB}"
+    )
+
+
+@pytest.mark.timeout(180)
+@pytest.mark.parametrize("sender_client,receiver_client", AMQP_PAIRS)
+def test_large_string_1mb_largeframe(
+    sender_client: str,
+    receiver_client: str,
+    broker_url_large_frame: str,
+    test_queue: str,
+    project_root: Path,
+):
+    """String 1MB through 1MB frame-size acceptor."""
+    run_large_sender(
+        sender_client, broker_url_large_frame, test_queue, "string", SIZE_1MB, SEED_STRING,
+        project_root, timeout=60,
+    )
+    result = run_large_receiver(
+        receiver_client, broker_url_large_frame, test_queue, "string", SIZE_1MB, SEED_STRING,
+        project_root, timeout=60,
+    )
+    assert result["match"] is True, (
+        f"Content mismatch at offset {result.get('first_mismatch_offset', '?')}, "
+        f"received {result.get('size', '?')} chars, expected {SIZE_1MB}"
+    )
+
+
+@pytest.mark.timeout(180)
+@pytest.mark.parametrize("sender_client,receiver_client", AMQP_PAIRS)
+def test_large_list_subframe_largeframe(
+    sender_client: str,
+    receiver_client: str,
+    broker_url_large_frame: str,
+    test_queue: str,
+    project_root: Path,
+):
+    """List of 24 sub-frame strings through 1MB frame-size acceptor."""
+    run_collection_sender(
+        sender_client, broker_url_large_frame, test_queue, "list",
+        SUBFRAME_ELEMENTS, SUBFRAME_ELEMENT_SIZE, SEED_LIST_SUB,
+        project_root,
+    )
+    result = run_collection_receiver(
+        receiver_client, broker_url_large_frame, test_queue, "list",
+        SUBFRAME_ELEMENTS, SUBFRAME_ELEMENT_SIZE, SEED_LIST_SUB,
+        project_root,
+    )
+    assert result["match"] is True, _collection_mismatch_msg(result)
+
+
+@pytest.mark.timeout(180)
+@pytest.mark.parametrize("sender_client,receiver_client", AMQP_PAIRS)
+def test_large_list_superframe_largeframe(
+    sender_client: str,
+    receiver_client: str,
+    broker_url_large_frame: str,
+    test_queue: str,
+    project_root: Path,
+):
+    """List of 5 super-frame strings through 1MB frame-size acceptor."""
+    run_collection_sender(
+        sender_client, broker_url_large_frame, test_queue, "list",
+        SUPERFRAME_ELEMENTS, SUPERFRAME_ELEMENT_SIZE, SEED_LIST_SUPER,
+        project_root,
+    )
+    result = run_collection_receiver(
+        receiver_client, broker_url_large_frame, test_queue, "list",
+        SUPERFRAME_ELEMENTS, SUPERFRAME_ELEMENT_SIZE, SEED_LIST_SUPER,
+        project_root,
+    )
+    assert result["match"] is True, _collection_mismatch_msg(result)
+
+
+@pytest.mark.timeout(180)
+@pytest.mark.parametrize("sender_client,receiver_client", AMQP_PAIRS)
+def test_large_array_subframe_largeframe(
+    sender_client: str,
+    receiver_client: str,
+    broker_url_large_frame: str,
+    test_queue: str,
+    project_root: Path,
+):
+    """Array of 24 sub-frame strings through 1MB frame-size acceptor."""
+    run_collection_sender(
+        sender_client, broker_url_large_frame, test_queue, "array",
+        SUBFRAME_ELEMENTS, SUBFRAME_ELEMENT_SIZE, SEED_ARRAY_SUB,
+        project_root,
+    )
+    result = run_collection_receiver(
+        receiver_client, broker_url_large_frame, test_queue, "array",
+        SUBFRAME_ELEMENTS, SUBFRAME_ELEMENT_SIZE, SEED_ARRAY_SUB,
+        project_root,
+    )
+    assert result["match"] is True, _collection_mismatch_msg(result)
+
+
+@pytest.mark.timeout(180)
+@pytest.mark.parametrize("sender_client,receiver_client", AMQP_PAIRS)
+def test_large_array_superframe_largeframe(
+    sender_client: str,
+    receiver_client: str,
+    broker_url_large_frame: str,
+    test_queue: str,
+    project_root: Path,
+):
+    """Array of 5 super-frame strings through 1MB frame-size acceptor."""
+    run_collection_sender(
+        sender_client, broker_url_large_frame, test_queue, "array",
+        SUPERFRAME_ELEMENTS, SUPERFRAME_ELEMENT_SIZE, SEED_ARRAY_SUPER,
+        project_root,
+    )
+    result = run_collection_receiver(
+        receiver_client, broker_url_large_frame, test_queue, "array",
+        SUPERFRAME_ELEMENTS, SUPERFRAME_ELEMENT_SIZE, SEED_ARRAY_SUPER,
+        project_root,
+    )
+    assert result["match"] is True, _collection_mismatch_msg(result)
+
+
+# -- 4KB frame size (port 5673) -- Extended tier ----------------------------
+
+
+@pytest.mark.large_content
+@pytest.mark.timeout(300)
+@pytest.mark.parametrize("sender_client,receiver_client", AMQP_PAIRS)
+def test_large_map_subframe_smallframe(
+    sender_client: str,
+    receiver_client: str,
+    broker_url_small_frame: str,
+    test_queue: str,
+    project_root: Path,
+):
+    """Map of 24 sub-frame values through 4KB frame-size acceptor."""
+    run_collection_sender(
+        sender_client, broker_url_small_frame, test_queue, "map",
+        SUBFRAME_ELEMENTS, SUBFRAME_ELEMENT_SIZE, SEED_MAP_SUB,
+        project_root,
+    )
+    result = run_collection_receiver(
+        receiver_client, broker_url_small_frame, test_queue, "map",
+        SUBFRAME_ELEMENTS, SUBFRAME_ELEMENT_SIZE, SEED_MAP_SUB,
+        project_root,
+    )
+    assert result["match"] is True, _collection_mismatch_msg(result)
+
+
+@pytest.mark.large_content
+@pytest.mark.timeout(300)
+@pytest.mark.parametrize("sender_client,receiver_client", AMQP_PAIRS)
+def test_large_map_superframe_smallframe(
+    sender_client: str,
+    receiver_client: str,
+    broker_url_small_frame: str,
+    test_queue: str,
+    project_root: Path,
+):
+    """Map of 5 super-frame values through 4KB frame-size acceptor."""
+    run_collection_sender(
+        sender_client, broker_url_small_frame, test_queue, "map",
+        SUPERFRAME_ELEMENTS, SUPERFRAME_ELEMENT_SIZE, SEED_MAP_SUPER,
+        project_root,
+    )
+    result = run_collection_receiver(
+        receiver_client, broker_url_small_frame, test_queue, "map",
+        SUPERFRAME_ELEMENTS, SUPERFRAME_ELEMENT_SIZE, SEED_MAP_SUPER,
+        project_root,
+    )
+    assert result["match"] is True, _collection_mismatch_msg(result)
+
+
+@pytest.mark.large_content
+@pytest.mark.timeout(300)
+@pytest.mark.parametrize("sender_client,receiver_client", AMQP_PAIRS)
+def test_large_described_subframe_smallframe(
+    sender_client: str,
+    receiver_client: str,
+    broker_url_small_frame: str,
+    test_queue: str,
+    project_root: Path,
+):
+    """Described type with 24 sub-frame strings through 4KB frame-size acceptor."""
+    run_collection_sender(
+        sender_client, broker_url_small_frame, test_queue, "described",
+        SUBFRAME_ELEMENTS, SUBFRAME_ELEMENT_SIZE, SEED_DESCRIBED_SUB,
+        project_root,
+    )
+    result = run_collection_receiver(
+        receiver_client, broker_url_small_frame, test_queue, "described",
+        SUBFRAME_ELEMENTS, SUBFRAME_ELEMENT_SIZE, SEED_DESCRIBED_SUB,
+        project_root,
+    )
+    assert result["match"] is True, _collection_mismatch_msg(result)
+
+
+@pytest.mark.large_content
+@pytest.mark.timeout(300)
+@pytest.mark.parametrize("sender_client,receiver_client", AMQP_PAIRS)
+def test_large_described_superframe_smallframe(
+    sender_client: str,
+    receiver_client: str,
+    broker_url_small_frame: str,
+    test_queue: str,
+    project_root: Path,
+):
+    """Described type with 5 super-frame strings through 4KB frame-size acceptor."""
+    run_collection_sender(
+        sender_client, broker_url_small_frame, test_queue, "described",
+        SUPERFRAME_ELEMENTS, SUPERFRAME_ELEMENT_SIZE, SEED_DESCRIBED_SUPER,
+        project_root,
+    )
+    result = run_collection_receiver(
+        receiver_client, broker_url_small_frame, test_queue, "described",
+        SUPERFRAME_ELEMENTS, SUPERFRAME_ELEMENT_SIZE, SEED_DESCRIBED_SUPER,
+        project_root,
+    )
+    assert result["match"] is True, _collection_mismatch_msg(result)
+
+
+# -- 1MB frame size (port 5674) -- Extended tier ----------------------------
+
+
+@pytest.mark.large_content
+@pytest.mark.timeout(300)
+@pytest.mark.parametrize("sender_client,receiver_client", AMQP_PAIRS)
+def test_large_map_subframe_largeframe(
+    sender_client: str,
+    receiver_client: str,
+    broker_url_large_frame: str,
+    test_queue: str,
+    project_root: Path,
+):
+    """Map of 24 sub-frame values through 1MB frame-size acceptor."""
+    run_collection_sender(
+        sender_client, broker_url_large_frame, test_queue, "map",
+        SUBFRAME_ELEMENTS, SUBFRAME_ELEMENT_SIZE, SEED_MAP_SUB,
+        project_root,
+    )
+    result = run_collection_receiver(
+        receiver_client, broker_url_large_frame, test_queue, "map",
+        SUBFRAME_ELEMENTS, SUBFRAME_ELEMENT_SIZE, SEED_MAP_SUB,
+        project_root,
+    )
+    assert result["match"] is True, _collection_mismatch_msg(result)
+
+
+@pytest.mark.large_content
+@pytest.mark.timeout(300)
+@pytest.mark.parametrize("sender_client,receiver_client", AMQP_PAIRS)
+def test_large_map_superframe_largeframe(
+    sender_client: str,
+    receiver_client: str,
+    broker_url_large_frame: str,
+    test_queue: str,
+    project_root: Path,
+):
+    """Map of 5 super-frame values through 1MB frame-size acceptor."""
+    run_collection_sender(
+        sender_client, broker_url_large_frame, test_queue, "map",
+        SUPERFRAME_ELEMENTS, SUPERFRAME_ELEMENT_SIZE, SEED_MAP_SUPER,
+        project_root,
+    )
+    result = run_collection_receiver(
+        receiver_client, broker_url_large_frame, test_queue, "map",
+        SUPERFRAME_ELEMENTS, SUPERFRAME_ELEMENT_SIZE, SEED_MAP_SUPER,
+        project_root,
+    )
+    assert result["match"] is True, _collection_mismatch_msg(result)
+
+
+@pytest.mark.large_content
+@pytest.mark.timeout(300)
+@pytest.mark.parametrize("sender_client,receiver_client", AMQP_PAIRS)
+def test_large_described_subframe_largeframe(
+    sender_client: str,
+    receiver_client: str,
+    broker_url_large_frame: str,
+    test_queue: str,
+    project_root: Path,
+):
+    """Described type with 24 sub-frame strings through 1MB frame-size acceptor."""
+    run_collection_sender(
+        sender_client, broker_url_large_frame, test_queue, "described",
+        SUBFRAME_ELEMENTS, SUBFRAME_ELEMENT_SIZE, SEED_DESCRIBED_SUB,
+        project_root,
+    )
+    result = run_collection_receiver(
+        receiver_client, broker_url_large_frame, test_queue, "described",
+        SUBFRAME_ELEMENTS, SUBFRAME_ELEMENT_SIZE, SEED_DESCRIBED_SUB,
+        project_root,
+    )
+    assert result["match"] is True, _collection_mismatch_msg(result)
+
+
+@pytest.mark.large_content
+@pytest.mark.timeout(300)
+@pytest.mark.parametrize("sender_client,receiver_client", AMQP_PAIRS)
+def test_large_described_superframe_largeframe(
+    sender_client: str,
+    receiver_client: str,
+    broker_url_large_frame: str,
+    test_queue: str,
+    project_root: Path,
+):
+    """Described type with 5 super-frame strings through 1MB frame-size acceptor."""
+    run_collection_sender(
+        sender_client, broker_url_large_frame, test_queue, "described",
+        SUPERFRAME_ELEMENTS, SUPERFRAME_ELEMENT_SIZE, SEED_DESCRIBED_SUPER,
+        project_root,
+    )
+    result = run_collection_receiver(
+        receiver_client, broker_url_large_frame, test_queue, "described",
         SUPERFRAME_ELEMENTS, SUPERFRAME_ELEMENT_SIZE, SEED_DESCRIBED_SUPER,
         project_root,
     )
