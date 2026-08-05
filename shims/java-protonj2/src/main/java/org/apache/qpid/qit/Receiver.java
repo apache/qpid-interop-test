@@ -27,6 +27,8 @@ public class Receiver {
         String largeContent = null;
         int size = 0;
         int seed = 0;
+        int elements = 0;
+        int elementSize = 0;
 
         for (int i = 1; i < args.length; i += 2) {
             String key = args[i].replace("--", "");
@@ -53,6 +55,12 @@ public class Receiver {
                     break;
                 case "seed":
                     seed = Integer.parseInt(value);
+                    break;
+                case "elements":
+                    elements = Integer.parseInt(value);
+                    break;
+                case "element-size":
+                    elementSize = Integer.parseInt(value);
                     break;
             }
         }
@@ -124,7 +132,7 @@ public class Receiver {
                     System.out.println(sb.toString());
                     if (!match) System.exit(1);
                     return;
-                } else {
+                } else if ("string".equals(largeContent)) {
                     String expected = lcgGenerateString(seed, size);
                     String received;
                     if (body instanceof String) {
@@ -157,6 +165,101 @@ public class Receiver {
                     sb.append("}");
                     System.out.println(sb.toString());
                     if (!match) System.exit(1);
+                    return;
+                } else if ("list".equals(largeContent) || "array".equals(largeContent) ||
+                           "map".equals(largeContent) || "described".equals(largeContent)) {
+                    java.util.List<String> expected = generateCollectionElements(seed, elements, elementSize);
+                    java.util.List<String> received = new java.util.ArrayList<>();
+
+                    if ("list".equals(largeContent)) {
+                        if (body instanceof java.util.List) {
+                            for (Object elem : (java.util.List<?>) body) {
+                                received.add(elem.toString());
+                            }
+                        } else {
+                            System.out.println("{\"match\": false, \"error\": \"expected List, got " + body.getClass().getSimpleName() + "\"}");
+                            System.exit(1);
+                            return;
+                        }
+                    } else if ("array".equals(largeContent)) {
+                        if (body instanceof String[]) {
+                            for (String s : (String[]) body) received.add(s);
+                        } else if (body instanceof Object[]) {
+                            for (Object o : (Object[]) body) received.add(o.toString());
+                        } else if (body instanceof java.util.List) {
+                            for (Object elem : (java.util.List<?>) body) received.add(elem.toString());
+                        } else {
+                            System.out.println("{\"match\": false, \"error\": \"expected array, got " + body.getClass().getSimpleName() + "\"}");
+                            System.exit(1);
+                            return;
+                        }
+                    } else if ("map".equals(largeContent)) {
+                        if (body instanceof java.util.Map) {
+                            java.util.List<String> keys = generateMapKeys(elements);
+                            java.util.Map<?, ?> map = (java.util.Map<?, ?>) body;
+                            for (String key : keys) {
+                                Object val = map.get(key);
+                                received.add(val != null ? val.toString() : "");
+                            }
+                        } else {
+                            System.out.println("{\"match\": false, \"error\": \"expected Map, got " + body.getClass().getSimpleName() + "\"}");
+                            System.exit(1);
+                            return;
+                        }
+                    } else if ("described".equals(largeContent)) {
+                        Object inner = body;
+                        if (body instanceof org.apache.qpid.protonj2.types.DescribedType) {
+                            inner = ((org.apache.qpid.protonj2.types.DescribedType) body).getDescribed();
+                        }
+                        if (inner instanceof java.util.List) {
+                            for (Object elem : (java.util.List<?>) inner) {
+                                received.add(elem.toString());
+                            }
+                        } else {
+                            System.out.println("{\"match\": false, \"error\": \"expected described list, got " + (inner != null ? inner.getClass().getSimpleName() : "null") + "\"}");
+                            System.exit(1);
+                            return;
+                        }
+                    }
+
+                    // Compare element by element
+                    StringBuilder sb = new StringBuilder();
+                    sb.append("{\"elements\": ").append(received.size());
+                    sb.append(", \"element_size\": ").append(elementSize);
+
+                    if (received.size() != elements) {
+                        sb.append(", \"match\": false}");
+                    } else {
+                        boolean matched = true;
+                        int mismatchElem = -1;
+                        int mismatchOffset = -1;
+                        for (int idx = 0; idx < elements; idx++) {
+                            String exp = expected.get(idx);
+                            String rcv = received.get(idx);
+                            if (!exp.equals(rcv)) {
+                                matched = false;
+                                mismatchElem = idx;
+                                int minLen = Math.min(exp.length(), rcv.length());
+                                for (int j = 0; j < minLen; j++) {
+                                    if (exp.charAt(j) != rcv.charAt(j)) {
+                                        mismatchOffset = j;
+                                        break;
+                                    }
+                                }
+                                if (mismatchOffset == -1) mismatchOffset = minLen;
+                                break;
+                            }
+                        }
+                        sb.append(", \"match\": ").append(matched);
+                        if (mismatchElem >= 0) {
+                            sb.append(", \"first_mismatch_element\": ").append(mismatchElem);
+                            sb.append(", \"first_mismatch_offset\": ").append(mismatchOffset);
+                        }
+                        sb.append("}");
+                    }
+
+                    System.out.println(sb.toString());
+                    if (!sb.toString().contains("\"match\": true")) System.exit(1);
                     return;
                 }
             }
@@ -356,6 +459,24 @@ public class Receiver {
             chars[i] = (char)(32 + ((raw[i] & 0xFF) % 95));
         }
         return new String(chars);
+    }
+
+    private static java.util.List<String> generateCollectionElements(int seed, int count, int elemSize) {
+        int total = count * elemSize;
+        String full = lcgGenerateString(seed, total);
+        java.util.List<String> result = new java.util.ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            result.add(full.substring(i * elemSize, (i + 1) * elemSize));
+        }
+        return result;
+    }
+
+    private static java.util.List<String> generateMapKeys(int count) {
+        java.util.List<String> keys = new java.util.ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            keys.add(String.format("key_%04d", i));
+        }
+        return keys;
     }
 
     private static TypeCodec.DecodedMessage decodeJmsMessage(Object body, byte jmsType) {

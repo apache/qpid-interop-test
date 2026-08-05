@@ -43,6 +43,8 @@ public class JmsReceiver {
         String largeContent = null;
         int size = 0;
         int seed = 0;
+        int elements = 0;
+        int elementSize = 0;
 
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
@@ -66,6 +68,12 @@ public class JmsReceiver {
                     break;
                 case "--seed":
                     seed = Integer.parseInt(args[++i]);
+                    break;
+                case "--elements":
+                    elements = Integer.parseInt(args[++i]);
+                    break;
+                case "--element-size":
+                    elementSize = Integer.parseInt(args[++i]);
                     break;
                 default:
                     throw new IllegalArgumentException("Unknown argument: " + args[i]);
@@ -146,6 +154,37 @@ public class JmsReceiver {
                     }
                 } else {
                     System.out.println("{\"match\": false, \"error\": \"expected TextMessage, got " + message.getClass().getSimpleName() + "\"}");
+                }
+            } else if ("list".equals(largeContent)) {
+                java.util.List<String> expected = generateCollectionElements(seed, elements, elementSize);
+                if (message instanceof StreamMessage) {
+                    StreamMessage sm = (StreamMessage) message;
+                    sm.reset();
+                    java.util.List<String> received = new java.util.ArrayList<>();
+                    try {
+                        for (int idx = 0; idx < elements; idx++) {
+                            received.add(sm.readString());
+                        }
+                    } catch (MessageEOFException e) {
+                        // fewer elements than expected
+                    }
+                    outputCollectionResult(received, expected, elements, elementSize);
+                } else {
+                    System.out.println("{\"match\": false, \"error\": \"expected StreamMessage, got " + message.getClass().getSimpleName() + "\"}");
+                }
+            } else if ("map".equals(largeContent)) {
+                java.util.List<String> expected = generateCollectionElements(seed, elements, elementSize);
+                java.util.List<String> keys = generateMapKeys(elements);
+                if (message instanceof MapMessage) {
+                    MapMessage mm = (MapMessage) message;
+                    java.util.List<String> received = new java.util.ArrayList<>();
+                    for (String key : keys) {
+                        String val = mm.getString(key);
+                        received.add(val != null ? val : "");
+                    }
+                    outputCollectionResult(received, expected, elements, elementSize);
+                } else {
+                    System.out.println("{\"match\": false, \"error\": \"expected MapMessage, got " + message.getClass().getSimpleName() + "\"}");
                 }
             } else {
                 System.out.println("{\"match\": false, \"error\": \"unknown large-content type: " + largeContent + "\"}");
@@ -542,5 +581,64 @@ public class JmsReceiver {
             chars[i] = (char)(32 + ((raw[i] & 0xFF) % 95));
         }
         return new String(chars);
+    }
+
+    private static java.util.List<String> generateCollectionElements(int seed, int count, int elemSize) {
+        int total = count * elemSize;
+        String full = lcgGenerateString(seed, total);
+        java.util.List<String> result = new java.util.ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            result.add(full.substring(i * elemSize, (i + 1) * elemSize));
+        }
+        return result;
+    }
+
+    private static java.util.List<String> generateMapKeys(int count) {
+        java.util.List<String> keys = new java.util.ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            keys.add(String.format("key_%04d", i));
+        }
+        return keys;
+    }
+
+    private void outputCollectionResult(java.util.List<String> received, java.util.List<String> expected, int elementsCount, int elementSize) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("{\"elements\": ").append(received.size());
+        sb.append(", \"element_size\": ").append(elementSize);
+
+        if (received.size() != elementsCount) {
+            sb.append(", \"match\": false}");
+            System.out.println(sb.toString());
+            System.exit(1);
+        } else {
+            boolean matched = true;
+            int mismatchElem = -1;
+            int mismatchOffset = -1;
+            for (int i = 0; i < elementsCount; i++) {
+                String exp = expected.get(i);
+                String rcv = received.get(i);
+                if (!exp.equals(rcv)) {
+                    matched = false;
+                    mismatchElem = i;
+                    int minLen = Math.min(exp.length(), rcv.length());
+                    for (int j = 0; j < minLen; j++) {
+                        if (exp.charAt(j) != rcv.charAt(j)) {
+                            mismatchOffset = j;
+                            break;
+                        }
+                    }
+                    if (mismatchOffset == -1) mismatchOffset = minLen;
+                    break;
+                }
+            }
+            sb.append(", \"match\": ").append(matched);
+            if (mismatchElem >= 0) {
+                sb.append(", \"first_mismatch_element\": ").append(mismatchElem);
+                sb.append(", \"first_mismatch_offset\": ").append(mismatchOffset);
+            }
+            sb.append("}");
+            System.out.println(sb.toString());
+            if (!matched) System.exit(1);
+        }
     }
 }

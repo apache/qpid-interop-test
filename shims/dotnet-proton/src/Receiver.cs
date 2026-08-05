@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Apache.Qpid.Proton.Buffer;
 using Apache.Qpid.Proton.Client;
+using Apache.Qpid.Proton.Types;
 using Apache.Qpid.Proton.Types.Messaging;
 using Newtonsoft.Json;
 
@@ -261,7 +262,7 @@ namespace Qit.Shim
             }
         }
 
-        public static void ReceiveLargeContent(string broker, string queue, string contentType, int size, int seed, int timeout)
+        public static void ReceiveLargeContent(string broker, string queue, string contentType, int size, int seed, int timeout, int elements = 0, int elementSize = 0)
         {
             try
             {
@@ -328,7 +329,7 @@ namespace Qit.Shim
                         }
                     }
                 }
-                else
+                else if (contentType == "string")
                 {
                     string expected = LcgHelper.LcgGenerateString((uint)seed, size);
                     string received = receivedBody as string ?? receivedBody?.ToString() ?? "";
@@ -351,6 +352,130 @@ namespace Qit.Shim
                             }
                         }
                     }
+                }
+                else if (contentType == "list" || contentType == "array" || contentType == "map" || contentType == "described")
+                {
+                    var expected = LcgHelper.GenerateCollectionElements((uint)seed, elements, elementSize);
+                    var received = new List<string>();
+
+                    if (contentType == "list")
+                    {
+                        if (receivedBody is IList list)
+                        {
+                            foreach (var item in list)
+                                received.Add(item?.ToString() ?? "");
+                        }
+                        else
+                        {
+                            Console.WriteLine(JsonConvert.SerializeObject(new { match = false, error = "expected list, got " + (receivedBody?.GetType().Name ?? "null") }));
+                            Environment.Exit(1);
+                            return;
+                        }
+                    }
+                    else if (contentType == "array")
+                    {
+                        if (receivedBody is string[] strArr)
+                        {
+                            received.AddRange(strArr);
+                        }
+                        else if (receivedBody is object[] objArr)
+                        {
+                            foreach (var o in objArr) received.Add(o?.ToString() ?? "");
+                        }
+                        else if (receivedBody is IList arrList)
+                        {
+                            foreach (var item in arrList) received.Add(item?.ToString() ?? "");
+                        }
+                        else
+                        {
+                            Console.WriteLine(JsonConvert.SerializeObject(new { match = false, error = "expected array, got " + (receivedBody?.GetType().Name ?? "null") }));
+                            Environment.Exit(1);
+                            return;
+                        }
+                    }
+                    else if (contentType == "map")
+                    {
+                        if (receivedBody is IDictionary dict)
+                        {
+                            var keys = LcgHelper.GenerateMapKeys(elements);
+                            foreach (var key in keys)
+                            {
+                                received.Add(dict.Contains(key) ? dict[key]?.ToString() ?? "" : "");
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine(JsonConvert.SerializeObject(new { match = false, error = "expected map, got " + (receivedBody?.GetType().Name ?? "null") }));
+                            Environment.Exit(1);
+                            return;
+                        }
+                    }
+                    else if (contentType == "described")
+                    {
+                        object inner = receivedBody;
+                        // Check if it's a described type (IDescribedType) and unwrap
+                        if (receivedBody is IDescribedType desc)
+                            inner = desc.Described;
+
+                        if (inner is IList descList)
+                        {
+                            foreach (var item in descList) received.Add(item?.ToString() ?? "");
+                        }
+                        else
+                        {
+                            Console.WriteLine(JsonConvert.SerializeObject(new { match = false, error = "expected described list, got " + (inner?.GetType().Name ?? "null") }));
+                            Environment.Exit(1);
+                            return;
+                        }
+                    }
+
+                    // Compare element by element
+                    var collResult = new Dictionary<string, object>
+                    {
+                        { "elements", received.Count },
+                        { "element_size", elementSize }
+                    };
+
+                    if (received.Count != elements)
+                    {
+                        collResult["match"] = false;
+                    }
+                    else
+                    {
+                        bool collMatched = true;
+                        for (int i = 0; i < elements; i++)
+                        {
+                            if (expected[i] != received[i])
+                            {
+                                collMatched = false;
+                                collResult["first_mismatch_element"] = i;
+                                int minLen = Math.Min(expected[i].Length, received[i].Length);
+                                int offset = minLen;
+                                for (int j = 0; j < minLen; j++)
+                                {
+                                    if (expected[i][j] != received[i][j])
+                                    {
+                                        offset = j;
+                                        break;
+                                    }
+                                }
+                                collResult["first_mismatch_offset"] = offset;
+                                break;
+                            }
+                        }
+                        collResult["match"] = collMatched;
+                    }
+
+                    Console.WriteLine(JsonConvert.SerializeObject(collResult));
+                    if (!(bool)collResult["match"])
+                        Environment.Exit(1);
+                    return;
+                }
+                else
+                {
+                    Console.WriteLine(JsonConvert.SerializeObject(new { match = false, error = $"unknown content type: {contentType}" }));
+                    Environment.Exit(1);
+                    return;
                 }
 
                 var result = new Dictionary<string, object>

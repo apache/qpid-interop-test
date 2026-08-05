@@ -89,6 +89,8 @@ private:
 // LCG pseudo-random generators (glibc-style)
 std::vector<uint8_t> lcg_generate_bytes(uint32_t seed, size_t size);
 std::string lcg_generate_string(uint32_t seed, size_t size);
+std::vector<std::string> generate_collection_elements(uint32_t seed, size_t count, size_t elem_size);
+std::vector<std::string> generate_map_keys(size_t count);
 
 // Large content sender handler - sends a single large message
 class LargeContentSender : public proton::messaging_handler {
@@ -98,7 +100,9 @@ public:
                        const std::string& content_type,
                        uint32_t seed,
                        size_t size,
-                       bool jms_mode);
+                       bool jms_mode,
+                       size_t elements = 0,
+                       size_t element_size = 0);
 
     void on_container_start(proton::container& c) override;
     void on_sendable(proton::sender& s) override;
@@ -113,6 +117,8 @@ private:
     size_t size_;
     bool jms_mode_;
     bool sent_;
+    size_t elements_;
+    size_t element_size_;
 };
 
 // Large content receiver handler - receives a single large message and verifies
@@ -123,7 +129,9 @@ public:
                          const std::string& content_type,
                          uint32_t seed,
                          size_t size,
-                         int timeout_sec);
+                         int timeout_sec,
+                         size_t elements = 0,
+                         size_t element_size = 0);
 
     void on_container_start(proton::container& c) override;
     void on_message(proton::delivery& d, proton::message& m) override;
@@ -137,6 +145,8 @@ private:
     size_t size_;
     int timeout_sec_;
     bool received_;
+    size_t elements_;
+    size_t element_size_;
 
     void on_timeout();
 };

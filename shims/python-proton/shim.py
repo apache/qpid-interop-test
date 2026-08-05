@@ -822,6 +822,10 @@ class LargeContentReceiver(MessagingHandler):
         raw = event.message.body
         if isinstance(raw, (memoryview, bytearray)):
             self.body = bytes(raw)
+        elif isinstance(raw, dict):
+            self.body = dict(raw)
+        elif isinstance(raw, (list, tuple)):
+            self.body = list(raw)
         else:
             self.body = raw
         event.receiver.close()
@@ -844,32 +848,62 @@ def lcg_generate_string(seed: int, size: int) -> str:
     return "".join(chr(32 + (b % 95)) for b in raw)
 
 
+def generate_collection_elements(seed: int, count: int, elem_size: int) -> list[str]:
+    full = lcg_generate_string(seed, count * elem_size)
+    return [full[i * elem_size : (i + 1) * elem_size] for i in range(count)]
+
+
+def generate_map_keys(count: int) -> list[str]:
+    return [f"key_{i:04d}" for i in range(count)]
+
+
 def send_large_content(args: argparse.Namespace) -> None:
     """Send a single large content message generated from PRNG seed."""
     content_type = args.large_content
-    size = args.size
     seed = args.seed
     jms_mode = getattr(args, "jms_mode", False)
 
     if content_type == "binary":
-        body = lcg_generate_bytes(seed, size)
+        body = lcg_generate_bytes(seed, args.size)
         jms_msg_type = 3  # JMS_BYTES_MESSAGE
     elif content_type == "string":
-        body = lcg_generate_string(seed, size)
+        body = lcg_generate_string(seed, args.size)
         jms_msg_type = 5  # JMS_TEXT_MESSAGE
+    elif content_type in ("list", "array", "map", "described"):
+        elements = generate_collection_elements(seed, args.elements, args.element_size)
+        if content_type == "list":
+            body = elements
+            jms_msg_type = 4  # JMS_STREAM_MESSAGE
+        elif content_type == "array":
+            from proton import Array, Data, UNDESCRIBED
+            body = Array(UNDESCRIBED, Data.STRING, *elements)
+            jms_msg_type = -1
+        elif content_type == "map":
+            keys = generate_map_keys(args.elements)
+            body = dict(zip(keys, elements))
+            jms_msg_type = 2  # JMS_MAP_MESSAGE
+        elif content_type == "described":
+            from proton import Described, symbol
+            body = Described(symbol("test.large.described"), elements)
+            jms_msg_type = -1
     else:
         print(f"Unknown large-content type: {content_type}", file=sys.stderr)
         sys.exit(1)
 
     msg = Message(body=body)
-    if jms_mode:
+    if jms_mode and jms_msg_type >= 0:
         from proton import byte as proton_byte, symbol
         msg.annotations = {symbol("x-opt-jms-msg-type"): proton_byte(jms_msg_type)}
 
     handler = LargeContentSender(args.broker, args.queue, msg)
     Container(handler).run()
 
-    result = {"sent": True, "size": size}
+    result: dict[str, Any] = {"sent": True}
+    if content_type in ("list", "array", "map", "described"):
+        result["elements"] = args.elements
+        result["element_size"] = args.element_size
+    else:
+        result["size"] = args.size
     print(json.dumps(result))
 
 
@@ -906,24 +940,92 @@ def receive_large_content(args: argparse.Namespace) -> None:
             received = handler.body
         else:
             received = bytes(handler.body)
+
+        result: dict[str, Any] = {"size": len(received), "expected_size": size}
+        if len(received) != len(expected):
+            result["match"] = False
+        elif received == expected:
+            result["match"] = True
+        else:
+            result["match"] = False
+            for i in range(len(expected)):
+                if received[i] != expected[i]:
+                    result["first_mismatch_offset"] = i
+                    break
+
     elif content_type == "string":
         expected = lcg_generate_string(seed, size)
         received = str(handler.body) if handler.body is not None else ""
+
+        result = {"size": len(received), "expected_size": size}
+        if len(received) != len(expected):
+            result["match"] = False
+        elif received == expected:
+            result["match"] = True
+        else:
+            result["match"] = False
+            for i in range(len(expected)):
+                if received[i] != expected[i]:
+                    result["first_mismatch_offset"] = i
+                    break
+
+    elif content_type in ("list", "array", "map", "described"):
+        elements_count = args.elements
+        element_size = args.element_size
+        expected_elements = generate_collection_elements(seed, elements_count, element_size)
+        body = handler.body
+
+        if content_type == "list":
+            if not isinstance(body, (list, tuple)):
+                print(json.dumps({"match": False, "error": f"expected list, got {type(body).__name__}"}))
+                sys.exit(1)
+            received_elements = [str(e) for e in body]
+        elif content_type == "array":
+            from proton import Array
+            if isinstance(body, Array):
+                received_elements = [str(e) for e in body]
+            elif isinstance(body, (list, tuple)):
+                received_elements = [str(e) for e in body]
+            else:
+                print(json.dumps({"match": False, "error": f"expected array, got {type(body).__name__}"}))
+                sys.exit(1)
+        elif content_type == "map":
+            if not isinstance(body, dict):
+                print(json.dumps({"match": False, "error": f"expected map, got {type(body).__name__}"}))
+                sys.exit(1)
+            keys = generate_map_keys(elements_count)
+            received_elements = [str(body.get(k, "")) for k in keys]
+        elif content_type == "described":
+            from proton import Described
+            if isinstance(body, Described):
+                inner = body.value
+            else:
+                inner = body
+            if isinstance(inner, (list, tuple)):
+                received_elements = [str(e) for e in inner]
+            else:
+                print(json.dumps({"match": False, "error": f"expected described list, got {type(inner).__name__}"}))
+                sys.exit(1)
+
+        result = {"elements": len(received_elements), "element_size": element_size}
+        if len(received_elements) != elements_count:
+            result["match"] = False
+        else:
+            result["match"] = True
+            for i, (exp, rcv) in enumerate(zip(expected_elements, received_elements)):
+                if exp != rcv:
+                    result["match"] = False
+                    result["first_mismatch_element"] = i
+                    for j in range(min(len(exp), len(rcv))):
+                        if exp[j] != rcv[j]:
+                            result["first_mismatch_offset"] = j
+                            break
+                    else:
+                        result["first_mismatch_offset"] = min(len(exp), len(rcv))
+                    break
     else:
         print(json.dumps({"match": False, "error": f"unknown type: {content_type}"}))
         sys.exit(1)
-
-    result: dict[str, Any] = {"size": len(received), "expected_size": size}
-    if len(received) != len(expected):
-        result["match"] = False
-    elif received == expected:
-        result["match"] = True
-    else:
-        result["match"] = False
-        for i in range(len(expected)):
-            if received[i] != expected[i]:
-                result["first_mismatch_offset"] = i
-                break
 
     print(json.dumps(result))
     if not result["match"]:
@@ -994,9 +1096,11 @@ def main() -> None:
     )
     send_parser.add_argument("--headers", default=None, help="JSON JMS headers")
     send_parser.add_argument("--properties", default=None, help="JSON JMS application properties")
-    send_parser.add_argument("--large-content", default=None, help="Large content type (binary or string)")
-    send_parser.add_argument("--size", type=int, default=None, help="Large content size in bytes")
+    send_parser.add_argument("--large-content", default=None, help="Large content type (binary, string, list, array, map, described)")
+    send_parser.add_argument("--size", type=int, default=None, help="Large content size in bytes (binary/string)")
     send_parser.add_argument("--seed", type=int, default=None, help="PRNG seed for large content")
+    send_parser.add_argument("--elements", type=int, default=None, help="Number of collection elements (list/array/map/described)")
+    send_parser.add_argument("--element-size", type=int, default=None, help="Size of each element in bytes (list/array/map/described)")
 
     # Receive command
     recv_parser = subparsers.add_parser("receive", help="Receive messages")
@@ -1004,9 +1108,11 @@ def main() -> None:
     recv_parser.add_argument("--queue", required=True, help="Queue name")
     recv_parser.add_argument("--count", type=int, required=False, default=1, help="Message count")
     recv_parser.add_argument("--timeout", type=int, default=30, help="Timeout in seconds")
-    recv_parser.add_argument("--large-content", default=None, help="Large content type (binary or string)")
-    recv_parser.add_argument("--size", type=int, default=None, help="Expected large content size in bytes")
+    recv_parser.add_argument("--large-content", default=None, help="Large content type (binary, string, list, array, map, described)")
+    recv_parser.add_argument("--size", type=int, default=None, help="Expected large content size in bytes (binary/string)")
     recv_parser.add_argument("--seed", type=int, default=None, help="PRNG seed for verification")
+    recv_parser.add_argument("--elements", type=int, default=None, help="Expected number of collection elements")
+    recv_parser.add_argument("--element-size", type=int, default=None, help="Expected size of each element in bytes")
 
     args = parser.parse_args()
 

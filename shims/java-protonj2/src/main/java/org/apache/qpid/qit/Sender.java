@@ -32,6 +32,8 @@ public class Sender {
         String largeContent = null;
         int size = 0;
         int seed = 0;
+        int elements = 0;
+        int elementSize = 0;
 
         for (int i = 1; i < args.length; i++) {
             String arg = args[i];
@@ -79,6 +81,12 @@ public class Sender {
                 case "seed":
                     seed = Integer.parseInt(value);
                     break;
+                case "elements":
+                    elements = Integer.parseInt(value);
+                    break;
+                case "element-size":
+                    elementSize = Integer.parseInt(value);
+                    break;
             }
             i++;  // Skip the value in next iteration
         }
@@ -91,19 +99,6 @@ public class Sender {
             }
 
             URI brokerUri = parseBrokerUrl(broker);
-
-            byte[] binaryBody = null;
-            String stringBody = null;
-            byte jmsMsgType;
-
-            if ("binary".equals(largeContent)) {
-                binaryBody = lcgGenerateBytes(seed, size);
-                jmsMsgType = 3;
-            } else {
-                stringBody = lcgGenerateString(seed, size);
-                jmsMsgType = 5;
-            }
-
             Client client = Client.create();
             ConnectionOptions options = new ConnectionOptions();
             options.user("artemis");
@@ -113,20 +108,58 @@ public class Sender {
                  org.apache.qpid.protonj2.client.Sender sender = connection.openSender(queue)) {
 
                 Message<Object> message = Message.create();
+                byte jmsMsgType = -1;
+
                 if ("binary".equals(largeContent)) {
-                    message.body(binaryBody);
+                    message.body(lcgGenerateBytes(seed, size));
+                    jmsMsgType = 3;
+                } else if ("string".equals(largeContent)) {
+                    message.body(lcgGenerateString(seed, size));
+                    jmsMsgType = 5;
+                } else if ("list".equals(largeContent)) {
+                    java.util.List<String> elems = generateCollectionElements(seed, elements, elementSize);
+                    message.body(new java.util.ArrayList<Object>(elems));
+                    jmsMsgType = 4; // STREAM_MESSAGE
+                } else if ("array".equals(largeContent)) {
+                    java.util.List<String> elems = generateCollectionElements(seed, elements, elementSize);
+                    message.body(elems.toArray(new String[0]));
+                } else if ("map".equals(largeContent)) {
+                    java.util.List<String> elems = generateCollectionElements(seed, elements, elementSize);
+                    java.util.List<String> keys = generateMapKeys(elements);
+                    java.util.Map<String, Object> map = new java.util.LinkedHashMap<>();
+                    for (int idx = 0; idx < elements; idx++) {
+                        map.put(keys.get(idx), elems.get(idx));
+                    }
+                    message.body(map);
+                    jmsMsgType = 2; // MAP_MESSAGE
+                } else if ("described".equals(largeContent)) {
+                    java.util.List<String> elems = generateCollectionElements(seed, elements, elementSize);
+                    message.body(new org.apache.qpid.protonj2.types.UnknownDescribedType(
+                        org.apache.qpid.protonj2.types.Symbol.valueOf("test.large.described"),
+                        new java.util.ArrayList<Object>(elems)));
                 } else {
-                    message.body(stringBody);
+                    System.err.println("Unknown large-content type: " + largeContent);
+                    System.exit(1);
                 }
 
-                if (jmsMode) {
+                if (jmsMode && jmsMsgType >= 0) {
                     message.annotation("x-opt-jms-msg-type", jmsMsgType);
                 }
 
                 sender.send(message);
             }
 
-            System.out.println("{\"sent\": true, \"size\": " + size + "}");
+            // Output result
+            StringBuilder sb = new StringBuilder();
+            sb.append("{\"sent\": true");
+            if ("binary".equals(largeContent) || "string".equals(largeContent)) {
+                sb.append(", \"size\": ").append(size);
+            } else {
+                sb.append(", \"elements\": ").append(elements);
+                sb.append(", \"element_size\": ").append(elementSize);
+            }
+            sb.append("}");
+            System.out.println(sb.toString());
             return;
         }
 
@@ -352,6 +385,24 @@ public class Sender {
             chars[i] = (char)(32 + ((raw[i] & 0xFF) % 95));
         }
         return new String(chars);
+    }
+
+    private static java.util.List<String> generateCollectionElements(int seed, int count, int elemSize) {
+        int total = count * elemSize;
+        String full = lcgGenerateString(seed, total);
+        java.util.List<String> result = new java.util.ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            result.add(full.substring(i * elemSize, (i + 1) * elemSize));
+        }
+        return result;
+    }
+
+    private static java.util.List<String> generateMapKeys(int count) {
+        java.util.List<String> keys = new java.util.ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            keys.add(String.format("key_%04d", i));
+        }
+        return keys;
     }
 
     private static byte getJmsMessageType(String amqpType) {

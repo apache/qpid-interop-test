@@ -274,6 +274,28 @@ std::string lcg_generate_string(uint32_t seed, size_t size) {
     return result;
 }
 
+std::vector<std::string> generate_collection_elements(uint32_t seed, size_t count, size_t elem_size) {
+    size_t total = count * elem_size;
+    std::string full = lcg_generate_string(seed, total);
+    std::vector<std::string> result;
+    result.reserve(count);
+    for (size_t i = 0; i < count; i++) {
+        result.push_back(full.substr(i * elem_size, elem_size));
+    }
+    return result;
+}
+
+std::vector<std::string> generate_map_keys(size_t count) {
+    std::vector<std::string> keys;
+    keys.reserve(count);
+    char buf[16];
+    for (size_t i = 0; i < count; i++) {
+        std::snprintf(buf, sizeof(buf), "key_%04zu", i);
+        keys.push_back(std::string(buf));
+    }
+    return keys;
+}
+
 // --- Large Content Sender ---
 
 LargeContentSender::LargeContentSender(const std::string& broker_url,
@@ -281,14 +303,18 @@ LargeContentSender::LargeContentSender(const std::string& broker_url,
                                        const std::string& content_type,
                                        uint32_t seed,
                                        size_t size,
-                                       bool jms_mode)
+                                       bool jms_mode,
+                                       size_t elements,
+                                       size_t element_size)
     : broker_url_(broker_url),
       queue_name_(queue_name),
       content_type_(content_type),
       seed_(seed),
       size_(size),
       jms_mode_(jms_mode),
-      sent_(false) {}
+      sent_(false),
+      elements_(elements),
+      element_size_(element_size) {}
 
 void LargeContentSender::on_container_start(proton::container& c) {
     c.open_sender(broker_url_ + "/" + queue_name_);
@@ -299,23 +325,70 @@ void LargeContentSender::on_sendable(proton::sender& s) {
     sent_ = true;
 
     proton::message msg;
+    int8_t jms_msg_type = -1;
 
     if (content_type_ == "binary") {
         auto data = lcg_generate_bytes(seed_, size_);
         proton::binary bin(data.begin(), data.end());
         msg.body(bin);
-    } else {
+        jms_msg_type = 3;  // JMS_BYTES_MESSAGE
+    } else if (content_type_ == "string") {
         std::string str = lcg_generate_string(seed_, size_);
         msg.body(str);
+        jms_msg_type = 5;  // JMS_TEXT_MESSAGE
+    } else if (content_type_ == "list") {
+        auto elements = generate_collection_elements(seed_, elements_, element_size_);
+        proton::value body;
+        proton::codec::encoder enc(body);
+        enc << proton::codec::start::list();
+        for (const auto& elem : elements) {
+            enc << elem;
+        }
+        enc << proton::codec::finish();
+        msg.body(body);
+        jms_msg_type = 4;  // JMS_STREAM_MESSAGE
+    } else if (content_type_ == "array") {
+        auto elements = generate_collection_elements(seed_, elements_, element_size_);
+        proton::value body;
+        proton::codec::encoder enc(body);
+        enc << proton::codec::start::array(proton::STRING);
+        for (const auto& elem : elements) {
+            enc << elem;
+        }
+        enc << proton::codec::finish();
+        msg.body(body);
+        jms_msg_type = -1;
+    } else if (content_type_ == "map") {
+        auto elements = generate_collection_elements(seed_, elements_, element_size_);
+        auto keys = generate_map_keys(elements_);
+        proton::value body;
+        proton::codec::encoder enc(body);
+        enc << proton::codec::start::map();
+        for (size_t i = 0; i < elements_; i++) {
+            enc << keys[i] << elements[i];
+        }
+        enc << proton::codec::finish();
+        msg.body(body);
+        jms_msg_type = 2;  // JMS_MAP_MESSAGE
+    } else if (content_type_ == "described") {
+        auto elements = generate_collection_elements(seed_, elements_, element_size_);
+        proton::value body;
+        proton::codec::encoder enc(body);
+        enc << proton::codec::start::described();
+        enc << proton::symbol("test.large.described");
+        enc << proton::codec::start::list();
+        for (const auto& elem : elements) {
+            enc << elem;
+        }
+        enc << proton::codec::finish();
+        enc << proton::codec::finish();
+        msg.body(body);
+        jms_msg_type = -1;
     }
 
-    if (jms_mode_) {
+    if (jms_mode_ && jms_msg_type >= 0) {
         proton::annotation_key jms_key(proton::symbol("x-opt-jms-msg-type"));
-        if (content_type_ == "binary") {
-            msg.message_annotations().put(jms_key, static_cast<int8_t>(3));  // JMS_BYTES_MESSAGE
-        } else {
-            msg.message_annotations().put(jms_key, static_cast<int8_t>(5));  // JMS_TEXT_MESSAGE
-        }
+        msg.message_annotations().put(jms_key, jms_msg_type);
     }
 
     s.send(msg);
@@ -325,7 +398,13 @@ void LargeContentSender::on_tracker_accept(proton::tracker& t) {
     // Output result as JSON
     Json::Value result;
     result["sent"] = true;
-    result["size"] = static_cast<Json::Value::UInt64>(size_);
+    if (content_type_ == "list" || content_type_ == "array" ||
+        content_type_ == "map" || content_type_ == "described") {
+        result["elements"] = static_cast<Json::Value::UInt64>(elements_);
+        result["element_size"] = static_cast<Json::Value::UInt64>(element_size_);
+    } else {
+        result["size"] = static_cast<Json::Value::UInt64>(size_);
+    }
 
     Json::StreamWriterBuilder builder;
     builder["indentation"] = "  ";

@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using Apache.Qpid.Proton.Buffer;
 using Apache.Qpid.Proton.Client;
+using Apache.Qpid.Proton.Types;
 using Apache.Qpid.Proton.Types.Messaging;
 using Newtonsoft.Json;
 
@@ -32,6 +33,24 @@ namespace Qit.Shim
             for (int i = 0; i < size; i++)
                 chars[i] = (char)(32 + (raw[i] % 95));
             return new string(chars);
+        }
+
+        public static List<string> GenerateCollectionElements(uint seed, int count, int elemSize)
+        {
+            int total = count * elemSize;
+            string full = LcgGenerateString(seed, total);
+            var result = new List<string>();
+            for (int i = 0; i < count; i++)
+                result.Add(full.Substring(i * elemSize, elemSize));
+            return result;
+        }
+
+        public static List<string> GenerateMapKeys(int count)
+        {
+            var keys = new List<string>();
+            for (int i = 0; i < count; i++)
+                keys.Add($"key_{i:D4}");
+            return keys;
         }
     }
 
@@ -200,28 +219,11 @@ namespace Qit.Shim
             }
         }
 
-        public static void SendLargeContent(string broker, string queue, string contentType, int size, int seed, bool jmsMode)
+        public static void SendLargeContent(string broker, string queue, string contentType, int size, int seed, bool jmsMode, int elements = 0, int elementSize = 0)
         {
             try
             {
                 var brokerUri = ParseBrokerUrl(broker);
-
-                // Generate content
-                byte[] binaryBody = null;
-                string stringBody = null;
-                sbyte jmsMsgType;
-
-                if (contentType == "binary")
-                {
-                    binaryBody = LcgHelper.LcgGenerateBytes((uint)seed, size);
-                    jmsMsgType = 3; // JMS_BYTES_MESSAGE
-                }
-                else
-                {
-                    stringBody = LcgHelper.LcgGenerateString((uint)seed, size);
-                    jmsMsgType = 5; // JMS_TEXT_MESSAGE
-                }
-
                 IClient client = IClient.Create();
                 ConnectionOptions options = new ConnectionOptions
                 {
@@ -233,18 +235,67 @@ namespace Qit.Shim
                 using ISender sender = connection.OpenSender(queue);
 
                 var message = IMessage<object>.Create();
-                if (contentType == "binary")
-                    message.Body = binaryBody;
-                else
-                    message.Body = stringBody;
+                sbyte jmsMsgType = -1;
 
-                if (jmsMode)
+                if (contentType == "binary")
+                {
+                    message.Body = LcgHelper.LcgGenerateBytes((uint)seed, size);
+                    jmsMsgType = 3; // JMS_BYTES_MESSAGE
+                }
+                else if (contentType == "string")
+                {
+                    message.Body = LcgHelper.LcgGenerateString((uint)seed, size);
+                    jmsMsgType = 5; // JMS_TEXT_MESSAGE
+                }
+                else if (contentType == "list")
+                {
+                    var elems = LcgHelper.GenerateCollectionElements((uint)seed, elements, elementSize);
+                    message.Body = new List<object>(elems);
+                    jmsMsgType = 4; // JMS_STREAM_MESSAGE
+                }
+                else if (contentType == "array")
+                {
+                    var elems = LcgHelper.GenerateCollectionElements((uint)seed, elements, elementSize);
+                    message.Body = elems.ToArray();
+                }
+                else if (contentType == "map")
+                {
+                    var elems = LcgHelper.GenerateCollectionElements((uint)seed, elements, elementSize);
+                    var keys = LcgHelper.GenerateMapKeys(elements);
+                    var map = new Dictionary<string, object>();
+                    for (int i = 0; i < elements; i++)
+                        map[keys[i]] = elems[i];
+                    message.Body = map;
+                    jmsMsgType = 2; // JMS_MAP_MESSAGE
+                }
+                else if (contentType == "described")
+                {
+                    var elems = LcgHelper.GenerateCollectionElements((uint)seed, elements, elementSize);
+                    // Use DescribedValue (implements IDescribedType) with a symbol descriptor
+                    var described = new DescribedValue(
+                        Symbol.Lookup("test.large.described"),
+                        new List<object>(elems));
+                    message.Body = described;
+                }
+                else
+                {
+                    Console.Error.WriteLine($"Unknown large-content type: {contentType}");
+                    Environment.Exit(1);
+                }
+
+                if (jmsMode && jmsMsgType >= 0)
                     message.SetAnnotation("x-opt-jms-msg-type", jmsMsgType);
 
                 sender.Send(message);
 
-                var result = new { sent = true, size };
-                Console.WriteLine(JsonConvert.SerializeObject(result));
+                if (contentType == "binary" || contentType == "string")
+                {
+                    Console.WriteLine(JsonConvert.SerializeObject(new { sent = true, size }));
+                }
+                else
+                {
+                    Console.WriteLine(JsonConvert.SerializeObject(new { sent = true, elements, element_size = elementSize }));
+                }
             }
             catch (Exception ex)
             {

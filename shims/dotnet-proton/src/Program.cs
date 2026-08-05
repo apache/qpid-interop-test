@@ -29,6 +29,8 @@ namespace Qit.Shim
             var sendLargeContentOption = new Option<string>("--large-content", () => null, "Large content type (binary or string)");
             var sendSizeOption = new Option<int>("--size", () => 0, "Large content size");
             var sendSeedOption = new Option<int>("--seed", () => 0, "PRNG seed");
+            var sendElementsOption = new Option<int>("--elements", () => 0, "Number of collection elements");
+            var sendElementSizeOption = new Option<int>("--element-size", () => 0, "Size of each element");
 
             sendCommand.AddOption(sendBrokerOption);
             sendCommand.AddOption(sendQueueOption);
@@ -41,6 +43,8 @@ namespace Qit.Shim
             sendCommand.AddOption(sendLargeContentOption);
             sendCommand.AddOption(sendSizeOption);
             sendCommand.AddOption(sendSeedOption);
+            sendCommand.AddOption(sendElementsOption);
+            sendCommand.AddOption(sendElementSizeOption);
 
             sendCommand.SetHandler((context) =>
             {
@@ -55,7 +59,9 @@ namespace Qit.Shim
                     {
                         var size = context.ParseResult.GetValueForOption(sendSizeOption);
                         var seed = context.ParseResult.GetValueForOption(sendSeedOption);
-                        Sender.SendLargeContent(broker, queue, largeContent, size, seed, jmsMode);
+                        var elements = context.ParseResult.GetValueForOption(sendElementsOption);
+                        var elementSize = context.ParseResult.GetValueForOption(sendElementSizeOption);
+                        Sender.SendLargeContent(broker, queue, largeContent, size, seed, jmsMode, elements, elementSize);
                     }
                     else
                     {
@@ -82,6 +88,8 @@ namespace Qit.Shim
             var receiveLargeContentOption = new Option<string>("--large-content", () => null, "Large content type (binary or string)");
             var receiveSizeOption = new Option<int>("--size", () => 0, "Large content size");
             var receiveSeedOption = new Option<int>("--seed", () => 0, "PRNG seed");
+            var receiveElementsOption = new Option<int>("--elements", () => 0, "Number of collection elements");
+            var receiveElementSizeOption = new Option<int>("--element-size", () => 0, "Size of each element");
 
             receiveCommand.AddOption(receiveBrokerOption);
             receiveCommand.AddOption(receiveQueueOption);
@@ -90,6 +98,8 @@ namespace Qit.Shim
             receiveCommand.AddOption(receiveLargeContentOption);
             receiveCommand.AddOption(receiveSizeOption);
             receiveCommand.AddOption(receiveSeedOption);
+            receiveCommand.AddOption(receiveElementsOption);
+            receiveCommand.AddOption(receiveElementSizeOption);
 
             receiveCommand.SetHandler((context) =>
             {
@@ -104,7 +114,9 @@ namespace Qit.Shim
                     {
                         var size = context.ParseResult.GetValueForOption(receiveSizeOption);
                         var seed = context.ParseResult.GetValueForOption(receiveSeedOption);
-                        Receiver.ReceiveLargeContent(broker, queue, largeContent, size, seed, timeout);
+                        var elements = context.ParseResult.GetValueForOption(receiveElementsOption);
+                        var elementSize = context.ParseResult.GetValueForOption(receiveElementSizeOption);
+                        Receiver.ReceiveLargeContent(broker, queue, largeContent, size, seed, timeout, elements, elementSize);
                     }
                     else
                     {

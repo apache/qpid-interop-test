@@ -666,26 +666,75 @@ function lcgGenerateString(seed, size) {
     return s;
 }
 
+function generateCollectionElements(seed, count, elemSize) {
+    const totalSize = count * elemSize;
+    const fullString = lcgGenerateString(seed, totalSize);
+    const result = [];
+    for (let i = 0; i < count; i++) {
+        result.push(fullString.substring(i * elemSize, (i + 1) * elemSize));
+    }
+    return result;
+}
+
+function generateMapKeys(count) {
+    const keys = [];
+    for (let i = 0; i < count; i++) {
+        keys.push('key_' + String(i).padStart(4, '0'));
+    }
+    return keys;
+}
+
 // Send a single large content message
 function sendLargeContent(options) {
     const { broker, queue } = options;
     const contentType = options['large-content'];
-    const size = parseInt(options['size']);
+    const size = parseInt(options['size']) || 0;
     const seed = parseInt(options['seed']);
     const jmsMode = options['jms-mode'] !== undefined;
+    const elementsCount = parseInt(options['elements']) || 0;
+    const elemSize = parseInt(options['element-size']) || 0;
 
     let body;
     let jmsMsgType;
     if (contentType === 'binary') {
         body = rhea.types.wrap_binary(lcgGenerateBytes(seed, size));
         jmsMsgType = 3;  // JMS_BYTES_MESSAGE
-    } else {
+    } else if (contentType === 'string') {
         body = lcgGenerateString(seed, size);
         jmsMsgType = 5;  // JMS_TEXT_MESSAGE
+    } else if (contentType === 'list') {
+        const elements = generateCollectionElements(seed, elementsCount, elemSize);
+        body = elements;
+        jmsMsgType = 4;  // JMS_STREAM_MESSAGE
+    } else if (contentType === 'array') {
+        const elements = generateCollectionElements(seed, elementsCount, elemSize);
+        body = rhea.types.wrap_array(elements.map(e => rhea.types.wrap_string(e)), 0xb1);
+        jmsMsgType = -1;
+    } else if (contentType === 'map') {
+        const elements = generateCollectionElements(seed, elementsCount, elemSize);
+        const keys = generateMapKeys(elementsCount);
+        const mapBody = {};
+        for (let i = 0; i < elementsCount; i++) {
+            mapBody[keys[i]] = elements[i];
+        }
+        body = mapBody;
+        jmsMsgType = 2;  // JMS_MAP_MESSAGE
+    } else if (contentType === 'described') {
+        const types_mod = require('rhea/lib/types');
+        const elements = generateCollectionElements(seed, elementsCount, elemSize);
+        const listBody = elements.map(e => rhea.types.wrap_string(e));
+        const innerList = types_mod.List32(listBody);
+        const descriptor = rhea.types.wrap_symbol('test.large.described');
+        types_mod.described_nc(descriptor, innerList);
+        body = wrapDescribedAsBody(innerList);
+        jmsMsgType = -1;
+    } else {
+        console.error('Unknown large-content type:', contentType);
+        process.exit(1);
     }
 
     const message = { body: body };
-    if (jmsMode) {
+    if (jmsMode && jmsMsgType >= 0) {
         message.message_annotations = {
             'x-opt-jms-msg-type': rhea.types.wrap_byte(jmsMsgType)
         };
@@ -710,7 +759,12 @@ function sendLargeContent(options) {
     });
 
     connection.on('accepted', (context) => {
-        const result = { sent: true, size: size };
+        let result;
+        if (['list', 'array', 'map', 'described'].includes(contentType)) {
+            result = { sent: true, elements: elementsCount, element_size: elemSize };
+        } else {
+            result = { sent: true, size: size };
+        }
         console.log(JSON.stringify(result));
         context.connection.close();
         setTimeout(() => process.exit(0), 100);
@@ -731,8 +785,10 @@ function sendLargeContent(options) {
 function receiveLargeContent(options) {
     const { broker, queue, timeout = 30 } = options;
     const contentType = options['large-content'];
-    const size = parseInt(options['size']);
+    const size = parseInt(options['size']) || 0;
     const seed = parseInt(options['seed']);
+    const elementsCount = parseInt(options['elements']) || 0;
+    const elemSize = parseInt(options['element-size']) || 0;
 
     // Parse broker URL
     const brokerUrl = broker.replace(/^amqp:\/\//, '');
@@ -751,15 +807,13 @@ function receiveLargeContent(options) {
     connection.on('message', (context) => {
         const body = context.message.body;
 
-        let received;
         if (contentType === 'binary') {
             const expected = lcgGenerateBytes(seed, size);
-            // Extract binary body - may be wrapped in Section object
             let data = body;
             if (data !== null && data !== undefined && data.content !== undefined) {
                 data = data.content;
             }
-            received = Buffer.isBuffer(data) ? data : Buffer.from(data);
+            const received = Buffer.isBuffer(data) ? data : Buffer.from(data);
 
             const result = { size: received.length, expected_size: size };
             if (received.length !== expected.length) {
@@ -778,10 +832,9 @@ function receiveLargeContent(options) {
             console.log(JSON.stringify(result));
             context.connection.close();
             setTimeout(() => process.exit(result.match ? 0 : 1), 100);
-        } else {
-            // string
+        } else if (contentType === 'string') {
             const expected = lcgGenerateString(seed, size);
-            received = (body !== null && body !== undefined) ? String(body) : '';
+            const received = (body !== null && body !== undefined) ? String(body) : '';
 
             const result = { size: received.length, expected_size: size };
             if (received.length !== expected.length) {
@@ -800,6 +853,113 @@ function receiveLargeContent(options) {
             console.log(JSON.stringify(result));
             context.connection.close();
             setTimeout(() => process.exit(result.match ? 0 : 1), 100);
+        } else if (['list', 'array', 'map', 'described'].includes(contentType)) {
+            const expectedElements = generateCollectionElements(seed, elementsCount, elemSize);
+            let receivedElements = [];
+
+            try {
+                if (contentType === 'list') {
+                    // Body should be an array (Rhea might deliver as array or wrapped)
+                    let listData = body;
+                    if (listData && listData.content !== undefined) {
+                        listData = listData.content;
+                    }
+                    if (Array.isArray(listData)) {
+                        receivedElements = listData.map(e => String(e));
+                    } else {
+                        console.log(JSON.stringify({ match: false, error: 'expected list, got ' + typeof listData }));
+                        context.connection.close();
+                        setTimeout(() => process.exit(1), 100);
+                        return;
+                    }
+                } else if (contentType === 'array') {
+                    // Body may be an array or typed array object
+                    let arrData = body;
+                    if (arrData && arrData.content !== undefined) {
+                        arrData = arrData.content;
+                    }
+                    if (Array.isArray(arrData)) {
+                        receivedElements = arrData.map(e => String(e));
+                    } else if (arrData && typeof arrData === 'object') {
+                        // Typed array: may have numeric keys or be iterable
+                        const values = Object.values(arrData);
+                        receivedElements = values.map(e => String(e));
+                    } else {
+                        console.log(JSON.stringify({ match: false, error: 'expected array, got ' + typeof arrData }));
+                        context.connection.close();
+                        setTimeout(() => process.exit(1), 100);
+                        return;
+                    }
+                } else if (contentType === 'map') {
+                    // Body should be a JS object
+                    if (body && typeof body === 'object' && !Array.isArray(body)) {
+                        const keys = generateMapKeys(elementsCount);
+                        receivedElements = keys.map(k => String(body[k] || ''));
+                    } else {
+                        console.log(JSON.stringify({ match: false, error: 'expected map, got ' + typeof body }));
+                        context.connection.close();
+                        setTimeout(() => process.exit(1), 100);
+                        return;
+                    }
+                } else if (contentType === 'described') {
+                    // Body should have descriptor and value, or be an array with described wrapper
+                    let inner = body;
+                    if (body && body.described_value !== undefined) {
+                        inner = body.described_value;
+                    } else if (body && body.value !== undefined && body.descriptor !== undefined) {
+                        inner = body.value;
+                    }
+                    // Inner could be wrapped
+                    if (inner && inner.content !== undefined) {
+                        inner = inner.content;
+                    }
+                    if (Array.isArray(inner)) {
+                        receivedElements = inner.map(e => String(e));
+                    } else {
+                        console.log(JSON.stringify({ match: false, error: 'expected described list, got ' + typeof inner }));
+                        context.connection.close();
+                        setTimeout(() => process.exit(1), 100);
+                        return;
+                    }
+                }
+            } catch (err) {
+                console.log(JSON.stringify({ match: false, error: 'Failed to extract body: ' + err.message }));
+                context.connection.close();
+                setTimeout(() => process.exit(1), 100);
+                return;
+            }
+
+            const result = { elements: receivedElements.length, element_size: elemSize };
+            if (receivedElements.length !== elementsCount) {
+                result.match = false;
+            } else {
+                result.match = true;
+                for (let i = 0; i < elementsCount; i++) {
+                    if (receivedElements[i] !== expectedElements[i]) {
+                        result.match = false;
+                        result.first_mismatch_element = i;
+                        const exp = expectedElements[i];
+                        const rcv = receivedElements[i];
+                        for (let j = 0; j < Math.min(exp.length, rcv.length); j++) {
+                            if (exp[j] !== rcv[j]) {
+                                result.first_mismatch_offset = j;
+                                break;
+                            }
+                        }
+                        if (result.first_mismatch_offset === undefined) {
+                            result.first_mismatch_offset = Math.min(exp.length, rcv.length);
+                        }
+                        break;
+                    }
+                }
+            }
+            console.log(JSON.stringify(result));
+            context.connection.close();
+            setTimeout(() => process.exit(result.match ? 0 : 1), 100);
+        } else {
+            console.log(JSON.stringify({ match: false, error: 'unknown type: ' + contentType }));
+            context.connection.close();
+            setTimeout(() => process.exit(1), 100);
         }
     });
 

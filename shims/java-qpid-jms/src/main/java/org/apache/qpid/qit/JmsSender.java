@@ -45,6 +45,8 @@ public class JmsSender {
         String largeContent = null;
         int size = 0;
         int seed = 0;
+        int elements = 0;
+        int elementSize = 0;
 
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
@@ -74,6 +76,12 @@ public class JmsSender {
                     break;
                 case "--seed":
                     seed = Integer.parseInt(args[++i]);
+                    break;
+                case "--elements":
+                    elements = Integer.parseInt(args[++i]);
+                    break;
+                case "--element-size":
+                    elementSize = Integer.parseInt(args[++i]);
                     break;
                 default:
                     throw new IllegalArgumentException("Unknown argument: " + args[i]);
@@ -111,10 +119,29 @@ public class JmsSender {
                 String contentData = lcgGenerateString(seed, size);
                 TextMessage message = session.createTextMessage(contentData);
                 producer.send(message, DeliveryMode.NON_PERSISTENT, Message.DEFAULT_PRIORITY, Message.DEFAULT_TIME_TO_LIVE);
+            } else if ("list".equals(largeContent)) {
+                java.util.List<String> elems = generateCollectionElements(seed, elements, elementSize);
+                StreamMessage message = session.createStreamMessage();
+                for (String elem : elems) {
+                    message.writeString(elem);
+                }
+                producer.send(message, DeliveryMode.NON_PERSISTENT, Message.DEFAULT_PRIORITY, Message.DEFAULT_TIME_TO_LIVE);
+            } else if ("map".equals(largeContent)) {
+                java.util.List<String> elems = generateCollectionElements(seed, elements, elementSize);
+                java.util.List<String> keys = generateMapKeys(elements);
+                MapMessage message = session.createMapMessage();
+                for (int idx = 0; idx < elements; idx++) {
+                    message.setString(keys.get(idx), elems.get(idx));
+                }
+                producer.send(message, DeliveryMode.NON_PERSISTENT, Message.DEFAULT_PRIORITY, Message.DEFAULT_TIME_TO_LIVE);
             } else {
                 throw new IllegalArgumentException("Unknown large-content type: " + largeContent);
             }
-            System.out.println("{\"sent\": true, \"size\": " + size + "}");
+            if ("list".equals(largeContent) || "map".equals(largeContent)) {
+                System.out.println("{\"sent\": true, \"elements\": " + elements + ", \"element_size\": " + elementSize + "}");
+            } else {
+                System.out.println("{\"sent\": true, \"size\": " + size + "}");
+            }
 
             // Cleanup
             producer.close();
@@ -552,5 +579,23 @@ public class JmsSender {
             chars[i] = (char)(32 + ((raw[i] & 0xFF) % 95));
         }
         return new String(chars);
+    }
+
+    private static java.util.List<String> generateCollectionElements(int seed, int count, int elemSize) {
+        int total = count * elemSize;
+        String full = lcgGenerateString(seed, total);
+        java.util.List<String> result = new java.util.ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            result.add(full.substring(i * elemSize, (i + 1) * elemSize));
+        }
+        return result;
+    }
+
+    private static java.util.List<String> generateMapKeys(int count) {
+        java.util.List<String> keys = new java.util.ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            keys.add(String.format("key_%04d", i));
+        }
+        return keys;
     }
 }

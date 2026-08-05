@@ -49,6 +49,8 @@ struct CommandLineArgs {
     std::string large_content;  // "binary" or "string", empty if not large content mode
     size_t size = 0;
     uint32_t seed = 0;
+    size_t elements = 0;
+    size_t element_size = 0;
 
     bool parse(int argc, char** argv) {
         if (argc < 2) {
@@ -97,6 +99,10 @@ struct CommandLineArgs {
                 size = static_cast<size_t>(std::strtoull(val.c_str(), nullptr, 10));
             } else if (opt == "--seed") {
                 seed = static_cast<uint32_t>(std::strtoul(val.c_str(), nullptr, 10));
+            } else if (opt == "--elements") {
+                elements = static_cast<size_t>(std::strtoull(val.c_str(), nullptr, 10));
+            } else if (opt == "--element-size") {
+                element_size = static_cast<size_t>(std::strtoull(val.c_str(), nullptr, 10));
             } else {
                 std::cerr << "Error: Unknown option " << opt << std::endl;
                 return false;
@@ -126,12 +132,18 @@ struct CommandLineArgs {
 
         // Large content mode has different requirements
         if (!large_content.empty()) {
-            if (large_content != "binary" && large_content != "string") {
-                std::cerr << "Error: --large-content must be 'binary' or 'string'" << std::endl;
+            if (large_content != "binary" && large_content != "string" &&
+                large_content != "list" && large_content != "array" &&
+                large_content != "map" && large_content != "described") {
+                std::cerr << "Error: --large-content must be binary, string, list, array, map, or described" << std::endl;
                 return false;
             }
-            if (size == 0) {
-                std::cerr << "Error: --size is required for large content" << std::endl;
+            if ((large_content == "binary" || large_content == "string") && size == 0) {
+                std::cerr << "Error: --size is required for binary/string large content" << std::endl;
+                return false;
+            }
+            if (large_content != "binary" && large_content != "string" && (elements == 0 || element_size == 0)) {
+                std::cerr << "Error: --elements and --element-size are required for collection large content" << std::endl;
                 return false;
             }
             return true;
@@ -169,12 +181,14 @@ int main(int argc, char** argv) {
             // Large content mode
             if (args.command == "send") {
                 qit::LargeContentSender sender(args.broker, args.queue,
-                    args.large_content, args.seed, args.size, args.jms_mode);
+                    args.large_content, args.seed, args.size, args.jms_mode,
+                    args.elements, args.element_size);
                 proton::container(sender).run();
                 return 0;
             } else if (args.command == "receive") {
                 qit::LargeContentReceiver receiver(args.broker, args.queue,
-                    args.large_content, args.seed, args.size, args.timeout);
+                    args.large_content, args.seed, args.size, args.timeout,
+                    args.elements, args.element_size);
                 proton::container(receiver).run();
                 return 0;
             }

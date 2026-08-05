@@ -13,6 +13,7 @@
 #include <proton/codec/encoder.hpp>
 #include <proton/codec/decoder.hpp>
 #include <iostream>
+#include <map>
 #include <vector>
 #include <cstdlib>
 #include <cstring>
@@ -325,14 +326,18 @@ LargeContentReceiver::LargeContentReceiver(const std::string& broker_url,
                                            const std::string& content_type,
                                            uint32_t seed,
                                            size_t size,
-                                           int timeout_sec)
+                                           int timeout_sec,
+                                           size_t elements,
+                                           size_t element_size)
     : broker_url_(broker_url),
       queue_name_(queue_name),
       content_type_(content_type),
       seed_(seed),
       size_(size),
       timeout_sec_(timeout_sec),
-      received_(false) {}
+      received_(false),
+      elements_(elements),
+      element_size_(element_size) {}
 
 void LargeContentReceiver::on_container_start(proton::container& c) {
     c.open_receiver(broker_url_ + "/" + queue_name_);
@@ -376,7 +381,7 @@ void LargeContentReceiver::on_message(proton::delivery& d, proton::message& m) {
                     result["match"] = true;
                 }
             }
-        } else {
+        } else if (content_type_ == "string") {
             std::string received_str = proton::get<std::string>(m.body());
             std::string expected = lcg_generate_string(seed_, size_);
 
@@ -393,6 +398,98 @@ void LargeContentReceiver::on_message(proton::delivery& d, proton::message& m) {
                 for (size_t i = 0; i < size_; i++) {
                     if (received_str[i] != expected[i]) {
                         result["first_mismatch_offset"] = static_cast<Json::Value::UInt64>(i);
+                        break;
+                    }
+                }
+            }
+        } else if (content_type_ == "list" || content_type_ == "array" ||
+                   content_type_ == "map" || content_type_ == "described") {
+            auto expected_elements = generate_collection_elements(seed_, elements_, element_size_);
+            std::vector<std::string> received_elements;
+
+            proton::value body = m.body();
+
+            if (content_type_ == "list") {
+                proton::codec::decoder dec(body);
+                proton::codec::start s;
+                dec >> s;  // start::list
+                for (size_t i = 0; i < s.size; i++) {
+                    std::string elem;
+                    dec >> elem;
+                    received_elements.push_back(elem);
+                }
+                dec >> proton::codec::finish();
+            } else if (content_type_ == "array") {
+                proton::codec::decoder dec(body);
+                proton::codec::start s;
+                dec >> s;  // start::array
+                for (size_t i = 0; i < s.size; i++) {
+                    std::string elem;
+                    dec >> elem;
+                    received_elements.push_back(elem);
+                }
+                dec >> proton::codec::finish();
+            } else if (content_type_ == "map") {
+                proton::codec::decoder dec(body);
+                proton::codec::start s;
+                dec >> s;  // start::map
+                // Collect key-value pairs, then extract values in key order
+                std::map<std::string, std::string> map_data;
+                for (size_t i = 0; i < s.size / 2; i++) {
+                    std::string key, value;
+                    dec >> key >> value;
+                    map_data[key] = value;
+                }
+                dec >> proton::codec::finish();
+                auto keys = generate_map_keys(elements_);
+                for (const auto& k : keys) {
+                    auto it = map_data.find(k);
+                    if (it != map_data.end()) {
+                        received_elements.push_back(it->second);
+                    } else {
+                        received_elements.push_back("");
+                    }
+                }
+            } else if (content_type_ == "described") {
+                proton::codec::decoder dec(body);
+                proton::codec::start s;
+                dec >> s;  // start::described
+                proton::symbol descriptor;
+                dec >> descriptor;
+                proton::codec::start inner_s;
+                dec >> inner_s;  // start::list (inner value)
+                for (size_t i = 0; i < inner_s.size; i++) {
+                    std::string elem;
+                    dec >> elem;
+                    received_elements.push_back(elem);
+                }
+                dec >> proton::codec::finish();  // finish inner list
+                dec >> proton::codec::finish();  // finish described
+            }
+
+            result["elements"] = static_cast<Json::Value::UInt64>(received_elements.size());
+            result["element_size"] = static_cast<Json::Value::UInt64>(element_size_);
+
+            if (received_elements.size() != elements_) {
+                result["match"] = false;
+            } else {
+                result["match"] = true;
+                for (size_t i = 0; i < elements_; i++) {
+                    if (received_elements[i] != expected_elements[i]) {
+                        result["match"] = false;
+                        result["first_mismatch_element"] = static_cast<Json::Value::UInt64>(i);
+                        const std::string& exp = expected_elements[i];
+                        const std::string& rcv = received_elements[i];
+                        size_t min_len = std::min(exp.size(), rcv.size());
+                        for (size_t j = 0; j < min_len; j++) {
+                            if (exp[j] != rcv[j]) {
+                                result["first_mismatch_offset"] = static_cast<Json::Value::UInt64>(j);
+                                break;
+                            }
+                        }
+                        if (!result.isMember("first_mismatch_offset")) {
+                            result["first_mismatch_offset"] = static_cast<Json::Value::UInt64>(min_len);
+                        }
                         break;
                     }
                 }
