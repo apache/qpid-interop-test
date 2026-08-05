@@ -11,6 +11,30 @@ using Newtonsoft.Json;
 
 namespace Qit.Shim
 {
+    public static class LcgHelper
+    {
+        public static byte[] LcgGenerateBytes(uint seed, int size)
+        {
+            uint state = seed & 0x7FFFFFFF;
+            var result = new byte[size];
+            for (int i = 0; i < size; i++)
+            {
+                state = (uint)((state * 1103515245u + 12345u) & 0x7FFFFFFF);
+                result[i] = (byte)((state >> 16) & 0xFF);
+            }
+            return result;
+        }
+
+        public static string LcgGenerateString(uint seed, int size)
+        {
+            var raw = LcgGenerateBytes(seed, size);
+            var chars = new char[size];
+            for (int i = 0; i < size; i++)
+                chars[i] = (char)(32 + (raw[i] % 95));
+            return new string(chars);
+        }
+    }
+
     public static class Sender
     {
         public static void Send(string broker, string queue, string type, string data, bool jmsMode = false, string headersJson = null, string propertiesJson = null)
@@ -168,6 +192,59 @@ namespace Qit.Shim
                 };
 
                 Console.WriteLine(JsonConvert.SerializeObject(result, Formatting.Indented));
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Send error: {ex.Message}");
+                Environment.Exit(1);
+            }
+        }
+
+        public static void SendLargeContent(string broker, string queue, string contentType, int size, int seed, bool jmsMode)
+        {
+            try
+            {
+                var brokerUri = ParseBrokerUrl(broker);
+
+                // Generate content
+                byte[] binaryBody = null;
+                string stringBody = null;
+                sbyte jmsMsgType;
+
+                if (contentType == "binary")
+                {
+                    binaryBody = LcgHelper.LcgGenerateBytes((uint)seed, size);
+                    jmsMsgType = 3; // JMS_BYTES_MESSAGE
+                }
+                else
+                {
+                    stringBody = LcgHelper.LcgGenerateString((uint)seed, size);
+                    jmsMsgType = 5; // JMS_TEXT_MESSAGE
+                }
+
+                IClient client = IClient.Create();
+                ConnectionOptions options = new ConnectionOptions
+                {
+                    User = "artemis",
+                    Password = "artemis"
+                };
+
+                using IConnection connection = client.Connect(brokerUri.Host, brokerUri.Port, options);
+                using ISender sender = connection.OpenSender(queue);
+
+                var message = IMessage<object>.Create();
+                if (contentType == "binary")
+                    message.Body = binaryBody;
+                else
+                    message.Body = stringBody;
+
+                if (jmsMode)
+                    message.SetAnnotation("x-opt-jms-msg-type", jmsMsgType);
+
+                sender.Send(message);
+
+                var result = new { sent = true, size };
+                Console.WriteLine(JsonConvert.SerializeObject(result));
             }
             catch (Exception ex)
             {

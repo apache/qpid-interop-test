@@ -29,6 +29,9 @@ public class Sender {
         String headersJson = null;
         String propertiesJson = null;
         boolean jmsMode = false;
+        String largeContent = null;
+        int size = 0;
+        int seed = 0;
 
         for (int i = 1; i < args.length; i++) {
             String arg = args[i];
@@ -67,8 +70,64 @@ public class Sender {
                 case "properties":
                     propertiesJson = value;
                     break;
+                case "large-content":
+                    largeContent = value;
+                    break;
+                case "size":
+                    size = Integer.parseInt(value);
+                    break;
+                case "seed":
+                    seed = Integer.parseInt(value);
+                    break;
             }
             i++;  // Skip the value in next iteration
+        }
+
+        // Large content send path
+        if (largeContent != null) {
+            if (broker == null || queue == null) {
+                System.err.println("Missing required arguments");
+                System.exit(1);
+            }
+
+            URI brokerUri = parseBrokerUrl(broker);
+
+            byte[] binaryBody = null;
+            String stringBody = null;
+            byte jmsMsgType;
+
+            if ("binary".equals(largeContent)) {
+                binaryBody = lcgGenerateBytes(seed, size);
+                jmsMsgType = 3;
+            } else {
+                stringBody = lcgGenerateString(seed, size);
+                jmsMsgType = 5;
+            }
+
+            Client client = Client.create();
+            ConnectionOptions options = new ConnectionOptions();
+            options.user("artemis");
+            options.password("artemis");
+
+            try (Connection connection = client.connect(brokerUri.getHost(), brokerUri.getPort(), options);
+                 org.apache.qpid.protonj2.client.Sender sender = connection.openSender(queue)) {
+
+                Message<Object> message = Message.create();
+                if ("binary".equals(largeContent)) {
+                    message.body(binaryBody);
+                } else {
+                    message.body(stringBody);
+                }
+
+                if (jmsMode) {
+                    message.annotation("x-opt-jms-msg-type", jmsMsgType);
+                }
+
+                sender.send(message);
+            }
+
+            System.out.println("{\"sent\": true, \"size\": " + size + "}");
+            return;
         }
 
         if (broker == null || queue == null || type == null || data == null) {
@@ -274,6 +333,25 @@ public class Sender {
                                    + Character.digit(hex.charAt(i + 1), 16));
         }
         return result;
+    }
+
+    private static byte[] lcgGenerateBytes(int seed, int size) {
+        int state = seed & 0x7FFFFFFF;
+        byte[] result = new byte[size];
+        for (int i = 0; i < size; i++) {
+            state = (int)(((long)state * 1103515245L + 12345L) & 0x7FFFFFFFL);
+            result[i] = (byte)((state >> 16) & 0xFF);
+        }
+        return result;
+    }
+
+    private static String lcgGenerateString(int seed, int size) {
+        byte[] raw = lcgGenerateBytes(seed, size);
+        char[] chars = new char[size];
+        for (int i = 0; i < size; i++) {
+            chars[i] = (char)(32 + ((raw[i] & 0xFF) % 95));
+        }
+        return new String(chars);
     }
 
     private static byte getJmsMessageType(String amqpType) {

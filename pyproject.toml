@@ -53,6 +53,7 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "broker: tests requiring a running broker",
     "shim: tests requiring compiled shims",
+    "large_content: extended large content tests (run with --large-content)",
 ]
 timeout = 60
 

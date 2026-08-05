@@ -261,6 +261,119 @@ namespace Qit.Shim
             }
         }
 
+        public static void ReceiveLargeContent(string broker, string queue, string contentType, int size, int seed, int timeout)
+        {
+            try
+            {
+                var brokerUri = ParseBrokerUrl(broker);
+
+                IClient client = IClient.Create();
+                ConnectionOptions options = new ConnectionOptions
+                {
+                    User = "artemis",
+                    Password = "artemis"
+                };
+
+                using IConnection connection = client.Connect(brokerUri.Host, brokerUri.Port, options);
+                using IReceiver receiver = connection.OpenReceiver(queue);
+
+                IDelivery delivery = receiver.Receive(TimeSpan.FromSeconds(timeout));
+                if (delivery == null)
+                {
+                    Console.WriteLine(JsonConvert.SerializeObject(new { match = false, error = "no message received" }));
+                    Environment.Exit(1);
+                }
+
+                IMessage<object> message = delivery.Message();
+
+                object receivedBody = message.Body;
+                bool matched;
+                int receivedSize;
+                int? firstMismatchOffset = null;
+
+                if (contentType == "binary")
+                {
+                    byte[] expected = LcgHelper.LcgGenerateBytes((uint)seed, size);
+                    byte[] received;
+                    if (receivedBody is byte[] byteArray)
+                        received = byteArray;
+                    else if (receivedBody is IProtonBuffer buf)
+                    {
+                        received = new byte[buf.ReadableBytes];
+                        buf.CopyInto(buf.ReadOffset, received, 0, received.Length);
+                    }
+                    else
+                    {
+                        Console.WriteLine(JsonConvert.SerializeObject(new { match = false, error = "expected binary body but got " + (receivedBody?.GetType().Name ?? "null") }));
+                        Environment.Exit(1);
+                        return;
+                    }
+
+                    receivedSize = received.Length;
+                    if (received.Length != expected.Length)
+                    {
+                        matched = false;
+                    }
+                    else
+                    {
+                        matched = true;
+                        for (int i = 0; i < expected.Length; i++)
+                        {
+                            if (received[i] != expected[i])
+                            {
+                                matched = false;
+                                firstMismatchOffset = i;
+                                break;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    string expected = LcgHelper.LcgGenerateString((uint)seed, size);
+                    string received = receivedBody as string ?? receivedBody?.ToString() ?? "";
+
+                    receivedSize = received.Length;
+                    if (received.Length != expected.Length)
+                    {
+                        matched = false;
+                    }
+                    else
+                    {
+                        matched = true;
+                        for (int i = 0; i < expected.Length; i++)
+                        {
+                            if (received[i] != expected[i])
+                            {
+                                matched = false;
+                                firstMismatchOffset = i;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                var result = new Dictionary<string, object>
+                {
+                    { "match", matched },
+                    { "size", receivedSize },
+                    { "expected_size", size }
+                };
+                if (firstMismatchOffset.HasValue)
+                    result["first_mismatch_offset"] = firstMismatchOffset.Value;
+
+                Console.WriteLine(JsonConvert.SerializeObject(result));
+
+                if (!matched)
+                    Environment.Exit(1);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Receive error: {ex.Message}");
+                Environment.Exit(1);
+            }
+        }
+
         private static (string Host, int Port) ParseBrokerUrl(string broker)
         {
             var uri = new Uri(broker.StartsWith("amqp://") ? broker : $"amqp://{broker}");

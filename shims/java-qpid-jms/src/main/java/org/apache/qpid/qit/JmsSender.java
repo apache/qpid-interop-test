@@ -42,6 +42,9 @@ public class JmsSender {
         String data = null;
         String headersJson = null;
         String propertiesJson = null;
+        String largeContent = null;
+        int size = 0;
+        int seed = 0;
 
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
@@ -63,21 +66,29 @@ public class JmsSender {
                 case "--properties":
                     propertiesJson = args[++i];
                     break;
+                case "--large-content":
+                    largeContent = args[++i];
+                    break;
+                case "--size":
+                    size = Integer.parseInt(args[++i]);
+                    break;
+                case "--seed":
+                    seed = Integer.parseInt(args[++i]);
+                    break;
                 default:
                     throw new IllegalArgumentException("Unknown argument: " + args[i]);
             }
         }
 
-        if (broker == null || queue == null || type == null || data == null) {
+        if (broker == null || queue == null) {
             System.err.println("Usage: JmsSender --broker <url> --queue <name> --type <jms_type> --data <json> [--headers <json>] [--properties <json>]");
             System.exit(1);
         }
 
-        // Parse JSON data
-        Gson gson = new Gson();
-        JsonArray messages = gson.fromJson(data, JsonArray.class);
-        JsonObject headers = headersJson != null ? gson.fromJson(headersJson, JsonObject.class) : new JsonObject();
-        JsonObject properties = propertiesJson != null ? gson.fromJson(propertiesJson, JsonObject.class) : new JsonObject();
+        if (largeContent == null && (type == null || data == null)) {
+            System.err.println("Usage: JmsSender --broker <url> --queue <name> --type <jms_type> --data <json> [--headers <json>] [--properties <json>]");
+            System.exit(1);
+        }
 
         // Connect to broker
         String brokerUrl = broker.startsWith("amqp://") ? broker : "amqp://" + broker;
@@ -88,6 +99,35 @@ public class JmsSender {
         session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
         Destination destination = session.createQueue(queue);
         producer = session.createProducer(destination);
+
+        // Large content mode
+        if (largeContent != null) {
+            if ("binary".equals(largeContent)) {
+                byte[] contentData = lcgGenerateBytes(seed, size);
+                BytesMessage message = session.createBytesMessage();
+                message.writeBytes(contentData);
+                producer.send(message, DeliveryMode.NON_PERSISTENT, Message.DEFAULT_PRIORITY, Message.DEFAULT_TIME_TO_LIVE);
+            } else if ("string".equals(largeContent)) {
+                String contentData = lcgGenerateString(seed, size);
+                TextMessage message = session.createTextMessage(contentData);
+                producer.send(message, DeliveryMode.NON_PERSISTENT, Message.DEFAULT_PRIORITY, Message.DEFAULT_TIME_TO_LIVE);
+            } else {
+                throw new IllegalArgumentException("Unknown large-content type: " + largeContent);
+            }
+            System.out.println("{\"sent\": true, \"size\": " + size + "}");
+
+            // Cleanup
+            producer.close();
+            session.close();
+            connection.close();
+            return;
+        }
+
+        // Parse JSON data
+        Gson gson = new Gson();
+        JsonArray messages = gson.fromJson(data, JsonArray.class);
+        JsonObject headers = headersJson != null ? gson.fromJson(headersJson, JsonObject.class) : new JsonObject();
+        JsonObject properties = propertiesJson != null ? gson.fromJson(propertiesJson, JsonObject.class) : new JsonObject();
 
         // Send messages
         for (JsonElement element : messages) {
@@ -493,5 +533,24 @@ public class JmsSender {
                     throw new IllegalArgumentException("Unknown property type: " + type);
             }
         }
+    }
+
+    private static byte[] lcgGenerateBytes(int seed, int size) {
+        int state = seed & 0x7FFFFFFF;
+        byte[] result = new byte[size];
+        for (int i = 0; i < size; i++) {
+            state = (int)(((long)state * 1103515245L + 12345L) & 0x7FFFFFFFL);
+            result[i] = (byte)((state >> 16) & 0xFF);
+        }
+        return result;
+    }
+
+    private static String lcgGenerateString(int seed, int size) {
+        byte[] raw = lcgGenerateBytes(seed, size);
+        char[] chars = new char[size];
+        for (int i = 0; i < size; i++) {
+            chars[i] = (char)(32 + ((raw[i] & 0xFF) % 95));
+        }
+        return new String(chars);
     }
 }

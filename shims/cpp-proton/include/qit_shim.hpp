@@ -16,6 +16,7 @@
 
 #include <string>
 #include <vector>
+#include <cstdint>
 
 namespace qit {
 
@@ -83,6 +84,61 @@ private:
     void on_timeout();
     void output_result();
     Json::Value decode_jms_message(const proton::value& body, int8_t jms_msg_type);
+};
+
+// LCG pseudo-random generators (glibc-style)
+std::vector<uint8_t> lcg_generate_bytes(uint32_t seed, size_t size);
+std::string lcg_generate_string(uint32_t seed, size_t size);
+
+// Large content sender handler - sends a single large message
+class LargeContentSender : public proton::messaging_handler {
+public:
+    LargeContentSender(const std::string& broker_url,
+                       const std::string& queue_name,
+                       const std::string& content_type,
+                       uint32_t seed,
+                       size_t size,
+                       bool jms_mode);
+
+    void on_container_start(proton::container& c) override;
+    void on_sendable(proton::sender& s) override;
+    void on_tracker_accept(proton::tracker& t) override;
+    void on_transport_error(proton::transport& t) override;
+
+private:
+    std::string broker_url_;
+    std::string queue_name_;
+    std::string content_type_;
+    uint32_t seed_;
+    size_t size_;
+    bool jms_mode_;
+    bool sent_;
+};
+
+// Large content receiver handler - receives a single large message and verifies
+class LargeContentReceiver : public proton::messaging_handler {
+public:
+    LargeContentReceiver(const std::string& broker_url,
+                         const std::string& queue_name,
+                         const std::string& content_type,
+                         uint32_t seed,
+                         size_t size,
+                         int timeout_sec);
+
+    void on_container_start(proton::container& c) override;
+    void on_message(proton::delivery& d, proton::message& m) override;
+    void on_transport_error(proton::transport& t) override;
+
+private:
+    std::string broker_url_;
+    std::string queue_name_;
+    std::string content_type_;
+    uint32_t seed_;
+    size_t size_;
+    int timeout_sec_;
+    bool received_;
+
+    void on_timeout();
 };
 
 // Type codec - converts between AMQP values and JSON

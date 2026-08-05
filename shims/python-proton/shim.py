@@ -774,6 +774,162 @@ class ReceiverHandler(MessagingHandler):
         return str(value)
 
 
+class LargeContentSender(MessagingHandler):
+    """Handler for sending a single large content message."""
+
+    def __init__(self, url: str, queue: str, message: Message) -> None:
+        super().__init__()
+        self.url = url
+        self.queue = queue
+        self.message = message
+        self.sent = False
+
+    def on_start(self, event: Any) -> None:
+        connection = event.container.connect(url=self.url, sasl_enabled=False, reconnect=False)
+        event.container.create_sender(connection, target=self.queue)
+
+    def on_sendable(self, event: Any) -> None:
+        if not self.sent:
+            event.sender.send(self.message)
+            self.sent = True
+
+    def on_accepted(self, event: Any) -> None:
+        event.connection.close()
+
+    def on_rejected(self, event: Any) -> None:
+        print(f"Message rejected: {event.delivery.remote}", file=sys.stderr)
+        event.connection.close()
+
+
+class LargeContentReceiver(MessagingHandler):
+    """Handler for receiving a single large content message.
+
+    Copies body immediately — Proton's internal buffer (memoryview) is only
+    valid inside on_message.
+    """
+
+    def __init__(self, url: str, queue: str) -> None:
+        super().__init__()
+        self.url = url
+        self.queue = queue
+        self.body: bytes | str | None = None
+
+    def on_start(self, event: Any) -> None:
+        connection = event.container.connect(url=self.url, sasl_enabled=False, reconnect=False)
+        event.container.create_receiver(connection, source=self.queue)
+
+    def on_message(self, event: Any) -> None:
+        raw = event.message.body
+        if isinstance(raw, (memoryview, bytearray)):
+            self.body = bytes(raw)
+        else:
+            self.body = raw
+        event.receiver.close()
+        event.connection.close()
+
+
+def lcg_generate_bytes(seed: int, size: int) -> bytes:
+    """Generate pseudo-random bytes using glibc-style LCG."""
+    state = seed & 0x7FFFFFFF
+    result = bytearray(size)
+    for i in range(size):
+        state = (state * 1103515245 + 12345) & 0x7FFFFFFF
+        result[i] = (state >> 16) & 0xFF
+    return bytes(result)
+
+
+def lcg_generate_string(seed: int, size: int) -> str:
+    """Generate pseudo-random printable ASCII string using LCG."""
+    raw = lcg_generate_bytes(seed, size)
+    return "".join(chr(32 + (b % 95)) for b in raw)
+
+
+def send_large_content(args: argparse.Namespace) -> None:
+    """Send a single large content message generated from PRNG seed."""
+    content_type = args.large_content
+    size = args.size
+    seed = args.seed
+    jms_mode = getattr(args, "jms_mode", False)
+
+    if content_type == "binary":
+        body = lcg_generate_bytes(seed, size)
+        jms_msg_type = 3  # JMS_BYTES_MESSAGE
+    elif content_type == "string":
+        body = lcg_generate_string(seed, size)
+        jms_msg_type = 5  # JMS_TEXT_MESSAGE
+    else:
+        print(f"Unknown large-content type: {content_type}", file=sys.stderr)
+        sys.exit(1)
+
+    msg = Message(body=body)
+    if jms_mode:
+        from proton import byte as proton_byte, symbol
+        msg.annotations = {symbol("x-opt-jms-msg-type"): proton_byte(jms_msg_type)}
+
+    handler = LargeContentSender(args.broker, args.queue, msg)
+    Container(handler).run()
+
+    result = {"sent": True, "size": size}
+    print(json.dumps(result))
+
+
+def receive_large_content(args: argparse.Namespace) -> None:
+    """Receive a single large content message and verify against PRNG seed."""
+    import signal
+
+    content_type = args.large_content
+    size = args.size
+    seed = args.seed
+
+    handler = LargeContentReceiver(args.broker, args.queue)
+
+    def timeout_handler(signum, frame):
+        raise TimeoutError(f"Receiver timed out after {args.timeout} seconds")
+
+    signal.signal(signal.SIGALRM, timeout_handler)
+    signal.alarm(args.timeout)
+
+    try:
+        Container(handler).run()
+    except TimeoutError:
+        pass
+    finally:
+        signal.alarm(0)
+
+    if handler.body is None:
+        print(json.dumps({"match": False, "error": "no message received"}))
+        sys.exit(1)
+
+    if content_type == "binary":
+        expected = lcg_generate_bytes(seed, size)
+        if isinstance(handler.body, (bytes, bytearray)):
+            received = handler.body
+        else:
+            received = bytes(handler.body)
+    elif content_type == "string":
+        expected = lcg_generate_string(seed, size)
+        received = str(handler.body) if handler.body is not None else ""
+    else:
+        print(json.dumps({"match": False, "error": f"unknown type: {content_type}"}))
+        sys.exit(1)
+
+    result: dict[str, Any] = {"size": len(received), "expected_size": size}
+    if len(received) != len(expected):
+        result["match"] = False
+    elif received == expected:
+        result["match"] = True
+    else:
+        result["match"] = False
+        for i in range(len(expected)):
+            if received[i] != expected[i]:
+                result["first_mismatch_offset"] = i
+                break
+
+    print(json.dumps(result))
+    if not result["match"]:
+        sys.exit(1)
+
+
 def send_messages(args: argparse.Namespace) -> None:
     """Send messages via broker."""
     messages = json.loads(args.data)
@@ -828,9 +984,9 @@ def main() -> None:
     send_parser = subparsers.add_parser("send", help="Send messages")
     send_parser.add_argument("--broker", required=True, help="Broker URL")
     send_parser.add_argument("--queue", required=True, help="Queue name")
-    send_parser.add_argument("--type", required=True, help="AMQP type")
-    send_parser.add_argument("--count", type=int, required=True, help="Message count")
-    send_parser.add_argument("--data", required=True, help="JSON message data")
+    send_parser.add_argument("--type", required=False, help="AMQP type")
+    send_parser.add_argument("--count", type=int, required=False, help="Message count")
+    send_parser.add_argument("--data", required=False, help="JSON message data")
     send_parser.add_argument(
         "--jms-mode",
         action="store_true",
@@ -838,20 +994,32 @@ def main() -> None:
     )
     send_parser.add_argument("--headers", default=None, help="JSON JMS headers")
     send_parser.add_argument("--properties", default=None, help="JSON JMS application properties")
+    send_parser.add_argument("--large-content", default=None, help="Large content type (binary or string)")
+    send_parser.add_argument("--size", type=int, default=None, help="Large content size in bytes")
+    send_parser.add_argument("--seed", type=int, default=None, help="PRNG seed for large content")
 
     # Receive command
     recv_parser = subparsers.add_parser("receive", help="Receive messages")
     recv_parser.add_argument("--broker", required=True, help="Broker URL")
     recv_parser.add_argument("--queue", required=True, help="Queue name")
-    recv_parser.add_argument("--count", type=int, required=True, help="Message count")
+    recv_parser.add_argument("--count", type=int, required=False, default=1, help="Message count")
     recv_parser.add_argument("--timeout", type=int, default=30, help="Timeout in seconds")
+    recv_parser.add_argument("--large-content", default=None, help="Large content type (binary or string)")
+    recv_parser.add_argument("--size", type=int, default=None, help="Expected large content size in bytes")
+    recv_parser.add_argument("--seed", type=int, default=None, help="PRNG seed for verification")
 
     args = parser.parse_args()
 
     if args.command == "send":
-        send_messages(args)
+        if args.large_content:
+            send_large_content(args)
+        else:
+            send_messages(args)
     elif args.command == "receive":
-        receive_messages(args)
+        if args.large_content:
+            receive_large_content(args)
+        else:
+            receive_messages(args)
 
 
 if __name__ == "__main__":

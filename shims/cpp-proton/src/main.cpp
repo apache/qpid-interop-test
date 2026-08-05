@@ -10,6 +10,7 @@
 #include <string>
 #include <cstring>
 #include <cstdlib>
+#include <cstdint>
 
 void print_usage(const char* prog_name) {
     std::cerr << "Usage: " << prog_name << " <command> [options]\n"
@@ -27,6 +28,10 @@ void print_usage(const char* prog_name) {
               << "  --queue <name>      Queue name\n"
               << "  --count <n>         Expected message count\n"
               << "  --timeout <sec>     Timeout in seconds (default: 30)\n"
+              << "\nLarge content options:\n"
+              << "  --large-content <type>  Content type: 'binary' or 'string'\n"
+              << "  --size <bytes>          Content size in bytes\n"
+              << "  --seed <n>              PRNG seed for content generation\n"
               << std::endl;
 }
 
@@ -41,6 +46,9 @@ struct CommandLineArgs {
     int count = 0;
     int timeout = 30;
     bool jms_mode = false;
+    std::string large_content;  // "binary" or "string", empty if not large content mode
+    size_t size = 0;
+    uint32_t seed = 0;
 
     bool parse(int argc, char** argv) {
         if (argc < 2) {
@@ -83,6 +91,12 @@ struct CommandLineArgs {
                 headers = val;
             } else if (opt == "--properties") {
                 properties = val;
+            } else if (opt == "--large-content") {
+                large_content = val;
+            } else if (opt == "--size") {
+                size = static_cast<size_t>(std::strtoull(val.c_str(), nullptr, 10));
+            } else if (opt == "--seed") {
+                seed = static_cast<uint32_t>(std::strtoul(val.c_str(), nullptr, 10));
             } else {
                 std::cerr << "Error: Unknown option " << opt << std::endl;
                 return false;
@@ -108,6 +122,19 @@ struct CommandLineArgs {
         if (queue.empty()) {
             std::cerr << "Error: --queue is required" << std::endl;
             return false;
+        }
+
+        // Large content mode has different requirements
+        if (!large_content.empty()) {
+            if (large_content != "binary" && large_content != "string") {
+                std::cerr << "Error: --large-content must be 'binary' or 'string'" << std::endl;
+                return false;
+            }
+            if (size == 0) {
+                std::cerr << "Error: --size is required for large content" << std::endl;
+                return false;
+            }
+            return true;
         }
 
         if (count <= 0) {
@@ -138,7 +165,20 @@ int main(int argc, char** argv) {
             return 1;
         }
 
-        if (args.command == "send") {
+        if (!args.large_content.empty()) {
+            // Large content mode
+            if (args.command == "send") {
+                qit::LargeContentSender sender(args.broker, args.queue,
+                    args.large_content, args.seed, args.size, args.jms_mode);
+                proton::container(sender).run();
+                return 0;
+            } else if (args.command == "receive") {
+                qit::LargeContentReceiver receiver(args.broker, args.queue,
+                    args.large_content, args.seed, args.size, args.timeout);
+                proton::container(receiver).run();
+                return 0;
+            }
+        } else if (args.command == "send") {
             qit::Sender sender(args.broker, args.queue, args.amqp_type, args.data, args.jms_mode, args.headers, args.properties);
             proton::container(sender).run();
             return 0;

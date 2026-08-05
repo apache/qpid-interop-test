@@ -14,8 +14,10 @@
 #include <iomanip>
 #include <iostream>
 #include <map>
+#include <vector>
 #include <cstdio>
 #include <cstring>
+#include <cstdint>
 
 namespace qit {
 
@@ -249,6 +251,92 @@ void Sender::on_transport_error(proton::transport& t) {
 
 void Sender::on_error(const proton::error_condition& ec) {
     std::cerr << "Error: " << ec << std::endl;
+}
+
+// --- LCG PRNG functions ---
+
+std::vector<uint8_t> lcg_generate_bytes(uint32_t seed, size_t size) {
+    uint32_t state = seed & 0x7FFFFFFF;
+    std::vector<uint8_t> result(size);
+    for (size_t i = 0; i < size; i++) {
+        state = (state * 1103515245u + 12345u) & 0x7FFFFFFF;
+        result[i] = (state >> 16) & 0xFF;
+    }
+    return result;
+}
+
+std::string lcg_generate_string(uint32_t seed, size_t size) {
+    auto raw = lcg_generate_bytes(seed, size);
+    std::string result(size, '\0');
+    for (size_t i = 0; i < size; i++) {
+        result[i] = static_cast<char>(32 + (raw[i] % 95));
+    }
+    return result;
+}
+
+// --- Large Content Sender ---
+
+LargeContentSender::LargeContentSender(const std::string& broker_url,
+                                       const std::string& queue_name,
+                                       const std::string& content_type,
+                                       uint32_t seed,
+                                       size_t size,
+                                       bool jms_mode)
+    : broker_url_(broker_url),
+      queue_name_(queue_name),
+      content_type_(content_type),
+      seed_(seed),
+      size_(size),
+      jms_mode_(jms_mode),
+      sent_(false) {}
+
+void LargeContentSender::on_container_start(proton::container& c) {
+    c.open_sender(broker_url_ + "/" + queue_name_);
+}
+
+void LargeContentSender::on_sendable(proton::sender& s) {
+    if (sent_) return;
+    sent_ = true;
+
+    proton::message msg;
+
+    if (content_type_ == "binary") {
+        auto data = lcg_generate_bytes(seed_, size_);
+        proton::binary bin(data.begin(), data.end());
+        msg.body(bin);
+    } else {
+        std::string str = lcg_generate_string(seed_, size_);
+        msg.body(str);
+    }
+
+    if (jms_mode_) {
+        proton::annotation_key jms_key(proton::symbol("x-opt-jms-msg-type"));
+        if (content_type_ == "binary") {
+            msg.message_annotations().put(jms_key, static_cast<int8_t>(3));  // JMS_BYTES_MESSAGE
+        } else {
+            msg.message_annotations().put(jms_key, static_cast<int8_t>(5));  // JMS_TEXT_MESSAGE
+        }
+    }
+
+    s.send(msg);
+}
+
+void LargeContentSender::on_tracker_accept(proton::tracker& t) {
+    // Output result as JSON
+    Json::Value result;
+    result["sent"] = true;
+    result["size"] = static_cast<Json::Value::UInt64>(size_);
+
+    Json::StreamWriterBuilder builder;
+    builder["indentation"] = "  ";
+    std::cout << Json::writeString(builder, result) << std::endl;
+
+    t.sender().close();
+    t.connection().close();
+}
+
+void LargeContentSender::on_transport_error(proton::transport& t) {
+    std::cerr << "Transport error: " << t.error() << std::endl;
 }
 
 } // namespace qit

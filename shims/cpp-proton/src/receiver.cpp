@@ -13,9 +13,11 @@
 #include <proton/codec/encoder.hpp>
 #include <proton/codec/decoder.hpp>
 #include <iostream>
+#include <vector>
 #include <cstdlib>
 #include <cstring>
 #include <cstdio>
+#include <cstdint>
 
 namespace qit {
 
@@ -314,6 +316,117 @@ void Receiver::on_transport_error(proton::transport& t) {
 
 void Receiver::on_error(const proton::error_condition& ec) {
     std::cerr << "Error: " << ec << std::endl;
+}
+
+// --- Large Content Receiver ---
+
+LargeContentReceiver::LargeContentReceiver(const std::string& broker_url,
+                                           const std::string& queue_name,
+                                           const std::string& content_type,
+                                           uint32_t seed,
+                                           size_t size,
+                                           int timeout_sec)
+    : broker_url_(broker_url),
+      queue_name_(queue_name),
+      content_type_(content_type),
+      seed_(seed),
+      size_(size),
+      timeout_sec_(timeout_sec),
+      received_(false) {}
+
+void LargeContentReceiver::on_container_start(proton::container& c) {
+    c.open_receiver(broker_url_ + "/" + queue_name_);
+
+    if (timeout_sec_ > 0) {
+        proton::work timeout_work = proton::make_work([this]() {
+            this->on_timeout();
+        });
+        c.schedule(proton::duration(timeout_sec_ * 1000), timeout_work);
+    }
+}
+
+void LargeContentReceiver::on_message(proton::delivery& d, proton::message& m) {
+    if (received_) return;
+    received_ = true;
+
+    Json::Value result;
+
+    try {
+        if (content_type_ == "binary") {
+            proton::binary received_bin = proton::get<proton::binary>(m.body());
+            auto expected = lcg_generate_bytes(seed_, size_);
+
+            size_t received_size = received_bin.size();
+            result["size"] = static_cast<Json::Value::UInt64>(received_size);
+            result["expected_size"] = static_cast<Json::Value::UInt64>(size_);
+
+            if (received_size != size_) {
+                result["match"] = false;
+            } else {
+                bool match = true;
+                for (size_t i = 0; i < size_; i++) {
+                    if (static_cast<uint8_t>(received_bin[i]) != expected[i]) {
+                        result["match"] = false;
+                        result["first_mismatch_offset"] = static_cast<Json::Value::UInt64>(i);
+                        match = false;
+                        break;
+                    }
+                }
+                if (match) {
+                    result["match"] = true;
+                }
+            }
+        } else {
+            std::string received_str = proton::get<std::string>(m.body());
+            std::string expected = lcg_generate_string(seed_, size_);
+
+            size_t received_size = received_str.size();
+            result["size"] = static_cast<Json::Value::UInt64>(received_size);
+            result["expected_size"] = static_cast<Json::Value::UInt64>(size_);
+
+            if (received_size != size_) {
+                result["match"] = false;
+            } else if (received_str == expected) {
+                result["match"] = true;
+            } else {
+                result["match"] = false;
+                for (size_t i = 0; i < size_; i++) {
+                    if (received_str[i] != expected[i]) {
+                        result["first_mismatch_offset"] = static_cast<Json::Value::UInt64>(i);
+                        break;
+                    }
+                }
+            }
+        }
+    } catch (const std::exception& e) {
+        result["match"] = false;
+        result["error"] = std::string("Failed to extract body: ") + e.what();
+    }
+
+    Json::StreamWriterBuilder builder;
+    builder["indentation"] = "  ";
+    std::cout << Json::writeString(builder, result) << std::endl;
+
+    d.receiver().close();
+    d.connection().close();
+}
+
+void LargeContentReceiver::on_timeout() {
+    if (!received_) {
+        Json::Value result;
+        result["match"] = false;
+        result["error"] = "no message received";
+
+        Json::StreamWriterBuilder builder;
+        builder["indentation"] = "  ";
+        std::cout << Json::writeString(builder, result) << std::endl;
+
+        std::exit(1);
+    }
+}
+
+void LargeContentReceiver::on_transport_error(proton::transport& t) {
+    std::cerr << "Transport error: " << t.error() << std::endl;
 }
 
 } // namespace qit

@@ -24,6 +24,9 @@ public class Receiver {
         String queue = null;
         int count = 0;
         int timeout = 30;
+        String largeContent = null;
+        int size = 0;
+        int seed = 0;
 
         for (int i = 1; i < args.length; i += 2) {
             String key = args[i].replace("--", "");
@@ -42,6 +45,120 @@ public class Receiver {
                 case "timeout":
                     timeout = Integer.parseInt(value);
                     break;
+                case "large-content":
+                    largeContent = value;
+                    break;
+                case "size":
+                    size = Integer.parseInt(value);
+                    break;
+                case "seed":
+                    seed = Integer.parseInt(value);
+                    break;
+            }
+        }
+
+        // Large content receive path
+        if (largeContent != null) {
+            if (broker == null || queue == null) {
+                System.err.println("Missing required arguments");
+                System.exit(1);
+            }
+
+            URI brokerUri = parseBrokerUrl(broker);
+
+            Client client = Client.create();
+            ConnectionOptions options = new ConnectionOptions();
+            options.user("artemis");
+            options.password("artemis");
+
+            try (Connection connection = client.connect(brokerUri.getHost(), brokerUri.getPort(), options);
+                 org.apache.qpid.protonj2.client.Receiver receiver = connection.openReceiver(queue)) {
+
+                Delivery delivery = receiver.receive(timeout, java.util.concurrent.TimeUnit.SECONDS);
+                if (delivery == null) {
+                    System.out.println("{\"received\": false, \"error\": \"timeout\"}");
+                    System.exit(1);
+                    return;
+                }
+
+                Message<?> message = delivery.message();
+                Object body = message.body();
+
+                boolean match;
+                int receivedSize;
+
+                if ("binary".equals(largeContent)) {
+                    byte[] expected = lcgGenerateBytes(seed, size);
+                    byte[] received;
+                    if (body instanceof byte[]) {
+                        received = (byte[]) body;
+                    } else if (body instanceof org.apache.qpid.protonj2.types.Binary) {
+                        org.apache.qpid.protonj2.types.Binary bin = (org.apache.qpid.protonj2.types.Binary) body;
+                        received = bin.asByteArray();
+                    } else {
+                        System.out.println("{\"received\": true, \"match\": false, \"error\": \"expected byte[] but got " + body.getClass().getSimpleName() + "\"}");
+                        System.exit(1);
+                        return;
+                    }
+                    receivedSize = received.length;
+                    int mismatchOffset = -1;
+                    if (received.length != expected.length) {
+                        match = false;
+                    } else {
+                        match = true;
+                        for (int i = 0; i < expected.length; i++) {
+                            if (received[i] != expected[i]) {
+                                match = false;
+                                mismatchOffset = i;
+                                break;
+                            }
+                        }
+                    }
+                    StringBuilder sb = new StringBuilder();
+                    sb.append("{\"size\": ").append(receivedSize)
+                      .append(", \"expected_size\": ").append(size)
+                      .append(", \"match\": ").append(match);
+                    if (mismatchOffset >= 0)
+                        sb.append(", \"first_mismatch_offset\": ").append(mismatchOffset);
+                    sb.append("}");
+                    System.out.println(sb.toString());
+                    if (!match) System.exit(1);
+                    return;
+                } else {
+                    String expected = lcgGenerateString(seed, size);
+                    String received;
+                    if (body instanceof String) {
+                        received = (String) body;
+                    } else {
+                        System.out.println("{\"received\": true, \"match\": false, \"error\": \"expected String but got " + body.getClass().getSimpleName() + "\"}");
+                        System.exit(1);
+                        return;
+                    }
+                    receivedSize = received.length();
+                    int mismatchOffset = -1;
+                    if (received.length() != expected.length()) {
+                        match = false;
+                    } else {
+                        match = true;
+                        for (int i = 0; i < expected.length(); i++) {
+                            if (received.charAt(i) != expected.charAt(i)) {
+                                match = false;
+                                mismatchOffset = i;
+                                break;
+                            }
+                        }
+                    }
+                    StringBuilder sb = new StringBuilder();
+                    sb.append("{\"size\": ").append(receivedSize)
+                      .append(", \"expected_size\": ").append(size)
+                      .append(", \"match\": ").append(match);
+                    if (mismatchOffset >= 0)
+                        sb.append(", \"first_mismatch_offset\": ").append(mismatchOffset);
+                    sb.append("}");
+                    System.out.println(sb.toString());
+                    if (!match) System.exit(1);
+                    return;
+                }
             }
         }
 
@@ -220,6 +337,25 @@ public class Receiver {
         }
         URI uri = new URI(broker);
         return uri;
+    }
+
+    private static byte[] lcgGenerateBytes(int seed, int size) {
+        int state = seed & 0x7FFFFFFF;
+        byte[] result = new byte[size];
+        for (int i = 0; i < size; i++) {
+            state = (int)(((long)state * 1103515245L + 12345L) & 0x7FFFFFFFL);
+            result[i] = (byte)((state >> 16) & 0xFF);
+        }
+        return result;
+    }
+
+    private static String lcgGenerateString(int seed, int size) {
+        byte[] raw = lcgGenerateBytes(seed, size);
+        char[] chars = new char[size];
+        for (int i = 0; i < size; i++) {
+            chars[i] = (char)(32 + ((raw[i] & 0xFF) % 95));
+        }
+        return new String(chars);
     }
 
     private static TypeCodec.DecodedMessage decodeJmsMessage(Object body, byte jmsType) {

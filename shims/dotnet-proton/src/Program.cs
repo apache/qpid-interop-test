@@ -6,6 +6,7 @@
 
 using System;
 using System.CommandLine;
+using System.CommandLine.Invocation;
 
 namespace Qit.Shim
 {
@@ -19,12 +20,15 @@ namespace Qit.Shim
             var sendCommand = new Command("send", "Send AMQP messages");
             var sendBrokerOption = new Option<string>("--broker", "Broker URL") { IsRequired = true };
             var sendQueueOption = new Option<string>("--queue", "Queue name") { IsRequired = true };
-            var sendTypeOption = new Option<string>("--type", "AMQP type") { IsRequired = true };
+            var sendTypeOption = new Option<string>("--type", "AMQP type");
             var sendCountOption = new Option<int>("--count", "Message count") { IsRequired = false };
-            var sendDataOption = new Option<string>("--data", "JSON test data") { IsRequired = true };
+            var sendDataOption = new Option<string>("--data", "JSON test data");
             var sendJmsModeOption = new Option<bool>("--jms-mode", () => false, "Enable JMS emulation mode");
             var sendHeadersOption = new Option<string>("--headers", () => null, "JSON JMS headers");
             var sendPropertiesOption = new Option<string>("--properties", () => null, "JSON JMS application properties");
+            var sendLargeContentOption = new Option<string>("--large-content", () => null, "Large content type (binary or string)");
+            var sendSizeOption = new Option<int>("--size", () => 0, "Large content size");
+            var sendSeedOption = new Option<int>("--seed", () => 0, "PRNG seed");
 
             sendCommand.AddOption(sendBrokerOption);
             sendCommand.AddOption(sendQueueOption);
@@ -34,44 +38,86 @@ namespace Qit.Shim
             sendCommand.AddOption(sendJmsModeOption);
             sendCommand.AddOption(sendHeadersOption);
             sendCommand.AddOption(sendPropertiesOption);
+            sendCommand.AddOption(sendLargeContentOption);
+            sendCommand.AddOption(sendSizeOption);
+            sendCommand.AddOption(sendSeedOption);
 
-            sendCommand.SetHandler((broker, queue, type, count, data, jmsMode, headers, properties) =>
+            sendCommand.SetHandler((context) =>
             {
                 try
                 {
-                    Sender.Send(broker, queue, type, data, jmsMode, headers, properties);
+                    var broker = context.ParseResult.GetValueForOption(sendBrokerOption);
+                    var queue = context.ParseResult.GetValueForOption(sendQueueOption);
+                    var jmsMode = context.ParseResult.GetValueForOption(sendJmsModeOption);
+                    var largeContent = context.ParseResult.GetValueForOption(sendLargeContentOption);
+
+                    if (!string.IsNullOrEmpty(largeContent))
+                    {
+                        var size = context.ParseResult.GetValueForOption(sendSizeOption);
+                        var seed = context.ParseResult.GetValueForOption(sendSeedOption);
+                        Sender.SendLargeContent(broker, queue, largeContent, size, seed, jmsMode);
+                    }
+                    else
+                    {
+                        var type = context.ParseResult.GetValueForOption(sendTypeOption);
+                        var data = context.ParseResult.GetValueForOption(sendDataOption);
+                        var headers = context.ParseResult.GetValueForOption(sendHeadersOption);
+                        var properties = context.ParseResult.GetValueForOption(sendPropertiesOption);
+                        Sender.Send(broker, queue, type, data, jmsMode, headers, properties);
+                    }
                 }
                 catch (Exception ex)
                 {
                     Console.Error.WriteLine($"Error: {ex.Message}");
                     Environment.Exit(1);
                 }
-            }, sendBrokerOption, sendQueueOption, sendTypeOption, sendCountOption, sendDataOption, sendJmsModeOption, sendHeadersOption, sendPropertiesOption);
+            });
 
             // Receive command
             var receiveCommand = new Command("receive", "Receive AMQP messages");
             var receiveBrokerOption = new Option<string>("--broker", "Broker URL") { IsRequired = true };
             var receiveQueueOption = new Option<string>("--queue", "Queue name") { IsRequired = true };
-            var receiveCountOption = new Option<int>("--count", "Expected message count") { IsRequired = true };
+            var receiveCountOption = new Option<int>("--count", "Expected message count");
             var receiveTimeoutOption = new Option<int>("--timeout", () => 30, "Timeout in seconds");
+            var receiveLargeContentOption = new Option<string>("--large-content", () => null, "Large content type (binary or string)");
+            var receiveSizeOption = new Option<int>("--size", () => 0, "Large content size");
+            var receiveSeedOption = new Option<int>("--seed", () => 0, "PRNG seed");
 
             receiveCommand.AddOption(receiveBrokerOption);
             receiveCommand.AddOption(receiveQueueOption);
             receiveCommand.AddOption(receiveCountOption);
             receiveCommand.AddOption(receiveTimeoutOption);
+            receiveCommand.AddOption(receiveLargeContentOption);
+            receiveCommand.AddOption(receiveSizeOption);
+            receiveCommand.AddOption(receiveSeedOption);
 
-            receiveCommand.SetHandler((broker, queue, count, timeout) =>
+            receiveCommand.SetHandler((context) =>
             {
                 try
                 {
-                    Receiver.Receive(broker, queue, count, timeout);
+                    var broker = context.ParseResult.GetValueForOption(receiveBrokerOption);
+                    var queue = context.ParseResult.GetValueForOption(receiveQueueOption);
+                    var timeout = context.ParseResult.GetValueForOption(receiveTimeoutOption);
+                    var largeContent = context.ParseResult.GetValueForOption(receiveLargeContentOption);
+
+                    if (!string.IsNullOrEmpty(largeContent))
+                    {
+                        var size = context.ParseResult.GetValueForOption(receiveSizeOption);
+                        var seed = context.ParseResult.GetValueForOption(receiveSeedOption);
+                        Receiver.ReceiveLargeContent(broker, queue, largeContent, size, seed, timeout);
+                    }
+                    else
+                    {
+                        var count = context.ParseResult.GetValueForOption(receiveCountOption);
+                        Receiver.Receive(broker, queue, count, timeout);
+                    }
                 }
                 catch (Exception ex)
                 {
                     Console.Error.WriteLine($"Error: {ex.Message}");
                     Environment.Exit(1);
                 }
-            }, receiveBrokerOption, receiveQueueOption, receiveCountOption, receiveTimeoutOption);
+            });
 
             rootCommand.AddCommand(sendCommand);
             rootCommand.AddCommand(receiveCommand);

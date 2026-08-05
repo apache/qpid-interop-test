@@ -646,6 +646,174 @@ class TypeDecoder {
     }
 }
 
+// PRNG: glibc-style Linear Congruential Generator
+function lcgGenerateBytes(seed, size) {
+    let state = seed & 0x7FFFFFFF;
+    const result = Buffer.alloc(size);
+    for (let i = 0; i < size; i++) {
+        state = (Math.imul(state, 1103515245) + 12345) & 0x7FFFFFFF;
+        result[i] = (state >> 16) & 0xFF;
+    }
+    return result;
+}
+
+function lcgGenerateString(seed, size) {
+    const raw = lcgGenerateBytes(seed, size);
+    let s = '';
+    for (let i = 0; i < size; i++) {
+        s += String.fromCharCode(32 + (raw[i] % 95));
+    }
+    return s;
+}
+
+// Send a single large content message
+function sendLargeContent(options) {
+    const { broker, queue } = options;
+    const contentType = options['large-content'];
+    const size = parseInt(options['size']);
+    const seed = parseInt(options['seed']);
+    const jmsMode = options['jms-mode'] !== undefined;
+
+    let body;
+    let jmsMsgType;
+    if (contentType === 'binary') {
+        body = rhea.types.wrap_binary(lcgGenerateBytes(seed, size));
+        jmsMsgType = 3;  // JMS_BYTES_MESSAGE
+    } else {
+        body = lcgGenerateString(seed, size);
+        jmsMsgType = 5;  // JMS_TEXT_MESSAGE
+    }
+
+    const message = { body: body };
+    if (jmsMode) {
+        message.message_annotations = {
+            'x-opt-jms-msg-type': rhea.types.wrap_byte(jmsMsgType)
+        };
+    }
+
+    // Parse broker URL
+    const brokerUrl = broker.replace(/^amqp:\/\//, '');
+    const [host, port] = brokerUrl.split(':');
+
+    const connection = rhea.connect({
+        host: host || 'localhost',
+        port: parseInt(port) || 5672,
+        reconnect: false
+    });
+
+    connection.on('connection_open', (context) => {
+        context.connection.open_sender({ target: queue });
+    });
+
+    connection.on('sendable', (context) => {
+        context.sender.send(message);
+    });
+
+    connection.on('accepted', (context) => {
+        const result = { sent: true, size: size };
+        console.log(JSON.stringify(result));
+        context.connection.close();
+        setTimeout(() => process.exit(0), 100);
+    });
+
+    connection.on('error', (error) => {
+        console.error('Connection error:', error);
+        process.exit(1);
+    });
+
+    setTimeout(() => {
+        console.error('Timeout: message not confirmed');
+        process.exit(1);
+    }, 30000);
+}
+
+// Receive a single large content message and verify
+function receiveLargeContent(options) {
+    const { broker, queue, timeout = 30 } = options;
+    const contentType = options['large-content'];
+    const size = parseInt(options['size']);
+    const seed = parseInt(options['seed']);
+
+    // Parse broker URL
+    const brokerUrl = broker.replace(/^amqp:\/\//, '');
+    const [host, port] = brokerUrl.split(':');
+
+    const connection = rhea.connect({
+        host: host || 'localhost',
+        port: parseInt(port) || 5672,
+        reconnect: false
+    });
+
+    connection.on('connection_open', (context) => {
+        context.connection.open_receiver({ source: queue });
+    });
+
+    connection.on('message', (context) => {
+        const body = context.message.body;
+
+        let received;
+        if (contentType === 'binary') {
+            const expected = lcgGenerateBytes(seed, size);
+            // Extract binary body - may be wrapped in Section object
+            let data = body;
+            if (data !== null && data !== undefined && data.content !== undefined) {
+                data = data.content;
+            }
+            received = Buffer.isBuffer(data) ? data : Buffer.from(data);
+
+            const result = { size: received.length, expected_size: size };
+            if (received.length !== expected.length) {
+                result.match = false;
+            } else if (received.equals(expected)) {
+                result.match = true;
+            } else {
+                result.match = false;
+                for (let i = 0; i < expected.length; i++) {
+                    if (received[i] !== expected[i]) {
+                        result.first_mismatch_offset = i;
+                        break;
+                    }
+                }
+            }
+            console.log(JSON.stringify(result));
+            context.connection.close();
+            setTimeout(() => process.exit(result.match ? 0 : 1), 100);
+        } else {
+            // string
+            const expected = lcgGenerateString(seed, size);
+            received = (body !== null && body !== undefined) ? String(body) : '';
+
+            const result = { size: received.length, expected_size: size };
+            if (received.length !== expected.length) {
+                result.match = false;
+            } else if (received === expected) {
+                result.match = true;
+            } else {
+                result.match = false;
+                for (let i = 0; i < expected.length; i++) {
+                    if (received[i] !== expected[i]) {
+                        result.first_mismatch_offset = i;
+                        break;
+                    }
+                }
+            }
+            console.log(JSON.stringify(result));
+            context.connection.close();
+            setTimeout(() => process.exit(result.match ? 0 : 1), 100);
+        }
+    });
+
+    connection.on('error', (error) => {
+        console.error('Connection error:', error);
+        process.exit(1);
+    });
+
+    setTimeout(() => {
+        console.log(JSON.stringify({ match: false, error: 'timeout' }));
+        process.exit(1);
+    }, parseInt(timeout) * 1000);
+}
+
 // Sender
 function send(options) {
     const { broker, queue, type: amqpType, data, 'jms-mode': jmsMode, headers: headersJson, properties: propsJson } = options;
@@ -1107,11 +1275,19 @@ const { command, options } = parseArgs();
 
 switch (command) {
     case 'send':
-        send(options);
+        if (options['large-content']) {
+            sendLargeContent(options);
+        } else {
+            send(options);
+        }
         break;
 
     case 'receive':
-        receive(options);
+        if (options['large-content']) {
+            receiveLargeContent(options);
+        } else {
+            receive(options);
+        }
         break;
 
     default:

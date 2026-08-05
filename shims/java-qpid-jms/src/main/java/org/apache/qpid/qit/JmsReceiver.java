@@ -40,6 +40,9 @@ public class JmsReceiver {
         String queue = null;
         int count = 0;
         int timeout = 30;
+        String largeContent = null;
+        int size = 0;
+        int seed = 0;
 
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
@@ -55,12 +58,26 @@ public class JmsReceiver {
                 case "--timeout":
                     timeout = Integer.parseInt(args[++i]);
                     break;
+                case "--large-content":
+                    largeContent = args[++i];
+                    break;
+                case "--size":
+                    size = Integer.parseInt(args[++i]);
+                    break;
+                case "--seed":
+                    seed = Integer.parseInt(args[++i]);
+                    break;
                 default:
                     throw new IllegalArgumentException("Unknown argument: " + args[i]);
             }
         }
 
-        if (broker == null || queue == null || count == 0) {
+        if (broker == null || queue == null) {
+            System.err.println("Usage: JmsReceiver --broker <url> --queue <name> --count <n> [--timeout <seconds>]");
+            System.exit(1);
+        }
+
+        if (largeContent == null && count == 0) {
             System.err.println("Usage: JmsReceiver --broker <url> --queue <name> --count <n> [--timeout <seconds>]");
             System.exit(1);
         }
@@ -74,6 +91,72 @@ public class JmsReceiver {
         session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
         Destination destination = session.createQueue(queue);
         consumer = session.createConsumer(destination);
+
+        // Large content mode
+        if (largeContent != null) {
+            long timeoutMs = timeout * 1000L;
+            Message message = consumer.receive(timeoutMs);
+
+            if (message == null) {
+                System.out.println("{\"error\": \"timeout\", \"match\": false}");
+            } else if ("binary".equals(largeContent)) {
+                byte[] expected = lcgGenerateBytes(seed, size);
+                if (message instanceof BytesMessage) {
+                    BytesMessage bm = (BytesMessage) message;
+                    byte[] received = new byte[(int) bm.getBodyLength()];
+                    bm.readBytes(received);
+                    int mismatch = -1;
+                    int compareLen = Math.min(expected.length, received.length);
+                    for (int i = 0; i < compareLen; i++) {
+                        if (expected[i] != received[i]) {
+                            mismatch = i;
+                            break;
+                        }
+                    }
+                    if (mismatch == -1 && expected.length != received.length) {
+                        mismatch = compareLen;
+                    }
+                    if (mismatch == -1) {
+                        System.out.println("{\"size\": " + received.length + ", \"expected_size\": " + size + ", \"match\": true}");
+                    } else {
+                        System.out.println("{\"size\": " + received.length + ", \"expected_size\": " + size + ", \"match\": false, \"first_mismatch_offset\": " + mismatch + "}");
+                    }
+                } else {
+                    System.out.println("{\"match\": false, \"error\": \"expected BytesMessage, got " + message.getClass().getSimpleName() + "\"}");
+                }
+            } else if ("string".equals(largeContent)) {
+                String expected = lcgGenerateString(seed, size);
+                if (message instanceof TextMessage) {
+                    String received = ((TextMessage) message).getText();
+                    int mismatch = -1;
+                    int compareLen = Math.min(expected.length(), received.length());
+                    for (int i = 0; i < compareLen; i++) {
+                        if (expected.charAt(i) != received.charAt(i)) {
+                            mismatch = i;
+                            break;
+                        }
+                    }
+                    if (mismatch == -1 && expected.length() != received.length()) {
+                        mismatch = compareLen;
+                    }
+                    if (mismatch == -1) {
+                        System.out.println("{\"size\": " + received.length() + ", \"expected_size\": " + size + ", \"match\": true}");
+                    } else {
+                        System.out.println("{\"size\": " + received.length() + ", \"expected_size\": " + size + ", \"match\": false, \"first_mismatch_offset\": " + mismatch + "}");
+                    }
+                } else {
+                    System.out.println("{\"match\": false, \"error\": \"expected TextMessage, got " + message.getClass().getSimpleName() + "\"}");
+                }
+            } else {
+                System.out.println("{\"match\": false, \"error\": \"unknown large-content type: " + largeContent + "\"}");
+            }
+
+            // Cleanup
+            consumer.close();
+            session.close();
+            connection.close();
+            return;
+        }
 
         // Receive messages
         Gson gson = new GsonBuilder().serializeNulls().create();
@@ -440,5 +523,24 @@ public class JmsReceiver {
             sb.append(String.format("%02x", b));
         }
         return sb.toString();
+    }
+
+    private static byte[] lcgGenerateBytes(int seed, int size) {
+        int state = seed & 0x7FFFFFFF;
+        byte[] result = new byte[size];
+        for (int i = 0; i < size; i++) {
+            state = (int)(((long)state * 1103515245L + 12345L) & 0x7FFFFFFFL);
+            result[i] = (byte)((state >> 16) & 0xFF);
+        }
+        return result;
+    }
+
+    private static String lcgGenerateString(int seed, int size) {
+        byte[] raw = lcgGenerateBytes(seed, size);
+        char[] chars = new char[size];
+        for (int i = 0; i < size; i++) {
+            chars[i] = (char)(32 + ((raw[i] & 0xFF) % 95));
+        }
+        return new String(chars);
     }
 }
