@@ -4,6 +4,7 @@ Test orchestration engine.
 Coordinates shim execution, message comparison, and result reporting.
 """
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from itertools import product
 from typing import Any
@@ -54,6 +55,7 @@ class Orchestrator:
         amqp_types: dict[str, list[Any]],
         sender_shims: list[str] | None = None,
         receiver_shims: list[str] | None = None,
+        workers: int = 1,
     ) -> list[TestResult]:
         """
         Run full test matrix: all sender × receiver × type combinations.
@@ -62,6 +64,7 @@ class Orchestrator:
             amqp_types: Map of type name to list of test values
             sender_shims: List of sender shim names (default: all shims)
             receiver_shims: List of receiver shim names (default: all shims)
+            workers: Number of parallel workers (1 = sequential)
 
         Returns:
             List of test results
@@ -86,33 +89,94 @@ class Orchestrator:
                 )
             )
 
-        print(f"Running {len(test_cases)} test cases...")
+        total = len(test_cases)
+        print(f"Running {total} test cases (workers={workers})...")
         print(f"  Senders: {', '.join(sender_names)}")
         print(f"  Receivers: {', '.join(receiver_names)}")
         print(f"  Types: {', '.join(amqp_types.keys())}")
         print()
 
-        # Run tests
+        if workers <= 1:
+            return self._run_sequential(test_cases)
+        return self._run_parallel(test_cases, workers)
+
+    def _run_sequential(self, test_cases: list[TestCase]) -> list[TestResult]:
         results: list[TestResult] = []
+        total = len(test_cases)
         for i, test_case in enumerate(test_cases, 1):
-            print(f"[{i}/{len(test_cases)}] Testing {test_case.sender_shim} → {test_case.receiver_shim} "
+            print(f"[{i}/{total}] Testing {test_case.sender_shim} → {test_case.receiver_shim} "
                   f"({test_case.amqp_type})...", end=" ", flush=True)
 
             result = self.run_test_case(test_case)
             results.append(result)
-
-            if result.success and not result.xfail_diffs:
-                print("✓")
-            elif result.success and result.xfail_diffs:
-                print(f"✓ ({len(result.xfail_diffs)} xfail)")
-            else:
-                print("✗")
-                if result.error:
-                    print(f"  Error: {result.error}")
-                if result.diffs:
-                    print(f"  {len(result.diffs)} difference(s) found")
+            self._print_result(result)
 
         return results
+
+    def _run_parallel(self, test_cases: list[TestCase], workers: int) -> list[TestResult]:
+        import threading
+
+        total = len(test_cases)
+        completed = 0
+        failed = 0
+        lock = threading.Lock()
+        result_map: dict[int, TestResult] = {}
+
+        def run_one(index: int, tc: TestCase) -> tuple[int, TestResult]:
+            return index, self.run_test_case(tc)
+
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            futures = {
+                executor.submit(run_one, i, tc): i
+                for i, tc in enumerate(test_cases)
+            }
+            for future in as_completed(futures):
+                index, result = future.result()
+                result_map[index] = result
+                with lock:
+                    completed += 1
+                    if not result.success:
+                        failed += 1
+                    tc = test_cases[index]
+                    status = self._result_symbol(result)
+                    print(f"[{completed}/{total}] {tc.sender_shim} → {tc.receiver_shim} "
+                          f"({tc.amqp_type}) {status}", flush=True)
+
+        results = [result_map[i] for i in range(total)]
+
+        if failed:
+            print(f"\nFailed tests:")
+            for i, result in enumerate(results):
+                if not result.success:
+                    tc = test_cases[i]
+                    print(f"  {tc.sender_shim} → {tc.receiver_shim} ({tc.amqp_type})")
+                    if result.error:
+                        print(f"    Error: {result.error}")
+                    if result.diffs:
+                        print(f"    {len(result.diffs)} difference(s) found")
+
+        return results
+
+    @staticmethod
+    def _result_symbol(result: "TestResult") -> str:
+        if result.success and not result.xfail_diffs:
+            return "✓"
+        if result.success and result.xfail_diffs:
+            return f"✓ ({len(result.xfail_diffs)} xfail)"
+        return "✗"
+
+    @staticmethod
+    def _print_result(result: "TestResult") -> None:
+        if result.success and not result.xfail_diffs:
+            print("✓")
+        elif result.success and result.xfail_diffs:
+            print(f"✓ ({len(result.xfail_diffs)} xfail)")
+        else:
+            print("✗")
+            if result.error:
+                print(f"  Error: {result.error}")
+            if result.diffs:
+                print(f"  {len(result.diffs)} difference(s) found")
 
     def run_test_case(self, test_case: TestCase) -> TestResult:
         """

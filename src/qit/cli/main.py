@@ -122,6 +122,13 @@ def test() -> None:
     is_flag=True,
     help="Treat known failures (xfail) as real failures",
 )
+@click.option(
+    "--workers",
+    "-j",
+    type=int,
+    default=1,
+    help="Number of parallel test workers (default: 1 = sequential)",
+)
 def test_amqp_types(
     sender: tuple[str, ...],
     receiver: tuple[str, ...],
@@ -132,6 +139,7 @@ def test_amqp_types(
     junit_xml: str | None,
     extended: bool,
     strict: bool,
+    workers: int,
 ) -> None:
     """Test AMQP primitive and complex types interoperability."""
     from pathlib import Path
@@ -260,6 +268,7 @@ def test_amqp_types(
         amqp_types=test_types,
         sender_shims=sender_shims,
         receiver_shims=receiver_shims,
+        workers=workers,
     )
 
     # Print report
