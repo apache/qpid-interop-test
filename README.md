@@ -1,26 +1,26 @@
-# QIT - AMQP Interoperability Test Suite
+# QIT 2.0 - AMQP Interoperability Test Suite
 
-Modern rewrite of the Qpid Interoperability Test suite for Red Hat AMQ products.
+Modern rewrite of the [Apache Qpid Interoperability Test](https://qpid.apache.org/components/interop-test/index.html) suite for verifying AMQP 1.0 client interoperability across multiple language implementations.
 
 ## Overview
 
-QIT tests AMQP 1.0 interoperability across multiple client implementations by sending messages between different clients and verifying they can correctly exchange all AMQP types.
+QIT 2.0 tests that AMQP 1.0 messages sent by one client can be correctly received by another, through an Apache Artemis broker. It covers data type fidelity, JMS interoperability, message metadata, and large content transfer.
 
-**Tested Clients:**
-- Python (Proton)
-- C++ (Proton)
-- JavaScript (Rhea)
-- .NET (AMQP.Net Lite)
-- Java (Qpid JMS)
-- Java (Proton J2)
+**Tested Clients (6):**
+- Python (Apache Qpid Proton)
+- C++ (Apache Qpid Proton)
+- JavaScript (AMQP Rhea)
+- .NET (Apache Qpid Proton .NET)
+- Java (Apache Qpid JMS) - JMS interop tests
+- Java (Apache Qpid ProtonJ2) - native AMQP tests
 
-**Test Coverage:**
-- All AMQP 1.0 primitive types
-- All AMQP 1.0 complex types (arrays, lists, maps, described types)
-- JMS message types and headers
-- Large message content
-- Direct peer-to-peer (no broker)
-- Transaction support (planned)
+**Test Coverage (2076 tests default / ~2470 extended):**
+- 18 AMQP 1.0 primitive types + 4 complex types (550 tests)
+- JMS message types, headers, and application properties (363 tests)
+- AMQP Header section fields: durable, priority, ttl, first-acquirer, delivery-count (275 tests)
+- Large content: 1MB/10MB binary/string, collections, multi-frame-size (888 tests)
+
+See [docs/QIT2_SUMMARY.md](docs/QIT2_SUMMARY.md) for the full summary including improvements over the original QIT.
 
 ## Quick Start
 
@@ -28,100 +28,50 @@ QIT tests AMQP 1.0 interoperability across multiple client implementations by se
 
 - Python 3.11+
 - uv (recommended) or pip
-- Apache ActiveMQ Artemis (for broker) - See [BROKER_SETUP.md](BROKER_SETUP.md)
+- Apache ActiveMQ Artemis - See [docs/BROKER_SETUP.md](docs/BROKER_SETUP.md)
 
 ### Installation
 
 ```bash
-# Install uv (if not already installed)
-# On Fedora/RHEL: sudo dnf install uv
-# Or: curl -LsSf https://astral.sh/uv/install.sh | sh
-
 # Setup Python environment
 uv venv
 source .venv/bin/activate
 uv sync
 
-# Setup and start broker (see BROKER_SETUP.md for details)
+# Setup and start broker (see docs/BROKER_SETUP.md for details)
 ./scripts/setup-local-broker.sh
 ./artemis-local/bin/artemis run &
 
-# Run tests
-qit test amqp-types
-```
-
-**Note**: Both local and Docker broker setups are tested and working. See [BROKER_SETUP.md](BROKER_SETUP.md) for details.
-
-### Development
-
-```bash
-# Install dev dependencies
-uv sync --dev
-
-# Run tests with coverage
-pytest --cov=qit
-
-# Format and lint
-ruff format .
-ruff check .
-
-# Type check
-mypy src/qit
-```
-
-## Usage
-
-```bash
-# Run all AMQP type tests
+# Run AMQP type tests
 qit test amqp-types
 
-# Test specific shim pairing
-qit test amqp-types --sender python-proton --receiver cpp-proton
-
-# Run with fuzzing
-qit test amqp-types --fuzz
-
-# Direct mode (no broker)
-qit test amqp-types --mode direct
-
-# Run all tests
-qit test all
+# Run JMS, AMQP header, and large content tests
+pytest tests/test_jms_unified.py -v
+pytest tests/test_amqp_headers.py -v
+pytest tests/test_large_content.py -v
 ```
 
 ## Architecture
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed design documentation.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed design documentation.
 
-**Key Components:**
-- **Orchestrator**: Manages test execution, shim coordination, result comparison
-- **Shims**: Native client implementations exposing CLI interface
-- **Broker Manager**: Docker Compose lifecycle for Artemis
-- **Type System**: Comprehensive AMQP 1.0 type definitions with corner cases
-
-## CI/CD Integration
-
-QIT 2.0 includes a complete Jenkins pipeline for automated testing:
-
-```bash
-# Test locally (simulates CI pipeline)
-./scripts/run-ci-locally.sh
-
-# Generate JUnit XML for CI
-qit test amqp-types --junit-xml test-results/results.xml
+```
+qit/
+  src/qit/              # Python package (orchestrator, type system, xfail)
+  shims/                # 6 client implementations with uniform CLI + JSON interface
+  tests/                # pytest test suites
+  scripts/              # Broker setup, CI helpers, debug tools
+  docs/                 # Architecture, status, setup documentation
 ```
 
-See [CI_CD_SETUP.md](CI_CD_SETUP.md) for complete Jenkins setup instructions.
+## CI/CD
 
-## Current Status
+Jenkins pipeline runs weekly, with extended tier (10MB content) enabled during the first week of each month. Four JUnit XML result files per run:
 
-**QIT 2.0 - Production Ready**
-
-✅ 5 working shims (Python, JavaScript, C++, .NET, Java)  
-✅ 450 comprehensive tests (18 types × 5×5 shim combinations)  
-✅ 80.2% pass rate (all failures are known library limitations)  
-✅ Complete CI/CD pipeline with JUnit XML reporting  
-✅ Docker-based broker management  
-✅ Modern tooling and build system  
+- `qit-results.xml` - AMQP types (550 tests)
+- `qit-jms-results.xml` - JMS interop (363 tests)
+- `qit-amqp-header-results.xml` - AMQP headers (275 tests)
+- `qit-large-content-results.xml` - Large content (494-888 tests)
 
 ## License
 
