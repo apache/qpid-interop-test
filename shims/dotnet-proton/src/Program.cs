@@ -26,6 +26,7 @@ namespace Qit.Shim
             var sendJmsModeOption = new Option<bool>("--jms-mode", () => false, "Enable JMS emulation mode");
             var sendHeadersOption = new Option<string>("--headers", () => null, "JSON JMS headers");
             var sendPropertiesOption = new Option<string>("--properties", () => null, "JSON JMS application properties");
+            var sendMessageHeaderOption = new Option<string>("--message-header", () => null, "JSON AMQP Header section fields");
             var sendLargeContentOption = new Option<string>("--large-content", () => null, "Large content type (binary or string)");
             var sendSizeOption = new Option<int>("--size", () => 0, "Large content size");
             var sendSeedOption = new Option<int>("--seed", () => 0, "PRNG seed");
@@ -40,6 +41,7 @@ namespace Qit.Shim
             sendCommand.AddOption(sendJmsModeOption);
             sendCommand.AddOption(sendHeadersOption);
             sendCommand.AddOption(sendPropertiesOption);
+            sendCommand.AddOption(sendMessageHeaderOption);
             sendCommand.AddOption(sendLargeContentOption);
             sendCommand.AddOption(sendSizeOption);
             sendCommand.AddOption(sendSeedOption);
@@ -69,7 +71,8 @@ namespace Qit.Shim
                         var data = context.ParseResult.GetValueForOption(sendDataOption);
                         var headers = context.ParseResult.GetValueForOption(sendHeadersOption);
                         var properties = context.ParseResult.GetValueForOption(sendPropertiesOption);
-                        Sender.Send(broker, queue, type, data, jmsMode, headers, properties);
+                        var messageHeaderStr = context.ParseResult.GetValueForOption(sendMessageHeaderOption);
+                        Sender.Send(broker, queue, type, data, jmsMode, headers, properties, messageHeaderStr);
                     }
                 }
                 catch (Exception ex)

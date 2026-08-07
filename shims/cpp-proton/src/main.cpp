@@ -43,6 +43,7 @@ struct CommandLineArgs {
     std::string data;
     std::string headers;
     std::string properties;
+    std::string message_header;
     int count = 0;
     int timeout = 30;
     bool jms_mode = false;
@@ -93,6 +94,8 @@ struct CommandLineArgs {
                 headers = val;
             } else if (opt == "--properties") {
                 properties = val;
+            } else if (opt == "--message-header") {
+                message_header = val;
             } else if (opt == "--large-content") {
                 large_content = val;
             } else if (opt == "--size") {
@@ -193,7 +196,7 @@ int main(int argc, char** argv) {
                 return 0;
             }
         } else if (args.command == "send") {
-            qit::Sender sender(args.broker, args.queue, args.amqp_type, args.data, args.jms_mode, args.headers, args.properties);
+            qit::Sender sender(args.broker, args.queue, args.amqp_type, args.data, args.jms_mode, args.headers, args.properties, args.message_header);
             proton::container(sender).run();
             return 0;
         } else if (args.command == "receive") {

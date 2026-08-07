@@ -225,6 +225,7 @@ class SenderHandler(MessagingHandler):
         jms_mode: bool = False, amqp_type: str = "string",
         headers: dict[str, Any] | None = None,
         properties: dict[str, Any] | None = None,
+        message_header: dict[str, Any] | None = None,
     ) -> None:
         super().__init__()
         self.url = url
@@ -234,6 +235,7 @@ class SenderHandler(MessagingHandler):
         self.amqp_type = amqp_type
         self.headers = headers
         self.properties = properties
+        self.message_header = message_header
         self.sent_count = 0
         self.confirmed_count = 0
 
@@ -280,6 +282,9 @@ class SenderHandler(MessagingHandler):
 
             if self.properties:
                 self._apply_properties(msg)
+
+            if self.message_header:
+                self._apply_message_header(msg)
 
             event.sender.send(msg)
             self.sent_count += 1
@@ -375,6 +380,18 @@ class SenderHandler(MessagingHandler):
             elif ptype == "string":
                 props[name] = str(pval)
         msg.properties = props
+
+    def _apply_message_header(self, msg: Message) -> None:
+        """Set AMQP Header section fields on the message."""
+        if "durable" in self.message_header:
+            msg.durable = self.message_header["durable"]
+        if "priority" in self.message_header:
+            msg.priority = int(self.message_header["priority"])
+        if "ttl" in self.message_header:
+            # Proton Python msg.ttl is in seconds; input is AMQP ms
+            msg.ttl = float(self.message_header["ttl"]) / 1000.0
+        if "first_acquirer" in self.message_header:
+            msg.first_acquirer = self.message_header["first_acquirer"]
 
     def _encode_value(self, amqp_type: str, value: Any) -> Any:
         """Encode test value to AMQP type."""
@@ -534,6 +551,8 @@ class ReceiverHandler(MessagingHandler):
         if properties:
             msg_data["properties"] = properties
 
+        msg_data["message_header"] = self._extract_message_header(msg)
+
         self.received_messages.append(msg_data)
 
         # Close when all messages received
@@ -623,6 +642,17 @@ class ReceiverHandler(MessagingHandler):
                 prop["value"] = str(value)
             properties[name] = prop
         return properties
+
+    def _extract_message_header(self, msg: Message) -> dict[str, Any]:
+        """Extract AMQP Header section fields."""
+        return {
+            "durable": msg.durable,
+            "priority": int(msg.priority),
+            # Proton Python msg.ttl is in seconds; output as AMQP ms
+            "ttl": int(float(msg.ttl) * 1000),
+            "first_acquirer": msg.first_acquirer,
+            "delivery_count": int(msg.delivery_count),
+        }
 
     def _decode_jms_message(self, msg: Message, jms_msg_type: int) -> dict[str, Any]:
         """Decode JMS message based on message type annotation."""
@@ -1038,7 +1068,8 @@ def send_messages(args: argparse.Namespace) -> None:
     jms_mode = getattr(args, "jms_mode", False)
     headers = json.loads(args.headers) if args.headers else None
     properties = json.loads(args.properties) if getattr(args, "properties", None) else None
-    handler = SenderHandler(args.broker, args.queue, messages, jms_mode, args.type, headers, properties)
+    message_header = json.loads(args.message_header) if getattr(args, "message_header", None) else None
+    handler = SenderHandler(args.broker, args.queue, messages, jms_mode, args.type, headers, properties, message_header)
     Container(handler).run()
 
     # Output result
@@ -1096,6 +1127,7 @@ def main() -> None:
     )
     send_parser.add_argument("--headers", default=None, help="JSON JMS headers")
     send_parser.add_argument("--properties", default=None, help="JSON JMS application properties")
+    send_parser.add_argument("--message-header", default=None, help="JSON AMQP Header section fields")
     send_parser.add_argument("--large-content", default=None, help="Large content type (binary, string, list, array, map, described)")
     send_parser.add_argument("--size", type=int, default=None, help="Large content size in bytes (binary/string)")
     send_parser.add_argument("--seed", type=int, default=None, help="PRNG seed for large content")

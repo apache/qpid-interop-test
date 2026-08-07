@@ -56,7 +56,7 @@ namespace Qit.Shim
 
     public static class Sender
     {
-        public static void Send(string broker, string queue, string type, string data, bool jmsMode = false, string headersJson = null, string propertiesJson = null)
+        public static void Send(string broker, string queue, string type, string data, bool jmsMode = false, string headersJson = null, string propertiesJson = null, string messageHeaderJson = null)
         {
             try
             {
@@ -191,6 +191,20 @@ namespace Qit.Shim
 
                             message.SetProperty(name, typedValue);
                         }
+                    }
+
+                    // Apply AMQP Header section fields
+                    if (!string.IsNullOrEmpty(messageHeaderJson))
+                    {
+                        var mh = JsonConvert.DeserializeObject<Dictionary<string, object>>(messageHeaderJson);
+                        if (mh.ContainsKey("durable"))
+                            message.Durable = Convert.ToBoolean(mh["durable"]);
+                        if (mh.ContainsKey("priority"))
+                            message.Priority = (byte)Convert.ToInt32(mh["priority"]);
+                        if (mh.ContainsKey("ttl"))
+                            message.TimeToLive = Convert.ToUInt32(mh["ttl"]);
+                        if (mh.ContainsKey("first_acquirer"))
+                            message.FirstAcquirer = Convert.ToBoolean(mh["first_acquirer"]);
                     }
 
                     sender.Send(message);
@@ -359,5 +373,8 @@ namespace Qit.Shim
 
         [JsonProperty("properties", NullValueHandling = NullValueHandling.Ignore)]
         public Dictionary<string, object> Properties { get; set; }
+
+        [JsonProperty("message_header", NullValueHandling = NullValueHandling.Ignore)]
+        public Dictionary<string, object> MessageHeader { get; set; }
     }
 }

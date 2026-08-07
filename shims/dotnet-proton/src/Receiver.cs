@@ -238,6 +238,16 @@ namespace Qit.Shim
                         msgResult.Properties = props;
                     }
 
+                    // Extract AMQP Header section fields
+                    msgResult.MessageHeader = new Dictionary<string, object>
+                    {
+                        { "durable", message.Durable },
+                        { "priority", (int)message.Priority },
+                        { "ttl", (long)message.TimeToLive },
+                        { "first_acquirer", message.FirstAcquirer },
+                        { "delivery_count", (int)message.DeliveryCount },
+                    };
+
                     messages.Add(msgResult);
                 }
 

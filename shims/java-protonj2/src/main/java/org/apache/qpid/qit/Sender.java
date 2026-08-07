@@ -28,6 +28,7 @@ public class Sender {
         String data = null;
         String headersJson = null;
         String propertiesJson = null;
+        String messageHeaderJson = null;
         boolean jmsMode = false;
         String largeContent = null;
         int size = 0;
@@ -71,6 +72,9 @@ public class Sender {
                     break;
                 case "properties":
                     propertiesJson = value;
+                    break;
+                case "message-header":
+                    messageHeaderJson = value;
                     break;
                 case "large-content":
                     largeContent = value;
@@ -311,6 +315,19 @@ public class Sender {
                                 break;
                         }
                     }
+                }
+
+                // Apply AMQP Header section fields
+                if (messageHeaderJson != null) {
+                    JsonObject mh = new Gson().fromJson(messageHeaderJson, JsonObject.class);
+                    if (mh.has("durable"))
+                        message.durable(mh.get("durable").getAsBoolean());
+                    if (mh.has("priority"))
+                        message.priority((byte) mh.get("priority").getAsInt());
+                    if (mh.has("ttl"))
+                        message.timeToLive(mh.get("ttl").getAsLong());
+                    if (mh.has("first_acquirer"))
+                        message.firstAcquirer(mh.get("first_acquirer").getAsBoolean());
                 }
 
                 sender.send(message);

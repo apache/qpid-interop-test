@@ -185,6 +185,15 @@ void Receiver::on_message(proton::delivery& d, proton::message& m) {
             msg_data["properties"] = props;
         }
 
+        // Extract AMQP Header section fields
+        Json::Value msg_header(Json::objectValue);
+        msg_header["durable"] = m.durable();
+        msg_header["priority"] = static_cast<int>(m.priority());
+        msg_header["ttl"] = static_cast<Json::UInt64>(m.ttl().milliseconds());
+        msg_header["first_acquirer"] = m.first_acquirer();
+        msg_header["delivery_count"] = m.delivery_count();
+        msg_data["message_header"] = msg_header;
+
         received_messages_.append(msg_data);
         received_count_++;
 

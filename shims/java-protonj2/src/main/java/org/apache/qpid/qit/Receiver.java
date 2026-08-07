@@ -399,6 +399,15 @@ public class Receiver {
                     msgResult.add("properties", propsJson);
                 }
 
+                // Extract AMQP Header section fields
+                JsonObject msgHeader = new JsonObject();
+                msgHeader.addProperty("durable", message.durable());
+                msgHeader.addProperty("priority", (int) message.priority());
+                msgHeader.addProperty("ttl", message.timeToLive());
+                msgHeader.addProperty("first_acquirer", message.firstAcquirer());
+                msgHeader.addProperty("delivery_count", (int) message.deliveryCount());
+                msgResult.add("message_header", msgHeader);
+
                 messages.add(msgResult);
             }
 

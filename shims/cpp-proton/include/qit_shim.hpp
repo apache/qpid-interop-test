@@ -33,7 +33,8 @@ public:
            const std::string& test_data_json,
            bool jms_mode = false,
            const std::string& headers_json = "",
-           const std::string& properties_json = "");
+           const std::string& properties_json = "",
+           const std::string& message_header_json = "");
 
     void on_container_start(proton::container& c) override;
     void on_sendable(proton::sender& s) override;
@@ -51,10 +52,12 @@ private:
     bool jms_mode_;
     Json::Value headers_;
     Json::Value properties_;
+    Json::Value message_header_;
 
     int8_t get_jms_message_type(const std::string& amqp_type) const;
     void apply_headers(proton::message& msg);
     void apply_properties(proton::message& msg);
+    void apply_message_header(proton::message& msg);
 };
 
 // Receiver handler - receives messages

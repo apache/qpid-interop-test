@@ -976,9 +976,10 @@ function receiveLargeContent(options) {
 
 // Sender
 function send(options) {
-    const { broker, queue, type: amqpType, data, 'jms-mode': jmsMode, headers: headersJson, properties: propsJson } = options;
+    const { broker, queue, type: amqpType, data, 'jms-mode': jmsMode, headers: headersJson, properties: propsJson, 'message-header': messageHeaderJson } = options;
     const headers = headersJson ? JSON.parse(headersJson) : null;
     const properties = propsJson ? JSON.parse(propsJson) : null;
+    const messageHeader = messageHeaderJson ? JSON.parse(messageHeaderJson) : null;
     const testData = JSON.parse(data);
 
     let sentCount = 0;
@@ -1106,6 +1107,13 @@ function send(options) {
                     }
                 }
                 message.application_properties = appProps;
+            }
+
+            if (messageHeader) {
+                if (messageHeader.durable !== undefined) message.durable = messageHeader.durable;
+                if (messageHeader.priority !== undefined) message.priority = messageHeader.priority;
+                if (messageHeader.ttl !== undefined) message.ttl = messageHeader.ttl;
+                if (messageHeader.first_acquirer !== undefined) message.first_acquirer = messageHeader.first_acquirer;
             }
 
             context.sender.send(message);
@@ -1395,6 +1403,14 @@ function receive(options) {
                 msgData.properties = propsOut;
             }
         }
+
+        msgData.message_header = {
+            durable: context.message.durable || false,
+            priority: context.message.priority !== undefined ? context.message.priority : 4,
+            ttl: context.message.ttl || 0,
+            first_acquirer: context.message.first_acquirer || false,
+            delivery_count: context.message.delivery_count || 0,
+        };
 
         messages.push(msgData);
 

@@ -4,6 +4,7 @@
 
 #include "qit_shim.hpp"
 #include <json/json.h>
+#include <proton/duration.hpp>
 #include <proton/message_id.hpp>
 #include <proton/transport.hpp>
 #include <proton/annotation_key.hpp>
@@ -27,7 +28,8 @@ Sender::Sender(const std::string& broker_url,
                const std::string& test_data_json,
                bool jms_mode,
                const std::string& headers_json,
-               const std::string& properties_json)
+               const std::string& properties_json,
+               const std::string& message_header_json)
     : broker_url_(broker_url),
       queue_name_(queue_name),
       amqp_type_(amqp_type),
@@ -68,6 +70,16 @@ Sender::Sender(const std::string& broker_url,
         std::string perrors;
         if (!Json::parseFromStream(pbuilder, piss, &properties_, &perrors)) {
             throw std::runtime_error("Failed to parse properties JSON: " + perrors);
+        }
+    }
+
+    // Parse message header JSON if provided
+    if (!message_header_json.empty()) {
+        Json::CharReaderBuilder mbuilder;
+        std::istringstream miss(message_header_json);
+        std::string merrors;
+        if (!Json::parseFromStream(mbuilder, miss, &message_header_, &merrors)) {
+            throw std::runtime_error("Failed to parse message header JSON: " + merrors);
         }
     }
 }
@@ -155,6 +167,10 @@ void Sender::on_sendable(proton::sender& s) {
             apply_properties(msg);
         }
 
+        if (!message_header_.isNull()) {
+            apply_message_header(msg);
+        }
+
         s.send(msg);
         sent_count_++;
     }
@@ -225,6 +241,17 @@ void Sender::apply_properties(proton::message& msg) {
     for (auto& kv : props) {
         msg.properties().put(kv.first, kv.second);
     }
+}
+
+void Sender::apply_message_header(proton::message& msg) {
+    if (message_header_.isMember("durable"))
+        msg.durable(message_header_["durable"].asBool());
+    if (message_header_.isMember("priority"))
+        msg.priority(static_cast<uint8_t>(message_header_["priority"].asInt()));
+    if (message_header_.isMember("ttl"))
+        msg.ttl(proton::duration(message_header_["ttl"].asUInt()));
+    if (message_header_.isMember("first_acquirer"))
+        msg.first_acquirer(message_header_["first_acquirer"].asBool());
 }
 
 void Sender::on_tracker_accept(proton::tracker& t) {
