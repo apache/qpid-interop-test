@@ -19,6 +19,8 @@ under the License.
 
 -->
 
+NOTE: Deprecated, see **qpid-interop-test-2.0**.
+
 # Qpid Interop Test Suite
 
 This directory contains the [Qpid Interop Test](http://qpid.apache.org/components/interop-test/index.html) suite.
