@@ -54,6 +54,7 @@ pytest tests/test_large_content.py -v
 ## Architecture
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed design documentation.
+To add a shim for a new language or client library, see [docs/SHIM_HOWTO.md](docs/SHIM_HOWTO.md).
 
 ```
 qit/
@@ -75,4 +76,4 @@ Jenkins pipeline runs weekly, with extended tier (10MB content) enabled during t
 
 ## License
 
-Apache License 2.0
+Apache License 2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE).
