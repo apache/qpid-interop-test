@@ -35,9 +35,10 @@ htmlcov/
 .hypothesis/
 .tox/
 
-# IDE
+# IDE / tools
 .vscode/
 .idea/
+.claude/
 *.swp
 *.swo
 *~
