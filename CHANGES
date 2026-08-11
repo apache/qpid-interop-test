@@ -1,0 +1,80 @@
+Apache Qpid Interop Test - CHANGES
+====================================
+
+Version 2.0.0
+-------------
+
+Complete rewrite of the Qpid Interoperability Test suite. QIT 2.0 replaces the
+CMake/Python 2 build system with a modern Python 3 + pytest architecture using
+uniform CLI shims with JSON I/O for each client library.
+
+New features:
+
+  * Six client libraries tested (up from three):
+    - Python (Apache Qpid Proton)
+    - C++ (Apache Qpid Proton)
+    - JavaScript (AMQP Rhea)
+    - .NET (Apache Qpid Proton .NET)
+    - Java (Apache Qpid ProtonJ2) — new
+    - Java (Apache Qpid JMS)
+
+  * 2076 tests in default tier, ~2470 in extended tier (up from ~200-300),
+    organized into four categories:
+    - AMQP type tests: 18 primitive + 4 complex types across 5×5 client
+      matrix (550 tests)
+    - JMS interoperability: 5 message types, 3 headers, 8 property types
+      in star configuration with JMS client (363 tests)
+    - AMQP message header section: durable, priority, ttl, first-acquirer,
+      delivery-count across 5×5 matrix (275 tests)
+    - Large content: 1MB/10MB binary/string, collection types, multi-frame-
+      size testing across 6×6 matrix (888 tests)
+
+  * xfail framework: 82 documented known client library limitations with
+    per-pair skip reasons. Tests that fail for known reasons are marked as
+    expected failures, preventing them from masking new regressions.
+
+  * Uniform shim architecture: each client library implements a shim with
+    `send` and `receive` subcommands, JSON data on stdin/stdout, and a
+    common CLI argument set. See docs/SHIM_HOWTO.md.
+
+  * Large content verification via deterministic LCG PRNG — sender and
+    receiver independently generate identical payloads from a shared seed,
+    avoiding command-line transfer of multi-megabyte data.
+
+  * Multi-frame-size testing: Artemis broker configured with 4KB, default,
+    and 1MB frame sizes on separate acceptor ports to verify AMQP frame
+    fragmentation across all clients.
+
+  * JMS emulation in AMQP shims: all five AMQP clients correctly set
+    x-opt-jms-msg-type and x-opt-jms-reply-to annotations, enabling
+    transparent JMS interoperability without JMS client libraries.
+
+  * Jenkins CI pipeline with weekly runs, JUnit XML output, and automatic
+    extended tier activation during the first week of each month.
+
+  * Parallel test execution via pytest-xdist for AMQP type tests.
+
+  * Installation via `uv sync` in a virtualenv (no system-wide CMake
+    install required).
+
+Architecture changes from 0.3.0:
+
+  * Python 2/3 + CMake build system replaced with Python 3.11+ and uv
+    packaging.
+
+  * Custom test runner replaced with pytest (parametrize, markers, xfail,
+    JUnit XML output).
+
+  * Mixed CMake/script shim invocation replaced with uniform CLI + JSON
+    protocol.
+
+  * Shim authoring guide (docs/SHIM_HOWTO.md) documents how to add support
+    for new client libraries.
+
+
+Version 0.3.0
+-------------
+
+  * Last release of the original QIT architecture (CMake/Python build system).
+  * Tested Python Proton, C++ Proton, and Java Qpid JMS.
+  * See the qit-0.3.x branch for the original code.

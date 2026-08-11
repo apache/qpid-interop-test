@@ -1,0 +1,22 @@
+# Files excluded from Apache RAT license header checks.
+# These are documentation, config, and infrastructure files that
+# do not support license header comment syntax.
+#
+# Run RAT with: scripts/run-rat.sh
+
+# Documentation (Markdown prose)
+*.md
+
+# Changelog (plain text)
+CHANGES
+
+# Git config
+.gitignore
+
+# Docker infrastructure
+Dockerfile.artemis
+compose.yaml
+broker.xml.snippet
+
+# RAT config
+.rat-excludes
