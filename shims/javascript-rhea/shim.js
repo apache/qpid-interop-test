@@ -27,7 +27,6 @@
 
 const rhea = require('rhea');
 const rhea_message = require('rhea/lib/message');
-const { v4: uuidv4 } = require('uuid');
 
 // Monkey-patch Writer to support:
 // 1. Nested described types (AmqpValue wrapping custom described types)

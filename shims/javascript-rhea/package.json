@@ -10,7 +10,6 @@
   "author": "Red Hat AMQ Team",
   "license": "Apache-2.0",
   "dependencies": {
-    "rhea": "^3.0.0",
-    "uuid": "^9.0.0"
+    "rhea": "^3.0.0"
   }
 }
