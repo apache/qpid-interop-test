@@ -20,21 +20,13 @@
 """
 AMQP Message Header Section Interoperability Tests (Phase 2d)
 
-Tests AMQP 1.0 Header section fields across the 5×5 AMQP client matrix:
+Tests AMQP 1.0 Header section fields across the AMQP client matrix:
   durable, priority, ttl, first-acquirer, delivery-count
 
 Test Pairs:
-- AMQP N×N (25 pairs): all 5 AMQP clients against each other (no JMS)
-
-275 total tests:
-  durable: 25 pairs × 2 values = 50
-  priority: 25 pairs × 4 values = 100
-  ttl: 25 pairs × 2 values = 50
-  first_acquirer: 25 pairs × 2 values = 50
-  delivery_count: 25 pairs × 1 (verify 0) = 25
+- AMQP N×N: all AMQP clients against each other (no JMS)
 """
 
-import itertools
 import json
 import os
 import subprocess
@@ -43,56 +35,7 @@ from typing import Any
 
 import pytest
 
-
-# =============================================================================
-# Client Configurations
-# =============================================================================
-
-AMQP_CLIENTS = [
-    "python-proton",
-    "javascript-rhea",
-    "cpp-proton",
-    "dotnet-proton",
-    "java-protonj2",
-]
-
-AMQP_PAIRS = [
-    pytest.param(s, r, id=f"{s}->{r}")
-    for s, r in itertools.product(AMQP_CLIENTS, repeat=2)
-]
-
-CLIENT_INFO = {
-    "python-proton": {
-        "name": "Python Proton",
-        "send_cmd": lambda path: ["python3", str(path / "shims/python-proton/shim.py"), "send"],
-        "recv_cmd": lambda path: ["python3", str(path / "shims/python-proton/shim.py"), "receive"],
-        "broker_prefix": "amqp://",
-    },
-    "javascript-rhea": {
-        "name": "JavaScript Rhea",
-        "send_cmd": lambda path: ["node", str(path / "shims/javascript-rhea/shim.js"), "send"],
-        "recv_cmd": lambda path: ["node", str(path / "shims/javascript-rhea/shim.js"), "receive"],
-        "broker_prefix": "amqp://",
-    },
-    "cpp-proton": {
-        "name": "C++ Proton",
-        "send_cmd": lambda path: [str(path / "shims/cpp-proton/build/qit-shim-cpp"), "send"],
-        "recv_cmd": lambda path: [str(path / "shims/cpp-proton/build/qit-shim-cpp"), "receive"],
-        "broker_prefix": "amqp://",
-    },
-    "dotnet-proton": {
-        "name": ".NET Proton",
-        "send_cmd": lambda path: [str(path / "shims/dotnet-proton/shim.sh"), "send"],
-        "recv_cmd": lambda path: [str(path / "shims/dotnet-proton/shim.sh"), "receive"],
-        "broker_prefix": "amqp://",
-    },
-    "java-protonj2": {
-        "name": "Java ProtonJ2",
-        "send_cmd": lambda path: [str(path / "shims/java-protonj2/shim.sh"), "send"],
-        "recv_cmd": lambda path: [str(path / "shims/java-protonj2/shim.sh"), "receive"],
-        "broker_prefix": "amqp://",
-    },
-}
+from shim_registry import AMQP_CLIENTS, AMQP_PAIRS, DISCOVERED_SHIMS
 
 
 # =============================================================================
@@ -112,11 +55,6 @@ def test_queue():
     return f"qit.test.amqp_header.{suffix}"
 
 
-@pytest.fixture
-def project_root():
-    return Path(__file__).parent.parent
-
-
 # =============================================================================
 # Shim Runners
 # =============================================================================
@@ -129,12 +67,13 @@ def run_sender(
     message_header: dict[str, Any] | None = None,
     timeout: int = 30,
 ) -> dict[str, Any]:
-    info = CLIENT_INFO[client]
-    broker = info["broker_prefix"] + broker_url
+    shim = DISCOVERED_SHIMS[client]
+    broker = shim.broker_prefix + broker_url
 
     messages = [{"index": 0, "type": "string", "value": "header-test"}]
 
-    cmd = info["send_cmd"](project_root) + [
+    cmd = [
+        str(shim.shim_dir / "shim.sh"), "send",
         "--broker", broker,
         "--queue", queue,
         "--type", "string",
@@ -147,7 +86,7 @@ def run_sender(
 
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
     if result.returncode != 0:
-        pytest.fail(f"{info['name']} sender failed: {result.stderr}")
+        pytest.fail(f"{shim.name} sender failed: {result.stderr}")
 
     return json.loads(result.stdout)
 
@@ -159,10 +98,11 @@ def run_receiver(
     project_root: Path,
     timeout: int = 30,
 ) -> dict[str, Any]:
-    info = CLIENT_INFO[client]
-    broker = info["broker_prefix"] + broker_url
+    shim = DISCOVERED_SHIMS[client]
+    broker = shim.broker_prefix + broker_url
 
-    cmd = info["recv_cmd"](project_root) + [
+    cmd = [
+        str(shim.shim_dir / "shim.sh"), "receive",
         "--broker", broker,
         "--queue", queue,
         "--count", "1",
@@ -171,7 +111,7 @@ def run_receiver(
 
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout + 5)
     if result.returncode != 0:
-        pytest.fail(f"{info['name']} receiver failed: {result.stderr}")
+        pytest.fail(f"{shim.name} receiver failed: {result.stderr}")
 
     return json.loads(result.stdout)
 

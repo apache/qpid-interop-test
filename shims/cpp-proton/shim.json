@@ -1,0 +1,5 @@
+{
+  "name": "C++ Proton",
+  "type": "amqp",
+  "broker_prefix": "amqp://"
+}

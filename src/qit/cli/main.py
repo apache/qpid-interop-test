@@ -164,74 +164,25 @@ def test_amqp_types(
     from pathlib import Path
 
     from qit.core import BrokerConfig, BrokerManager, Orchestrator, Shim, ShimConfig
+    from qit.core.shim import discover_shims
     from qit.types import AmqpComplexTypes, AmqpPrimitiveTypes
 
     click.echo("QIT - AMQP Types Test")
     click.echo("=" * 80)
 
-    # Discover available shims
     project_root = Path(__file__).parent.parent.parent.parent
-    shim_dir = project_root / "shims"
+    discovered = discover_shims(project_root / "shims")
 
     available_shims = {}
-
-    # Python shim
-    python_shim_path = shim_dir / "python-proton" / "shim.sh"
-    if python_shim_path.exists():
-        available_shims["python-proton"] = Shim(
+    for key, info in discovered.items():
+        if info.shim_type == "jms":
+            continue
+        available_shims[key] = Shim(
             ShimConfig(
-                name="python-proton",
-                language="python",
-                client="Apache Qpid Proton Python",
-                executable=python_shim_path,
-            )
-        )
-
-    # JavaScript/Rhea shim
-    js_shim_path = shim_dir / "javascript-rhea" / "shim.sh"
-    if js_shim_path.exists():
-        available_shims["javascript-rhea"] = Shim(
-            ShimConfig(
-                name="javascript-rhea",
-                language="javascript",
-                client="Rhea AMQP Client",
-                executable=js_shim_path,
-            )
-        )
-
-    # C++ Proton shim
-    cpp_shim_path = shim_dir / "cpp-proton" / "shim.sh"
-    if cpp_shim_path.exists():
-        available_shims["cpp-proton"] = Shim(
-            ShimConfig(
-                name="cpp-proton",
-                language="cpp",
-                client="Apache Qpid Proton C++",
-                executable=cpp_shim_path,
-            )
-        )
-
-    # .NET Proton shim
-    dotnet_shim_path = shim_dir / "dotnet-proton" / "shim.sh"
-    if dotnet_shim_path.exists():
-        available_shims["dotnet-proton"] = Shim(
-            ShimConfig(
-                name="dotnet-proton",
-                language="csharp",
-                client="Apache Qpid Proton .NET",
-                executable=dotnet_shim_path,
-            )
-        )
-
-    # Java ProtonJ2 shim
-    java_shim_path = shim_dir / "java-protonj2" / "shim.sh"
-    if java_shim_path.exists():
-        available_shims["java-protonj2"] = Shim(
-            ShimConfig(
-                name="java-protonj2",
-                language="java",
-                client="Apache Qpid ProtonJ2",
-                executable=java_shim_path,
+                name=key,
+                language=key.split("-")[0],
+                client=info.name,
+                executable=info.shim_dir / "shim.sh",
             )
         )
 

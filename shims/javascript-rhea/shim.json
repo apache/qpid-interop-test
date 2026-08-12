@@ -1,0 +1,5 @@
+{
+  "name": "JavaScript Rhea",
+  "type": "amqp",
+  "broker_prefix": "amqp://"
+}

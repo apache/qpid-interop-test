@@ -26,12 +26,9 @@ side, validating that each AMQP client can correctly send to and receive
 from a native JMS endpoint.
 
 Star Pairs (11 total):
-- JMS -> AMQP client (5 pairs: python-proton, javascript-rhea, cpp-proton,
-                       dotnet-proton, java-protonj2)
-- AMQP client -> JMS (5 pairs: same clients in reverse)
+- JMS -> AMQP client (5 pairs)
+- AMQP client -> JMS (5 pairs)
 - JMS -> JMS (baseline)
-
-Test Count (Phase 2d): 143 body + 132 header = 275 tests
 
 Message Types: Incremental
 - Phase 2b: TextMessage only
@@ -47,6 +44,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+
+from shim_registry import DISCOVERED_SHIMS, STAR_PAIRS
 
 
 # =============================================================================
@@ -153,64 +152,6 @@ JMS_PROPS_STRING = {
 
 
 # =============================================================================
-# Client Configurations
-# =============================================================================
-
-# Hub of the star: native JMS client
-JMS_CLIENT = "jms"
-
-# Spokes of the star: AMQP clients that emulate JMS via --jms-mode
-AMQP_CLIENTS = [
-    "python-proton",
-    "javascript-rhea",
-    "cpp-proton",
-    "dotnet-proton",
-    "java-protonj2",
-]
-
-# Star test pairs: JMS is always on at least one side
-STAR_PAIRS = (
-    [pytest.param(JMS_CLIENT, c, id=f"jms->{c}") for c in AMQP_CLIENTS]
-    + [pytest.param(c, JMS_CLIENT, id=f"{c}->jms") for c in AMQP_CLIENTS]
-    + [pytest.param(JMS_CLIENT, JMS_CLIENT, id="jms->jms")]
-)
-
-# Client metadata
-CLIENT_INFO = {
-    "python-proton": {
-        "name": "Python Proton",
-        "shim_path": "shims/python-proton/shim.py",
-        "jms_mode": True,  # Supports JMS emulation via --jms-mode flag
-    },
-    "javascript-rhea": {
-        "name": "JavaScript Rhea",
-        "shim_path": "shims/javascript-rhea/shim.js",
-        "jms_mode": True,  # Will support JMS emulation (Phase 2b.2)
-    },
-    "cpp-proton": {
-        "name": "C++ Proton",
-        "shim_path": "shims/cpp-proton/build/qit-shim-cpp",
-        "jms_mode": True,  # Phase 2b.3 ✅
-    },
-    "dotnet-proton": {
-        "name": ".NET Proton",
-        "shim_path": "shims/dotnet-proton/shim.sh",
-        "jms_mode": True,  # Phase 2b.4 ✅
-    },
-    "java-protonj2": {
-        "name": "Java ProtonJ2",
-        "shim_path": "shims/java-protonj2/shim.sh",
-        "jms_mode": True,  # Phase 2b.5 ✅
-    },
-    "jms": {
-        "name": "Qpid JMS Client",
-        "shim_path": "shims/java-qpid-jms/sender.sh",
-        "jms_mode": False,  # Native JMS, no emulation needed
-    },
-}
-
-
-# =============================================================================
 # Fixtures
 # =============================================================================
 
@@ -230,12 +171,6 @@ def test_queue():
     return f"qit.test.jms.{suffix}"
 
 
-@pytest.fixture
-def project_root():
-    """Get project root directory."""
-    return Path(__file__).parent.parent
-
-
 # =============================================================================
 # Shim Runners
 # =============================================================================
@@ -252,84 +187,27 @@ def run_sender(
     properties: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Run sender shim for any client."""
-    client_info = CLIENT_INFO[client]
-    shim_path = project_root / client_info["shim_path"]
+    shim = DISCOVERED_SHIMS[client]
+    broker = shim.broker_prefix + broker_url
 
-    if client == "jms":
-        # JMS sender (native JMS format)
+    if shim.shim_type == "jms":
         cmd = [
-            str(shim_path),
+            str(shim.shim_dir / "shim.sh"), "send",
             "--broker", broker_url,
             "--queue", queue,
             "--type", jms_type,
             "--data", json.dumps(messages),
         ]
-    elif client == "python-proton":
-        # Python sender with JMS emulation
-        cmd = [
-            "python3", str(shim_path),
-            "send",
-            "--broker", f"amqp://{broker_url}",
-            "--queue", queue,
-            "--type", amqp_type,
-            "--count", str(len(messages)),
-            "--data", json.dumps(messages),
-        ]
-        if client_info["jms_mode"]:
-            cmd.append("--jms-mode")
-    elif client == "javascript-rhea":
-        # JavaScript sender with JMS emulation
-        cmd = [
-            "node", str(shim_path),
-            "send",
-            "--broker", f"amqp://{broker_url}",
-            "--queue", queue,
-            "--type", amqp_type,
-            "--count", str(len(messages)),
-            "--data", json.dumps(messages),
-        ]
-        if client_info["jms_mode"]:
-            cmd.append("--jms-mode")
-    elif client == "cpp-proton":
-        # C++ sender with JMS emulation
-        cmd = [
-            str(shim_path),
-            "send",
-            "--broker", f"amqp://{broker_url}",
-            "--queue", queue,
-            "--type", amqp_type,
-            "--count", str(len(messages)),
-            "--data", json.dumps(messages),
-        ]
-        if client_info["jms_mode"]:
-            cmd.append("--jms-mode")
-    elif client == "dotnet-proton":
-        # .NET sender with JMS emulation
-        cmd = [
-            str(shim_path),
-            "send",
-            "--broker", f"amqp://{broker_url}",
-            "--queue", queue,
-            "--type", amqp_type,
-            "--count", str(len(messages)),
-            "--data", json.dumps(messages),
-        ]
-        if client_info["jms_mode"]:
-            cmd.append("--jms-mode")
-    elif client == "java-protonj2":
-        # Java ProtonJ2 sender with JMS emulation
-        cmd = [
-            str(shim_path),
-            "send",
-            "--broker", f"amqp://{broker_url}",
-            "--queue", queue,
-            "--type", amqp_type,
-            "--data", json.dumps(messages),
-        ]
-        if client_info["jms_mode"]:
-            cmd.append("--jms-mode")
     else:
-        pytest.skip(f"Sender for {client} not yet implemented")
+        cmd = [
+            str(shim.shim_dir / "shim.sh"), "send",
+            "--broker", broker,
+            "--queue", queue,
+            "--type", amqp_type,
+            "--count", str(len(messages)),
+            "--data", json.dumps(messages),
+            "--jms-mode",
+        ]
 
     if headers:
         cmd.extend(["--headers", json.dumps(headers)])
@@ -339,7 +217,7 @@ def run_sender(
 
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
     if result.returncode != 0:
-        pytest.fail(f"{client_info['name']} sender failed: {result.stderr}")
+        pytest.fail(f"{shim.name} sender failed: {result.stderr}")
 
     return json.loads(result.stdout)
 
@@ -353,74 +231,20 @@ def run_receiver(
     timeout: int = 30,
 ) -> dict[str, Any]:
     """Run receiver shim for any client."""
-    client_info = CLIENT_INFO[client]
-    shim_path = project_root / client_info["shim_path"]
+    shim = DISCOVERED_SHIMS[client]
+    broker = shim.broker_prefix + broker_url
 
-    if client == "jms":
-        # JMS receiver
-        cmd = [
-            str(shim_path.parent / "receiver.sh"),
-            "--broker", broker_url,
-            "--queue", queue,
-            "--count", str(count),
-            "--timeout", str(timeout),
-        ]
-    elif client == "python-proton":
-        # Python receiver (automatically detects JMS annotation)
-        cmd = [
-            "python3", str(shim_path),
-            "receive",
-            "--broker", f"amqp://{broker_url}",
-            "--queue", queue,
-            "--count", str(count),
-            "--timeout", str(timeout),
-        ]
-    elif client == "javascript-rhea":
-        # JavaScript receiver (automatically detects JMS annotation)
-        cmd = [
-            "node", str(shim_path),
-            "receive",
-            "--broker", f"amqp://{broker_url}",
-            "--queue", queue,
-            "--count", str(count),
-            "--timeout", str(timeout),
-        ]
-    elif client == "cpp-proton":
-        # C++ receiver (automatically detects JMS annotation)
-        cmd = [
-            str(shim_path),
-            "receive",
-            "--broker", f"amqp://{broker_url}",
-            "--queue", queue,
-            "--count", str(count),
-            "--timeout", str(timeout),
-        ]
-    elif client == "dotnet-proton":
-        # .NET receiver (automatically detects JMS annotation)
-        cmd = [
-            str(shim_path),
-            "receive",
-            "--broker", f"amqp://{broker_url}",
-            "--queue", queue,
-            "--count", str(count),
-            "--timeout", str(timeout),
-        ]
-    elif client == "java-protonj2":
-        # Java ProtonJ2 receiver (automatically detects JMS annotation)
-        cmd = [
-            str(shim_path),
-            "receive",
-            "--broker", f"amqp://{broker_url}",
-            "--queue", queue,
-            "--count", str(count),
-            "--timeout", str(timeout),
-        ]
-    else:
-        pytest.skip(f"Receiver for {client} not yet implemented")
+    cmd = [
+        str(shim.shim_dir / "shim.sh"), "receive",
+        "--broker", broker,
+        "--queue", queue,
+        "--count", str(count),
+        "--timeout", str(timeout),
+    ]
 
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout + 10)
     if result.returncode != 0:
-        pytest.fail(f"{client_info['name']} receiver failed: {result.stderr}")
+        pytest.fail(f"{shim.name} receiver failed: {result.stderr}")
 
     return json.loads(result.stdout)
 
@@ -495,22 +319,17 @@ def test_jms_textmessage_interop(
     This validates that each AMQP client can correctly send JMS-annotated
     messages to, and receive JMS messages from, the native JMS client.
     """
-    # Prepare message
-    if sender_client == "jms":
-        # JMS expects type="text" for TextMessage
+    sender_shim = DISCOVERED_SHIMS[sender_client]
+    if sender_shim.shim_type == "jms":
         messages = [{"index": 0, "type": "text", "value": text_value}]
     else:
-        # AMQP clients use type="string" (converted to TextMessage via JMS annotation)
         messages = [{"index": 0, "type": "string", "value": text_value}]
 
-    # Send message
     send_result = run_sender(sender_client, broker_url, test_queue, messages, project_root)
 
-    # Receive message
     recv_result = run_receiver(receiver_client, broker_url, test_queue, len(messages), project_root)
     received = recv_result["messages"]
 
-    # Compare
     compare_messages(messages, received, sender_client, receiver_client)
 
 
@@ -525,7 +344,8 @@ def test_jms_bytesmessage_interop(
     project_root: Path,
 ):
     """Test JMS BytesMessage interoperability using star configuration."""
-    if sender_client == "jms":
+    sender_shim = DISCOVERED_SHIMS[sender_client]
+    if sender_shim.shim_type == "jms":
         messages = [{"index": 0, "type": "bytes", "value": bytes_value}]
     else:
         messages = [{"index": 0, "type": "binary", "value": bytes_value}]
@@ -550,10 +370,11 @@ def test_jms_message_interop(
     project_root: Path,
 ):
     """Test JMS Message (empty/no body) interoperability using star configuration."""
-    if sender_client == "javascript-rhea" and receiver_client == "jms":
+    if sender_client == "javascript-rhea" and DISCOVERED_SHIMS[receiver_client].shim_type == "jms":
         pytest.xfail("Rhea sends AmqpValue(null) for empty body, JMS maps this to TextMessage")
 
-    if sender_client == "jms":
+    sender_shim = DISCOVERED_SHIMS[sender_client]
+    if sender_shim.shim_type == "jms":
         messages = [{"index": 0, "type": "none", "value": None}]
     else:
         messages = [{"index": 0, "type": "null", "value": None}]
@@ -672,7 +493,8 @@ def compare_headers(
 
 def _header_test_message(sender_client: str) -> list[dict[str, Any]]:
     """Create a single TextMessage for header tests."""
-    if sender_client == "jms":
+    sender_shim = DISCOVERED_SHIMS[sender_client]
+    if sender_shim.shim_type == "jms":
         return [{"index": 0, "type": "text", "value": "header-test"}]
     return [{"index": 0, "type": "string", "value": "header-test"}]
 

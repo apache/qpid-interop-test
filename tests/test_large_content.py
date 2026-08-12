@@ -29,16 +29,8 @@ Phase 4c: Multi-frame-size tests — same payloads through brokers with
 Test Pairs:
 - JMS star (11 pairs): JMS always on at least one side
 - AMQP N×N (25 pairs): all 5 AMQP clients against each other
-
-Phase 4 default: 72 tests (1MB binary + string × 36 pairs)
-Phase 4 extended: 72 tests (10MB binary + string × 36 pairs)
-Phase 4b default: 122 tests (list × 36 + array × 25, sub/super-frame)
-Phase 4b extended: 122 tests (map × 36 + described × 25, sub/super-frame)
-Phase 4c default: 200 tests (binary + string + list + array × 25 pairs × 2 frame sizes)
-Phase 4c extended: 200 tests (map + described × 25 pairs × 2 frame sizes)
 """
 
-import itertools
 import json
 import os
 import subprocess
@@ -47,72 +39,7 @@ from typing import Any
 
 import pytest
 
-
-# =============================================================================
-# Client Configurations
-# =============================================================================
-
-JMS_CLIENT = "jms"
-
-AMQP_CLIENTS = [
-    "python-proton",
-    "javascript-rhea",
-    "cpp-proton",
-    "dotnet-proton",
-    "java-protonj2",
-]
-
-STAR_PAIRS = (
-    [pytest.param(JMS_CLIENT, c, id=f"jms->{c}") for c in AMQP_CLIENTS]
-    + [pytest.param(c, JMS_CLIENT, id=f"{c}->jms") for c in AMQP_CLIENTS]
-    + [pytest.param(JMS_CLIENT, JMS_CLIENT, id="jms->jms")]
-)
-
-AMQP_PAIRS = [
-    pytest.param(s, r, id=f"{s}->{r}")
-    for s, r in itertools.product(AMQP_CLIENTS, repeat=2)
-]
-
-ALL_PAIRS = STAR_PAIRS + AMQP_PAIRS
-
-CLIENT_INFO = {
-    "python-proton": {
-        "name": "Python Proton",
-        "send_cmd": lambda path: ["python3", str(path / "shims/python-proton/shim.py"), "send"],
-        "recv_cmd": lambda path: ["python3", str(path / "shims/python-proton/shim.py"), "receive"],
-        "broker_prefix": "amqp://",
-    },
-    "javascript-rhea": {
-        "name": "JavaScript Rhea",
-        "send_cmd": lambda path: ["node", str(path / "shims/javascript-rhea/shim.js"), "send"],
-        "recv_cmd": lambda path: ["node", str(path / "shims/javascript-rhea/shim.js"), "receive"],
-        "broker_prefix": "amqp://",
-    },
-    "cpp-proton": {
-        "name": "C++ Proton",
-        "send_cmd": lambda path: [str(path / "shims/cpp-proton/build/qit-shim-cpp"), "send"],
-        "recv_cmd": lambda path: [str(path / "shims/cpp-proton/build/qit-shim-cpp"), "receive"],
-        "broker_prefix": "amqp://",
-    },
-    "dotnet-proton": {
-        "name": ".NET Proton",
-        "send_cmd": lambda path: [str(path / "shims/dotnet-proton/shim.sh"), "send"],
-        "recv_cmd": lambda path: [str(path / "shims/dotnet-proton/shim.sh"), "receive"],
-        "broker_prefix": "amqp://",
-    },
-    "java-protonj2": {
-        "name": "Java ProtonJ2",
-        "send_cmd": lambda path: [str(path / "shims/java-protonj2/shim.sh"), "send"],
-        "recv_cmd": lambda path: [str(path / "shims/java-protonj2/shim.sh"), "receive"],
-        "broker_prefix": "amqp://",
-    },
-    "jms": {
-        "name": "Qpid JMS Client",
-        "send_cmd": lambda path: [str(path / "shims/java-qpid-jms/sender.sh")],
-        "recv_cmd": lambda path: [str(path / "shims/java-qpid-jms/receiver.sh")],
-        "broker_prefix": "",
-    },
-}
+from shim_registry import ALL_PAIRS, AMQP_PAIRS, DISCOVERED_SHIMS, STAR_PAIRS
 
 # Content type mapping for JMS sender which uses its own type names
 JMS_CONTENT_TYPE = {
@@ -196,11 +123,6 @@ def test_queue():
     return f"qit.test.large.{suffix}"
 
 
-@pytest.fixture
-def project_root():
-    return Path(__file__).parent.parent
-
-
 # =============================================================================
 # Shim Runners
 # =============================================================================
@@ -216,31 +138,23 @@ def run_large_sender(
     jms_mode: bool = False,
     timeout: int = 60,
 ) -> dict[str, Any]:
-    info = CLIENT_INFO[client]
-    broker = info["broker_prefix"] + broker_url
+    shim = DISCOVERED_SHIMS[client]
+    broker = shim.broker_prefix + broker_url
 
-    if client == "jms":
-        cmd = info["send_cmd"](project_root) + [
-            "--broker", broker_url,
-            "--queue", queue,
-            "--large-content", content_type,
-            "--size", str(size),
-            "--seed", str(seed),
-        ]
-    else:
-        cmd = info["send_cmd"](project_root) + [
-            "--broker", broker,
-            "--queue", queue,
-            "--large-content", content_type,
-            "--size", str(size),
-            "--seed", str(seed),
-        ]
-        if jms_mode:
-            cmd.append("--jms-mode")
+    cmd = [
+        str(shim.shim_dir / "shim.sh"), "send",
+        "--broker", broker,
+        "--queue", queue,
+        "--large-content", content_type,
+        "--size", str(size),
+        "--seed", str(seed),
+    ]
+    if jms_mode:
+        cmd.append("--jms-mode")
 
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
     if result.returncode != 0:
-        pytest.fail(f"{info['name']} sender failed: {result.stderr}")
+        pytest.fail(f"{shim.name} sender failed: {result.stderr}")
 
     return json.loads(result.stdout)
 
@@ -255,32 +169,23 @@ def run_large_receiver(
     project_root: Path,
     timeout: int = 60,
 ) -> dict[str, Any]:
-    info = CLIENT_INFO[client]
-    broker = info["broker_prefix"] + broker_url
+    shim = DISCOVERED_SHIMS[client]
+    broker = shim.broker_prefix + broker_url
 
-    if client == "jms":
-        cmd = info["recv_cmd"](project_root) + [
-            "--broker", broker_url,
-            "--queue", queue,
-            "--large-content", content_type,
-            "--size", str(size),
-            "--seed", str(seed),
-            "--timeout", str(timeout),
-        ]
-    else:
-        cmd = info["recv_cmd"](project_root) + [
-            "--broker", broker,
-            "--queue", queue,
-            "--large-content", content_type,
-            "--size", str(size),
-            "--seed", str(seed),
-            "--timeout", str(timeout),
-        ]
+    cmd = [
+        str(shim.shim_dir / "shim.sh"), "receive",
+        "--broker", broker,
+        "--queue", queue,
+        "--large-content", content_type,
+        "--size", str(size),
+        "--seed", str(seed),
+        "--timeout", str(timeout),
+    ]
 
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout + 10)
     if result.returncode != 0:
         pytest.fail(
-            f"{info['name']} receiver failed (rc={result.returncode}): {result.stderr}\n"
+            f"{shim.name} receiver failed (rc={result.returncode}): {result.stderr}\n"
             f"stdout: {result.stdout}"
         )
 
@@ -288,7 +193,9 @@ def run_large_receiver(
 
 
 def _needs_jms_mode(sender: str, receiver: str) -> bool:
-    return sender != "jms" and (sender == "jms" or receiver == "jms")
+    sender_shim = DISCOVERED_SHIMS[sender]
+    receiver_shim = DISCOVERED_SHIMS[receiver]
+    return sender_shim.shim_type == "amqp" and receiver_shim.shim_type == "jms"
 
 
 # =============================================================================
@@ -446,33 +353,24 @@ def run_collection_sender(
     jms_mode: bool = False,
     timeout: int = 60,
 ) -> dict[str, Any]:
-    info = CLIENT_INFO[client]
-    broker = info["broker_prefix"] + broker_url
+    shim = DISCOVERED_SHIMS[client]
+    broker = shim.broker_prefix + broker_url
 
-    if client == "jms":
-        cmd = info["send_cmd"](project_root) + [
-            "--broker", broker_url,
-            "--queue", queue,
-            "--large-content", content_type,
-            "--elements", str(elements),
-            "--element-size", str(element_size),
-            "--seed", str(seed),
-        ]
-    else:
-        cmd = info["send_cmd"](project_root) + [
-            "--broker", broker,
-            "--queue", queue,
-            "--large-content", content_type,
-            "--elements", str(elements),
-            "--element-size", str(element_size),
-            "--seed", str(seed),
-        ]
-        if jms_mode:
-            cmd.append("--jms-mode")
+    cmd = [
+        str(shim.shim_dir / "shim.sh"), "send",
+        "--broker", broker,
+        "--queue", queue,
+        "--large-content", content_type,
+        "--elements", str(elements),
+        "--element-size", str(element_size),
+        "--seed", str(seed),
+    ]
+    if jms_mode:
+        cmd.append("--jms-mode")
 
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
     if result.returncode != 0:
-        pytest.fail(f"{info['name']} sender failed: {result.stderr}")
+        pytest.fail(f"{shim.name} sender failed: {result.stderr}")
     return json.loads(result.stdout)
 
 
@@ -487,34 +385,24 @@ def run_collection_receiver(
     project_root: Path,
     timeout: int = 60,
 ) -> dict[str, Any]:
-    info = CLIENT_INFO[client]
-    broker = info["broker_prefix"] + broker_url
+    shim = DISCOVERED_SHIMS[client]
+    broker = shim.broker_prefix + broker_url
 
-    if client == "jms":
-        cmd = info["recv_cmd"](project_root) + [
-            "--broker", broker_url,
-            "--queue", queue,
-            "--large-content", content_type,
-            "--elements", str(elements),
-            "--element-size", str(element_size),
-            "--seed", str(seed),
-            "--timeout", str(timeout),
-        ]
-    else:
-        cmd = info["recv_cmd"](project_root) + [
-            "--broker", broker,
-            "--queue", queue,
-            "--large-content", content_type,
-            "--elements", str(elements),
-            "--element-size", str(element_size),
-            "--seed", str(seed),
-            "--timeout", str(timeout),
-        ]
+    cmd = [
+        str(shim.shim_dir / "shim.sh"), "receive",
+        "--broker", broker,
+        "--queue", queue,
+        "--large-content", content_type,
+        "--elements", str(elements),
+        "--element-size", str(element_size),
+        "--seed", str(seed),
+        "--timeout", str(timeout),
+    ]
 
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout + 10)
     if result.returncode != 0:
         pytest.fail(
-            f"{info['name']} receiver failed (rc={result.returncode}): {result.stderr}\n"
+            f"{shim.name} receiver failed (rc={result.returncode}): {result.stderr}\n"
             f"stdout: {result.stdout}"
         )
     return json.loads(result.stdout)

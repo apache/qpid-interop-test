@@ -363,33 +363,48 @@ exec java -cp "${JAR}:${DEPS}" org.apache.qpid.qit.ShimMain "$@"
 
 ## Registering a Shim
 
-Shims are registered in the `CLIENT_INFO` dictionary in each test file. The
-standard pattern uses lambdas for the command construction:
+Shims are registered automatically via **auto-discovery**. No Python source
+files need editing. Place a `shim.json` manifest in the shim directory:
 
-```python
-CLIENT_INFO = {
-    "my-client": {
-        "name": "My Client Library",
-        "send_cmd": lambda path: ["my-shim", str(path / "shims/my-client/shim.sh"), "send"],
-        "recv_cmd": lambda path: ["my-shim", str(path / "shims/my-client/shim.sh"), "receive"],
-        "broker_prefix": "amqp://",
-    },
+```json
+{
+  "name": "My Client Library",
+  "type": "amqp",
+  "broker_prefix": "amqp://"
 }
 ```
 
-- `name`: display name for test output
-- `send_cmd`/`recv_cmd`: lambdas taking the project root `Path`, returning the
-  base command list. The framework appends `--broker`, `--queue`, `--type`,
-  `--data`, etc.
-- `broker_prefix`: prepended to the raw broker URL (`"amqp://"` for most
+Fields:
+
+- `name` — display name for test output
+- `type` — `"amqp"` or `"jms"`. Determines which test suites include this shim
+  and whether `--jms-mode` is needed for JMS-emulation tests
+- `broker_prefix` — prepended to the raw broker URL (`"amqp://"` for most
   clients, `""` for JMS clients that use their own URL format)
 
-Add the new client key to each test file where the shim should participate.
+Unknown fields are ignored, so manifests are forward-compatible.
+
+At test collection time, `discover_shims()` scans `shims/*/shim.json`, validates
+that `shim.sh` exists alongside each manifest, and builds the shim registry.
+The directory name becomes the shim key (e.g. `shims/my-client/` → key
+`"my-client"`).
+
+### Filtering shims at test time
+
+Two pytest CLI options control which shims participate:
+
+- `--shims python-proton,cpp-proton` — whitelist: only run tests involving
+  these shims
+- `--exclude-shims javascript-rhea` — blacklist: skip tests involving these
+  shims (applied after `--shims`)
+
+Both accept comma-separated shim keys. Omit both to test all discovered shims.
 
 ## Directory Layout
 
 ```
 shims/my-client/
+├── shim.json        # manifest (required for auto-discovery)
 ├── shim.sh          # wrapper script (entry point)
 ├── shim.py          # or src/, pom.xml, etc.
 └── README.md        # optional: build/setup instructions

@@ -47,7 +47,7 @@ java -jar "${RAT_JAR}" -d . \
     -e .venv -e __pycache__ -e build -e target -e obj -e bin -e node_modules \
     -e .eggs -e artemis-local -e test-results -e .git -e .claude -e .pytest_cache \
     -e uv.lock -e .rat-excludes \
-    -e CHANGES -e .gitignore \
+    -e CHANGES -e .gitignore -e shim.json \
     -e Dockerfile.artemis -e compose.yaml -e broker.xml.snippet \
     "${MD_EXCLUDES[@]}" \
     "$@"

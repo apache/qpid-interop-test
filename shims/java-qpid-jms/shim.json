@@ -1,0 +1,5 @@
+{
+  "name": "Java Qpid JMS",
+  "type": "jms",
+  "broker_prefix": ""
+}

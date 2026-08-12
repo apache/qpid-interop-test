@@ -21,14 +21,55 @@
 Shim interface for AMQP client implementations.
 
 Defines the protocol for communication between the test orchestrator
-and native client shims.
+and native client shims, plus auto-discovery of shim directories.
 """
 
 import json
+import logging
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ShimInfo:
+    """Metadata about a discovered shim, loaded from shim.json."""
+
+    name: str
+    key: str
+    shim_dir: Path
+    shim_type: str
+    broker_prefix: str
+
+
+def discover_shims(shims_dir: Path) -> dict[str, ShimInfo]:
+    """Scan shims_dir/*/shim.json and return validated ShimInfo dict keyed by directory name."""
+    shims: dict[str, ShimInfo] = {}
+    if not shims_dir.is_dir():
+        return shims
+    for manifest in sorted(shims_dir.glob("*/shim.json")):
+        shim_dir = manifest.parent
+        key = shim_dir.name
+        try:
+            with open(manifest) as f:
+                data = json.load(f)
+            shim_sh = shim_dir / "shim.sh"
+            if not shim_sh.exists():
+                logger.warning("Skipping %s: shim.sh not found", key)
+                continue
+            shims[key] = ShimInfo(
+                name=data["name"],
+                key=key,
+                shim_dir=shim_dir,
+                shim_type=data["type"],
+                broker_prefix=data.get("broker_prefix", "amqp://"),
+            )
+        except (json.JSONDecodeError, KeyError) as exc:
+            logger.warning("Skipping %s: invalid shim.json: %s", key, exc)
+    return shims
 
 
 @dataclass

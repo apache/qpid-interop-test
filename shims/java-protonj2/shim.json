@@ -1,0 +1,5 @@
+{
+  "name": "Java ProtonJ2",
+  "type": "amqp",
+  "broker_prefix": "amqp://"
+}
