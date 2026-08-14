@@ -74,7 +74,7 @@ Tests message transfer with payloads from 1MB to 10MB across multiple frame size
 | Installation | System-wide CMake install to /usr/local | `uv sync` in a virtualenv |
 | Shim protocol | Mixed CMake/script invocation | Uniform CLI with JSON I/O |
 | Test framework | Custom test runner | pytest with parametrize, markers, xfail |
-| CI output | Custom reporting | JUnit XML, integrates with Jenkins natively |
+| CI output | Custom reporting | JUnit XML, integrates with any CI system |
 | Parallel execution | Sequential | pytest-xdist (`-j 4`) for AMQP type tests |
 
 ### Client Coverage
@@ -131,8 +131,6 @@ qit/
 ```
 
 ## CI/CD
-
-Jenkins pipeline runs weekly (Monday 2-5 AM), with extended tier automatically enabled during the first week of each month. The `EXTENDED_MODE` checkbox can be toggled manually in either direction.
 
 Four JUnit XML result files are produced per run:
 - `qit-results.xml` — AMQP type tests (550)

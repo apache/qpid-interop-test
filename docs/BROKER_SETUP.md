@@ -4,7 +4,7 @@ QIT requires an AMQP 1.0 broker with specific configuration for auto-creating qu
 
 ## Option 1: Local Artemis Instance (Recommended - Tested ✓)
 
-This matches the original Jenkins setup and has been verified to work with QIT 2.0.
+This has been verified to work with QIT 2.0.
 
 ### Prerequisites
 

@@ -67,7 +67,7 @@ qit/
 
 ## CI/CD
 
-Jenkins pipeline runs weekly, with extended tier (10MB content) enabled during the first week of each month. Four JUnit XML result files per run:
+QIT produces four JUnit XML result files per run, suitable for any CI system:
 
 - `qit-results.xml` - AMQP types (550 tests)
 - `qit-jms-results.xml` - JMS interop (363 tests)

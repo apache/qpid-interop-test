@@ -202,7 +202,7 @@ Each shim must:
 - Transaction support
 
 **Phase 4: CI/CD Integration**
-- Jenkins pipeline
+- CI pipeline
 - JUnit XML reporting
 - HTML reports with diffs
 - Performance benchmarking
